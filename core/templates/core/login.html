@@ -1,49 +1,122 @@
-{% extends 'base.html' %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - ULEAM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('{% static "core/img/fondo.jpg" %}') no-repeat center center fixed;
+            background-size: cover;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 0;
+        }
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+        .login-card {
+            border: none;
+            border-radius: 1.25rem;
+            overflow: hidden;
+        }
+        .login-logo {
+            width: 90px;
+            height: 90px;
+            object-fit: contain;
+        }
+        .form-floating > .form-control:focus ~ label,
+        .form-floating > .form-control:not(:placeholder-shown) ~ label {
+            color: #302b63;
+        }
+        .form-floating > .form-control:focus {
+            border-color: #302b63;
+            box-shadow: 0 0 0 0.2rem rgba(48, 43, 99, 0.15);
+        }
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #302b63, #24243e);
+            border: none;
+            padding: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-primary-custom:hover {
+            background: linear-gradient(135deg, #24243e, #302b63);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(48, 43, 99, 0.4);
+        }
+        .btn-primary-custom:active {
+            transform: translateY(0);
+        }
+        .footer-text {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-11 col-sm-9 col-md-7 col-lg-5 col-xl-4">
+                <div class="card login-card shadow-lg">
+                    <div class="card-body p-4 p-md-5">
+                        <div class="text-center mb-4">
+                            <img src="{% static 'core/img/logo.png' %}"
+                                 alt="Logo ULEAM" class="login-logo mb-3">
+                            <h5 class="fw-bold mb-1">UNIVERSIDAD LAICA</h5>
+                            <h6 class="text-muted mb-0">"ELOY ALFARO" DE MANABÍ</h6>
+                            <p class="text-muted small mt-2 mb-0">Sistema de Gestión</p>
+                        </div>
 
-{% block title %}Iniciar Sesión - ULEAM{% endblock %}
+                        <form method="post" autocomplete="off">
+                            {% csrf_token %}
 
-{% block content %}
-<div class="login-container">
-    <div class="login-card">
-        <div class="login-header text-center">
-            <img src="{% static 'core/img/logo.png' %}"
-                 alt="Escudo ULEAM" class="uleam-logo mb-3">
-            <h1 class="h4 mb-1">UNIVERSIDAD LAICA</h1>
-            <h2 class="h5 mb-3">"ELOY ALFARO" DE MANABÍ</h2>
-            <p class="text-white-50 mb-0">Sistema de Gestión Docente</p>
-        </div>
-        <div class="login-body">
-            <form method="post" autocomplete="off">
-                {% csrf_token %}
-                {% if form.non_field_errors %}
-                    <div class="alert alert-danger py-2" role="alert">
-                        {% for error in form.non_field_errors %}
-                            {{ error }}
-                        {% endfor %}
+                            {% if form.non_field_errors %}
+                                {% for error in form.non_field_errors %}
+                                    <div class="alert alert-danger py-2 small" role="alert">
+                                        <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            <div class="form-floating mb-3">
+                                {{ form.cedula }}
+                                <label for="id_cedula">
+                                    <i class="fas fa-id-card me-2"></i>Usuario (Cédula)
+                                </label>
+                            </div>
+
+                            <div class="form-floating mb-4">
+                                {{ form.password }}
+                                <label for="id_password">
+                                    <i class="fas fa-lock me-2"></i>Contraseña
+                                </label>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary-custom text-white w-100">
+                                <i class="fas fa-arrow-right-to-bracket me-2"></i>Iniciar Sesión
+                            </button>
+                        </form>
                     </div>
-                {% endif %}
-                <div class="mb-3">
-                    <label for="id_cedula" class="form-label">Cédula</label>
-                    {{ form.cedula }}
+                    <div class="card-footer bg-transparent text-center py-3 border-0">
+                        <p class="footer-text mb-0">&copy; {% now "Y" %} ULEAM &mdash; Todos los derechos reservados</p>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label for="id_password" class="form-label">Contraseña</label>
-                    {{ form.password }}
-                </div>
-                <button type="submit" class="btn btn-uleam w-100 mt-2">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar
-                </button>
-            </form>
-            <div class="text-center mt-3">
-                <a href="{% url 'core:landing' %}" class="text-decoration-none small">
-                    <i class="bi bi-arrow-left me-1"></i>Volver al inicio
-                </a>
             </div>
         </div>
-        <div class="login-footer text-center">
-            <p class="mb-0">&copy; {% now "Y" %} ULEAM - Todos los derechos reservados</p>
-        </div>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>

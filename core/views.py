@@ -22,30 +22,6 @@ def landing_view(request):
     return render(request, 'core/landing.html')
 
 
-def login_estudiante_view(request):
-    if request.user.is_authenticated:
-        return redirect('core:dashboard')
-
-    if request.method == 'POST':
-        form = LoginForm(request.POST)
-        if form.is_valid():
-            cedula = form.cleaned_data['cedula']
-            password = form.cleaned_data['password']
-            user = authenticate(request, cedula=cedula, password=password)
-            if user is not None:
-                if user.is_superuser or user.groups.filter(name=ESTUDIANTE).exists():
-                    login(request, user)
-                    return redirect('core:dashboard')
-                else:
-                    form.add_error(None, 'Este acceso es solo para estudiantes.')
-            else:
-                form.add_error(None, 'Cédula o contraseña incorrectos')
-    else:
-        form = LoginForm()
-
-    return render(request, 'core/login_estudiante.html', {'form': form})
-
-
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('core:dashboard')
@@ -57,13 +33,22 @@ def login_view(request):
             password = form.cleaned_data['password']
             user = authenticate(request, cedula=cedula, password=password)
             if user is not None:
+                login(request, user)
+                # Estudiante → app de estudiantes (placeholder)
+                if user.groups.filter(name=ESTUDIANTE).exists():
+                    try:
+                        from django.urls import reverse
+                        return redirect('estudiantes:dashboard')
+                    except Exception:
+                        return redirect('core:dashboard')
+                # Superuser o roles docentes → core
                 if user.is_superuser or user.groups.filter(
                     name__in=[ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO]
                 ).exists():
-                    login(request, user)
                     return redirect('core:dashboard')
-                else:
-                    form.add_error(None, 'Este acceso es solo para docentes.')
+                # Sin grupo valido
+                logout(request)
+                form.add_error(None, 'No tienes un rol asignado. Contacta al administrador.')
             else:
                 form.add_error(None, 'Cédula o contraseña incorrectos')
     else:
@@ -96,7 +81,7 @@ def dashboard_view(request):
 @login_required
 def logout_view(request):
     logout(request)
-    return redirect('core:landing')
+    return redirect('core:login')
 
 
 @login_required
