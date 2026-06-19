@@ -1,53 +1,79 @@
-{% extends 'base.html' %}
+{% extends 'core/base_dashboard.html' %}
 {% load static %}
 
 {% block title %}{{ accion }} Publicación - Gestión Docente{% endblock %}
 
-{% block content %}
-{% include 'core/menu.html' %}
+{% block sidebar_menu %}
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:dashboard' %}">
+        <i class="fas fa-home"></i> Inicio
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_titulos' %}">
+        <i class="fas fa-graduation-cap"></i> Mis Títulos
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link active" href="{% url 'core:mis_publicaciones' %}">
+        <i class="fas fa-newspaper"></i> Mis Publicaciones
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_cursos' %}">
+        <i class="fas fa-chalkboard-teacher"></i> Mis Cursos
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_documentos' %}">
+        <i class="fas fa-file-alt"></i> Documentos
+    </a>
+</div>
+{% endblock %}
 
-<div class="container-fluid mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0"><i class="bi bi-journal me-2"></i>{{ accion }} Publicación</h5>
-                </div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">Nombre de la publicación</label>
-                            {{ form.nombre_publicacion }}
+{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-semibold"><i class="fas fa-newspaper me-2 text-primary"></i>{{ accion }} Publicación</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Nombre de la publicación</label>
+                        {{ form.nombre_publicacion }}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tipo</label>
+                            {{ form.id_tipo_publicacion }}
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Tipo</label>
-                                {{ form.id_tipo_publicacion }}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Fecha</label>
-                                {{ form.fecha }}
-                            </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fecha</label>
+                            {{ form.fecha }}
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Código (ISBN/ISSN)</label>
-                                {{ form.codigo }}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Función</label>
-                                {{ form.funcion }}
-                            </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Código (ISBN/ISSN)</label>
+                            {{ form.codigo }}
                         </div>
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-uleam">
-                                <i class="bi bi-save me-1"></i>Guardar
-                            </button>
-                            <a href="{% url 'core:mis_publicaciones' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Función</label>
+                            {{ form.funcion }}
                         </div>
-                    </form>
-                </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Guardar
+                        </button>
+                        <a href="{% url 'core:mis_publicaciones' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

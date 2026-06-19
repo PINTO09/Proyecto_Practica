@@ -1,57 +1,77 @@
-{% extends 'base.html' %}
+{% extends 'core/base_dashboard.html' %}
 {% load static %}
 
 {% block title %}Mis Publicaciones - Gestión Docente{% endblock %}
 
+{% block sidebar_menu %}
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:dashboard' %}">
+        <i class="fas fa-home"></i> Inicio
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_titulos' %}">
+        <i class="fas fa-graduation-cap"></i> Mis Títulos
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link active" href="{% url 'core:mis_publicaciones' %}">
+        <i class="fas fa-newspaper"></i> Mis Publicaciones
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_cursos' %}">
+        <i class="fas fa-chalkboard-teacher"></i> Mis Cursos
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_documentos' %}">
+        <i class="fas fa-file-alt"></i> Documentos
+    </a>
+</div>
+{% endblock %}
+
+{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}
+
 {% block content %}
-{% include 'core/menu.html' %}
-
-<div class="container-fluid mt-4">
-    {% if messages %}
-        {% for msg in messages %}
-            <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2">{{ msg }}
-                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="mb-0 fw-semibold"><i class="fas fa-newspaper me-2 text-primary"></i>Mis Publicaciones</h5>
+    {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
+    <a href="{% url 'core:crear_publicacion' %}" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus me-1"></i> Nueva Publicación
+    </a>
     {% endif %}
+</div>
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0"><i class="bi bi-journal me-2"></i>Mis Publicaciones</h5>
-        {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
-        <a href="{% url 'core:crear_publicacion' %}" class="btn btn-uleam btn-sm">
-            <i class="bi bi-plus-lg"></i> Nueva Publicación
-        </a>
-        {% endif %}
-    </div>
-
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0">
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Publicación</th>
+                        <th class="ps-3">Publicación</th>
                         <th>Tipo</th>
                         <th>Fecha</th>
                         <th>Código</th>
-                        <th>Función</th>
+                        <th class="pe-3">Función</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in publicaciones %}
                     <tr>
-                        <td>{{ p.nombre_publicacion }}</td>
+                        <td class="ps-3">{{ p.nombre_publicacion }}</td>
                         <td>{{ p.id_tipo_publicacion|default:"-" }}</td>
                         <td>{{ p.fecha|default:"-" }}</td>
                         <td>{{ p.codigo|default:"-" }}</td>
-                        <td>{{ p.funcion|default:"-" }}</td>
+                        <td class="pe-3">{{ p.funcion|default:"-" }}</td>
                     </tr>
                     {% empty %}
                     <tr>
                         <td colspan="5" class="text-center text-muted py-4">
-                            <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                            <i class="fas fa-inbox fa-2x d-block mb-2"></i>
                             No has registrado publicaciones aún.
                             {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
-                            <br><a href="{% url 'core:crear_publicacion' %}" class="btn btn-sm btn-uleam mt-2">Registrar ahora</a>
+                            <br><a href="{% url 'core:crear_publicacion' %}" class="btn btn-sm btn-primary mt-2">Registrar ahora</a>
                             {% endif %}
                         </td>
                     </tr>

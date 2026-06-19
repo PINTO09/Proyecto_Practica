@@ -1,52 +1,70 @@
-{% extends 'base.html' %}
+{% extends 'core/base_dashboard.html' %}
 {% load static %}
 
 {% block title %}Mi Perfil - Gestión Docente{% endblock %}
 
+{% block sidebar_menu %}
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:dashboard' %}">
+        <i class="fas fa-home"></i> Inicio
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_titulos' %}">
+        <i class="fas fa-graduation-cap"></i> Mis Títulos
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_publicaciones' %}">
+        <i class="fas fa-newspaper"></i> Mis Publicaciones
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_cursos' %}">
+        <i class="fas fa-chalkboard-teacher"></i> Mis Cursos
+    </a>
+</div>
+<div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mis_documentos' %}">
+        <i class="fas fa-file-alt"></i> Documentos
+    </a>
+</div>
+{% endblock %}
+
+{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}
+
 {% block content %}
-{% include 'core/menu.html' %}
-
-<div class="container-fluid mt-4">
-    {% if messages %}
-        {% for msg in messages %}
-            <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2">{{ msg }}
-                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-semibold"><i class="fas fa-user-circle me-2 text-primary"></i>Mi Perfil</h5>
             </div>
-        {% endfor %}
-    {% endif %}
-
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0"><i class="bi bi-person me-2"></i>Mi Perfil</h5>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-sm-4 text-muted small">Cédula</div>
+                    <div class="col-sm-8"><strong>{{ docente.cedula }}</strong></div>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-4">
-                        <div class="col-sm-4 text-muted small">Cédula</div>
-                        <div class="col-sm-8"><strong>{{ docente.cedula }}</strong></div>
-                    </div>
-                    <div class="row mb-4">
-                        <div class="col-sm-4 text-muted small">Apellidos y Nombres</div>
-                        <div class="col-sm-8"><strong>{{ docente.apellidos_nombres }}</strong></div>
-                    </div>
-                    <hr>
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">Teléfono</label>
-                            {{ form.telefono }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Correo</label>
-                            {{ form.correo }}
-                        </div>
-                        <button type="submit" class="btn btn-uleam">
-                            <i class="bi bi-save me-1"></i>Guardar Cambios
-                        </button>
-                        <a href="{% url 'core:dashboard' %}" class="btn btn-outline-secondary ms-2">Cancelar</a>
-                    </form>
+                <div class="row mb-4">
+                    <div class="col-sm-4 text-muted small">Apellidos y Nombres</div>
+                    <div class="col-sm-8"><strong>{{ docente.apellidos_nombres }}</strong></div>
                 </div>
+                <hr>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono</label>
+                        {{ form.telefono }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Correo</label>
+                        {{ form.correo }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Guardar Cambios
+                    </button>
+                    <a href="{% url 'core:dashboard' %}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+                </form>
             </div>
         </div>
     </div>
