@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mis Publicaciones - Gestión Docente{% endblock %}
+
+{% block content %}
+{% include 'core/menu.html' %}
+
+<div class="container-fluid mt-4">
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2">{{ msg }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-journal me-2"></i>Mis Publicaciones</h5>
+        {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
+        <a href="{% url 'core:crear_publicacion' %}" class="btn btn-uleam btn-sm">
+            <i class="bi bi-plus-lg"></i> Nueva Publicación
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Publicación</th>
+                        <th>Tipo</th>
+                        <th>Fecha</th>
+                        <th>Código</th>
+                        <th>Función</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in publicaciones %}
+                    <tr>
+                        <td>{{ p.nombre_publicacion }}</td>
+                        <td>{{ p.id_tipo_publicacion|default:"-" }}</td>
+                        <td>{{ p.fecha|default:"-" }}</td>
+                        <td>{{ p.codigo|default:"-" }}</td>
+                        <td>{{ p.funcion|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                            No has registrado publicaciones aún.
+                            {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
+                            <br><a href="{% url 'core:crear_publicacion' %}" class="btn btn-sm btn-uleam mt-2">Registrar ahora</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

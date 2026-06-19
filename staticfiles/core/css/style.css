@@ -1,0 +1,154 @@
+:root {
+    --uleam-green: #1B5E20;
+    --uleam-green-dark: #0D3B0F;
+    --uleam-green-light: #4CAF50;
+    --uleam-red: #C62828;
+    --uleam-white: #FFFFFF;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    background: #f0f2f5;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Login */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: url('../img/fondo.jpg') no-repeat center center fixed;
+    background-size: cover;
+    padding: 20px;
+}
+
+.login-container::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 0;
+}
+
+.login-card {
+    position: relative;
+    z-index: 1;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--uleam-white);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.login-header {
+    background: linear-gradient(135deg, var(--uleam-green) 0%, var(--uleam-green-dark) 100%);
+    color: var(--uleam-white);
+    padding: 30px;
+}
+
+.uleam-logo {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.login-body {
+    padding: 30px;
+}
+
+.login-footer {
+    background: #f8f9fa;
+    padding: 12px 30px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Button */
+.btn-uleam {
+    background: linear-gradient(135deg, var(--uleam-green) 0%, var(--uleam-green-dark) 100%);
+    color: var(--uleam-white);
+    border: none;
+    padding: 10px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-uleam:hover {
+    background: linear-gradient(135deg, var(--uleam-green-light) 0%, var(--uleam-green) 100%);
+    color: var(--uleam-white);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(27, 94, 32, 0.3);
+}
+
+.btn-outline-uleam {
+    color: var(--uleam-green);
+    border-color: var(--uleam-green);
+}
+
+.btn-outline-uleam:hover {
+    background: var(--uleam-green);
+    color: var(--uleam-white);
+}
+
+/* Navbar */
+.navbar-uleam {
+    background: linear-gradient(135deg, var(--uleam-green) 0%, var(--uleam-green-dark) 100%);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Stat cards */
+.card-stat {
+    border: none;
+    border-radius: 10px;
+    transition: transform 0.3s ease;
+}
+
+.card-stat:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Form controls */
+.form-control:focus {
+    border-color: var(--uleam-green);
+    box-shadow: 0 0 0 0.2rem rgba(27, 94, 32, 0.25);
+}
+
+/* Alert */
+.alert-info {
+    border-left: 4px solid var(--uleam-green);
+    border-radius: 8px;
+}
+
+/* Tables */
+.table > thead > tr > th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+    border-bottom: 1px solid #eee;
+    border-radius: 10px 10px 0 0 !important;
+}

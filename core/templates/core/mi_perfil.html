@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mi Perfil - Gestión Docente{% endblock %}
+
+{% block content %}
+{% include 'core/menu.html' %}
+
+<div class="container-fluid mt-4">
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2">{{ msg }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-person me-2"></i>Mi Perfil</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-sm-4 text-muted small">Cédula</div>
+                        <div class="col-sm-8"><strong>{{ docente.cedula }}</strong></div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-sm-4 text-muted small">Apellidos y Nombres</div>
+                        <div class="col-sm-8"><strong>{{ docente.apellidos_nombres }}</strong></div>
+                    </div>
+                    <hr>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Teléfono</label>
+                            {{ form.telefono }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Correo</label>
+                            {{ form.correo }}
+                        </div>
+                        <button type="submit" class="btn btn-uleam">
+                            <i class="bi bi-save me-1"></i>Guardar Cambios
+                        </button>
+                        <a href="{% url 'core:dashboard' %}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

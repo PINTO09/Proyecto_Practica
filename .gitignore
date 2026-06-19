@@ -1,0 +1,10 @@
+*.pyc
+__pycache__/
+*.pyo
+.env
+db.sqlite3
+media/documentos/*
+!media/documentos/.gitkeep
+.DS_Store
+venv/
+.venv/

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mis Documentos - Gestión Docente{% endblock %}
+
+{% block content %}
+{% include 'core/menu.html' %}
+
+<div class="container-fluid mt-4">
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2">{{ msg }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-folder me-2"></i>Mis Documentos</h5>
+        {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
+        <a href="{% url 'core:subir_documento' %}" class="btn btn-uleam btn-sm">
+            <i class="bi bi-upload"></i> Subir Documento
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Modalidad</th>
+                        <th>Dedicación</th>
+                        <th>Carrera</th>
+                        <th>Periodo</th>
+                        <th>Archivo</th>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in documentos %}
+                    <tr>
+                        <td>{{ d.id_modalidad|default:"-" }}</td>
+                        <td>{{ d.id_dedicacion|default:"-" }}</td>
+                        <td>{{ d.id_carrera|default:"-" }}</td>
+                        <td>{{ d.id_periodo|default:"-" }}</td>
+                        <td>
+                            {% if d.adj_archivo %}
+                                <a href="{{ d.adj_archivo.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-file-earmark"></i> Ver
+                                </a>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="small">{{ d.observacion|truncatechars:50|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                            No has subido documentos aún.
+                            {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
+                            <br><a href="{% url 'core:subir_documento' %}" class="btn btn-sm btn-uleam mt-2">Subir ahora</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
