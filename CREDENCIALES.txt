@@ -27,11 +27,12 @@ CREDENCIALES DE ACCESO
 
   Cédula          Contraseña      Rol
   -----------------------------------------
-  9999999999      admin123        Administrador (Superusuario)
+  9999999999      admin123        Administrador (Superusuario - acceso ambos módulos)
   1314000001      autoridad123     Autoridad (Decano)
   1314659234      usuario123      Usuario
   1312345678      coordi123       Coordinador
   1300000001      funcio123       Funcionario
+  1314000002      estudio123      Estudiante
 
 
 PANEL DE ADMINISTRACIÓN DJANGO
@@ -48,6 +49,7 @@ DESCRIPCIÓN DE ROLES
   Coordinador   : Gestiona funcionarios, ve estadísticas
   Usuario       : Ingresa sus propios datos (títulos, publicaciones, etc.)
   Funcionario   : Solo lectura - consulta información sin editar
+  Estudiante    : Acceso al portal estudiantil
 
 
 NOTAS
@@ -73,12 +75,14 @@ Opción B - Con script (recomendado para cambios frecuentes):
        
        from django.contrib.auth import get_user_model
        U = get_user_model()
-       cambios = [
-           ('9999999999', 'nueva_pass_admin'),
-           ('1314659234', 'nueva_pass_usuario'),
-           ('1312345678', 'nueva_pass_coordinador'),
-           ('1300000001', 'nueva_pass_funcionario'),
-       ]
+        cambios = [
+            ('9999999999', 'nueva_pass_admin'),
+            ('1314000001', 'nueva_pass_autoridad'),
+            ('1314659234', 'nueva_pass_usuario'),
+            ('1312345678', 'nueva_pass_coordinador'),
+            ('1300000001', 'nueva_pass_funcionario'),
+            ('1314000002', 'nueva_pass_estudiante'),
+        ]
        for cedula, password in cambios:
            u = U.objects.get(cedula=cedula)
            u.set_password(password)

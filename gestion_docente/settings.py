@@ -77,10 +77,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
 AUTHENTICATION_BACKENDS = ['core.auth_backend.CedulaAuthBackend']
 
-LOGIN_URL = 'core:login'
+LOGIN_URL = 'core:login_docente'
 LOGIN_REDIRECT_URL = 'core:dashboard'
 
-LOGOUT_REDIRECT_URL = 'core:login'
+LOGOUT_REDIRECT_URL = 'core:landing'
 
 GRUPO_ADMINISTRADOR = 'Administrador'
 GRUPO_AUTORIDAD = 'Autoridad'

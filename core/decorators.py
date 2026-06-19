@@ -8,8 +8,9 @@ AUTORIDAD = 'Autoridad'
 COORDINADOR = 'Coordinador'
 USUARIO = 'Usuario'
 FUNCIONARIO = 'Funcionario'
+ESTUDIANTE = 'Estudiante'
 
-ROLES = [ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO]
+ROLES = [ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE]
 
 ROLES_ADMIN = [ADMIN]
 ROLES_ADMIN_AUTORIDAD = [ADMIN, AUTORIDAD]
@@ -35,7 +36,7 @@ def role_required(*allowed_roles):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             if not request.user.is_authenticated:
-                return redirect('core:login')
+                return redirect('core:login_docente')
             if request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
             if request.user.groups.filter(name__in=allowed_roles).exists():
@@ -49,7 +50,7 @@ def funcionario_readonly(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('core:login')
+            return redirect('core:login_docente')
         es_funcionario = not request.user.is_superuser and request.user.groups.filter(name=FUNCIONARIO).exists()
         if es_funcionario and request.method == 'POST':
             messages.error(request, 'Los funcionarios solo tienen acceso de lectura.')

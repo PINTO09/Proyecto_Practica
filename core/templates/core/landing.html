@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sistema de Gestión - ULEAM{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card" style="max-width: 500px;">
+        <div class="login-header text-center">
+            <img src="{% static 'core/img/logo.png' %}"
+                 alt="Escudo ULEAM" class="uleam-logo mb-3">
+            <h1 class="h4 mb-1">UNIVERSIDAD LAICA</h1>
+            <h2 class="h5 mb-3">"ELOY ALFARO" DE MANABÍ</h2>
+            <p class="text-white-50 mb-0">Sistema de Gestión</p>
+        </div>
+        <div class="login-body text-center">
+            <p class="text-muted mb-4">Seleccione el módulo al que desea ingresar</p>
+            <div class="d-grid gap-3">
+                <a href="{% url 'core:login_docente' %}" class="btn btn-uleam btn-lg py-3">
+                    <i class="bi bi-people fs-4 d-block mb-1"></i>
+                    Ingreso Docentes
+                </a>
+                <a href="{% url 'core:login_estudiante' %}" class="btn btn-outline-uleam btn-lg py-3">
+                    <i class="bi bi-mortarboard fs-4 d-block mb-1"></i>
+                    Ingreso Estudiantes
+                </a>
+            </div>
+        </div>
+        <div class="login-footer text-center">
+            <p class="mb-0">&copy; {% now "Y" %} ULEAM - Todos los derechos reservados</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
