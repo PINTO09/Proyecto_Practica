@@ -1,5 +1,6 @@
-from django.urls import path
+from django.urls import path, re_path
 from . import views
+from . import views_api
 
 app_name = 'core'
 
@@ -19,4 +20,22 @@ urlpatterns = [
     path('usuarios/', views.usuarios_list_view, name='usuarios_list'),
     path('usuarios/crear/', views.usuario_crear_view, name='usuario_crear'),
     path('usuarios/<int:usuario_id>/editar/', views.usuario_editar_view, name='usuario_editar'),
+
+    # Módulos CRUD (7 módulos)
+    path('modulo/catalogos/', views.modulo_view, {'slug': 'catalogos'}, name='modulo_catalogos'),
+    path('modulo/docentes/', views.modulo_view, {'slug': 'docentes'}, name='modulo_docentes'),
+    path('modulo/seguridad/', views.modulo_view, {'slug': 'seguridad'}, name='modulo_seguridad'),
+    path('modulo/curriculo/', views.modulo_view, {'slug': 'curriculo'}, name='modulo_curriculo'),
+    path('modulo/planificacion/', views.modulo_view, {'slug': 'planificacion'}, name='modulo_planificacion'),
+    path('modulo/auditoria/', views.modulo_view, {'slug': 'auditoria'}, name='modulo_auditoria'),
+    path('modulo/restricciones/', views.modulo_view, {'slug': 'restricciones'}, name='modulo_restricciones'),
+
+    # API CRUD genérica para SPA
+    path('api/<str:model_name>/fields/', views_api.api_fields, name='api_fields'),
+    path('api/<str:model_name>/list/', views_api.api_list, name='api_list'),
+    path('api/<str:model_name>/create/', views_api.api_create, name='api_create'),
+    path('api/<str:model_name>/<int:pk>/update/', views_api.api_update, name='api_update'),
+    path('api/<str:model_name>/<int:pk>/delete/', views_api.api_delete, name='api_delete'),
+    # Vista SPA para CRUD de un modelo específico
+    path('crud/<str:model_name>/', views.crud_spa_view, name='crud_spa'),
 ]

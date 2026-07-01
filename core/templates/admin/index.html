@@ -1,0 +1,165 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_dashboard %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">{% endblock %}
+
+{% block coltype %}colMS{% endblock %}
+
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px;">
+    <h4 style="margin:0 0 4px;font-weight:700;"><i class="fas fa-chart-pie me-2" style="color:#1a1a2e;"></i>Panel de Control</h4>
+    <p style="margin:0 0 16px;color:#6c757d;font-size:0.9rem;">
+        <i class="far fa-calendar-alt me-1"></i>{% now "d/m/Y" %} — Gestión Académica FCACC
+    </p>
+</div>
+
+<div id="content-main">
+    {% if app_list %}
+    <div class="mod-grid">
+        <a href="{% url 'admin:core_carrera_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(13,110,253,0.1);color:#0d6efd;"><i class="fas fa-university"></i></div>
+            <h6>Carreras</h6>
+            <p class="num">{% admin_stat 'carreras' %}</p>
+            <span class="lbl">Catálogos</span>
+        </a>
+        <a href="{% url 'admin:core_catalogoperiodoacademico_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(23,162,184,0.1);color:#17a2b8;"><i class="fas fa-calendar-alt"></i></div>
+            <h6>Períodos</h6>
+            <p class="num">{% admin_stat 'periodos' %}</p>
+            <span class="lbl">Catálogos</span>
+        </a>
+        <a href="{% url 'admin:core_docentefcacc_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(0,123,255,0.1);color:#007bff;"><i class="fas fa-users"></i></div>
+            <h6>Docentes</h6>
+            <p class="num">{% admin_stat 'docentes' %}</p>
+            <span class="lbl">FCACC</span>
+        </a>
+        <a href="{% url 'admin:core_docentetituloacademico_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(111,66,193,0.1);color:#6f42c1;"><i class="fas fa-award"></i></div>
+            <h6>Títulos</h6>
+            <p class="num">{% admin_stat 'titulos' %}</p>
+            <span class="lbl">Docentes</span>
+        </a>
+        <a href="{% url 'admin:core_docentepublicacionacademica_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(23,162,184,0.1);color:#17a2b8;"><i class="fas fa-book"></i></div>
+            <h6>Publicaciones</h6>
+            <p class="num">{% admin_stat 'publicaciones' %}</p>
+            <span class="lbl">Docentes</span>
+        </a>
+        <a href="{% url 'admin:core_docentecursocapacitacion_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(40,167,69,0.1);color:#28a745;"><i class="fas fa-chalkboard"></i></div>
+            <h6>Capacitaciones</h6>
+            <p class="num">{% admin_stat 'capacitaciones' %}</p>
+            <span class="lbl">Docentes</span>
+        </a>
+        <a href="{% url 'admin:core_usuario_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(220,53,69,0.1);color:#dc3545;"><i class="fas fa-users-cog"></i></div>
+            <h6>Usuarios</h6>
+            <p class="num">{% admin_stat 'usuarios' %}</p>
+            <span class="lbl">Seguridad</span>
+        </a>
+        <a href="{% url 'admin:core_curriculoasignatura_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(0,123,255,0.1);color:#007bff;"><i class="fas fa-list-alt"></i></div>
+            <h6>Asignaturas</h6>
+            <p class="num">{% admin_stat 'asignaturas' %}</p>
+            <span class="lbl">Currículo</span>
+        </a>
+        <a href="{% url 'admin:core_planificacionasignaciondocente_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(255,193,7,0.1);color:#ffc107;"><i class="fas fa-tasks"></i></div>
+            <h6>Asignaciones</h6>
+            <p class="num">{% admin_stat 'asignaciones' %}</p>
+            <span class="lbl">Planificación</span>
+        </a>
+        <a href="{% url 'admin:core_planificacionmatrizf4_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(111,66,193,0.1);color:#6f42c1;"><i class="fas fa-table"></i></div>
+            <h6>Matriz F4</h6>
+            <p class="num">{% admin_stat 'matriz_f4' %}</p>
+            <span class="lbl">Planificación</span>
+        </a>
+        <a href="{% url 'admin:core_auditoriaregistrocambios_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(108,117,125,0.1);color:#6c757d;"><i class="fas fa-history"></i></div>
+            <h6>Auditoría</h6>
+            <p class="num">{% admin_stat 'auditoria' %}</p>
+            <span class="lbl">Auditoría</span>
+        </a>
+        <a href="{% url 'admin:core_limitacion_changelist' %}" class="mod-card">
+            <div class="icn" style="background:rgba(220,53,69,0.1);color:#dc3545;"><i class="fas fa-ban"></i></div>
+            <h6>Limitaciones</h6>
+            <p class="num">{% admin_stat 'limitaciones' %}</p>
+            <span class="lbl">Restricciones</span>
+        </a>
+    </div>
+
+    {% for app in app_list %}
+    <div class="app-{{ app.app_label }} module">
+        <table summary="{% blocktranslate with name=app.name %}Models available in the {{ name }} application.{% endblocktranslate %}">
+            <caption><a href="{{ app.app_url }}" class="section">{% blocktranslate with name=app.name %}{{ name }}{% endblocktranslate %}</a></caption>
+            {% for model in app.models %}
+            <tr id="model-{{ model.object_name|lower }}">
+                {% if model.admin_url %}
+                    <th scope="row"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>
+                {% else %}
+                    <th scope="row">{{ model.name }}</th>
+                {% endif %}
+                {% if model.add_url %}
+                    <td><a href="{{ model.add_url }}" class="addlink">{% translate 'Add' %}</a></td>
+                {% else %}
+                    <td>&nbsp;</td>
+                {% endif %}
+                {% if model.admin_url and show_changelinks %}
+                    {% if model.view_only %}
+                        <td><a href="{{ model.admin_url }}" class="viewlink">{% translate 'View' %}</a></td>
+                    {% else %}
+                        <td><a href="{{ model.admin_url }}" class="changelink">{% translate 'Change' %}</a></td>
+                    {% endif %}
+                {% else %}
+                    <td>&nbsp;</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endfor %}
+    {% else %}
+        <p>{% translate "You don't have permission to view or edit anything." %}</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div id="content-related">
+    <div class="module" id="recent-actions-module">
+        <h2>{% translate 'Recent actions' %}</h2>
+        <h3>{% translate 'My actions' %}</h3>
+            {% load log %}
+            {% get_admin_log 10 as admin_log for_user user %}
+            {% if not admin_log %}
+            <p>{% translate 'None available' %}</p>
+            {% else %}
+            <ul class="actionlist">
+            {% for entry in admin_log %}
+            <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+                {% if entry.is_deletion or not entry.get_admin_url %}
+                    {{ entry.object_repr }}
+                {% else %}
+                    <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+                {% endif %}
+                <br>
+                {% if entry.content_type %}
+                    <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+                {% else %}
+                    <span class="mini quiet">{% translate 'Unknown content' %}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+            </ul>
+            {% endif %}
+    </div>
+</div>
+{% endblock %}

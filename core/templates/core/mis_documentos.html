@@ -1,92 +1,48 @@
 {% extends 'core/base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Mis Documentos - Gestión Docente{% endblock %}
+{% block title %}Mis Documentos{% endblock %}
 
 {% block sidebar_menu %}
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:dashboard' %}">
-        <i class="fas fa-home"></i> Inicio
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_titulos' %}">
-        <i class="fas fa-graduation-cap"></i> Mis Títulos
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_publicaciones' %}">
-        <i class="fas fa-newspaper"></i> Mis Publicaciones
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_cursos' %}">
-        <i class="fas fa-chalkboard-teacher"></i> Mis Cursos
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link active" href="{% url 'core:mis_documentos' %}">
-        <i class="fas fa-file-alt"></i> Documentos
-    </a>
-</div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:dashboard' %}"><i class="fas fa-home"></i> Inicio</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mi_perfil' %}"><i class="fas fa-user-circle"></i> Mi Perfil</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i> Mis Títulos</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i> Mis Publicaciones</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_cursos' %}"><i class="fas fa-chalkboard"></i> Mis Cursos</a></div>
+<div class="nav-item"><a class="nav-link active" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i> Documentos</a></div>
+{% if request.user.is_superuser or request.user.groups.all.0.name == 'Administrador' or request.user.groups.all.0.name == 'Autoridad' %}
+<div class="nav-item mt-3"><a class="nav-link" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users-cog"></i> Usuarios</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'admin:index' %}"><i class="fas fa-cog"></i> Admin</a></div>
+{% endif %}
 {% endblock %}
-
-{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h5 class="mb-0 fw-semibold"><i class="fas fa-folder-open me-2 text-primary"></i>Mis Documentos</h5>
-    {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
-    <a href="{% url 'core:subir_documento' %}" class="btn btn-primary btn-sm">
-        <i class="fas fa-upload me-1"></i> Subir Documento
-    </a>
-    {% endif %}
+    <h4 class="fw-bold mb-0"><i class="fas fa-folder-open me-2 text-primary"></i>Mis Documentos</h4>
 </div>
-
 <div class="card border-0 shadow-sm">
-    <div class="card-body p-0">
+    <div class="card-body">
+        {% if documentos %}
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
-                    <tr>
-                        <th class="ps-3">Modalidad</th>
-                        <th>Dedicación</th>
-                        <th>Carrera</th>
-                        <th>Periodo</th>
-                        <th>Archivo</th>
-                        <th class="pe-3">Observación</th>
-                    </tr>
+                    <tr><th>Documento</th><th>Tipo</th><th>Fecha</th><th>Archivo</th></tr>
                 </thead>
                 <tbody>
                     {% for d in documentos %}
                     <tr>
-                        <td class="ps-3">{{ d.id_modalidad|default:"-" }}</td>
-                        <td>{{ d.id_dedicacion|default:"-" }}</td>
-                        <td>{{ d.id_carrera|default:"-" }}</td>
-                        <td>{{ d.id_periodo|default:"-" }}</td>
-                        <td>
-                            {% if d.adj_archivo %}
-                                <a href="{{ d.adj_archivo.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-file me-1"></i> Ver
-                                </a>
-                            {% else %}-{% endif %}
-                        </td>
-                        <td class="pe-3 small">{{ d.observacion|truncatechars:50|default:"-" }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">
-                            <i class="fas fa-inbox fa-2x d-block mb-2"></i>
-                            No has subido documentos aún.
-                            {% if request.user.is_superuser or not request.user.groups.all.0.name == 'Funcionario' %}
-                            <br><a href="{% url 'core:subir_documento' %}" class="btn btn-sm btn-primary mt-2">Subir ahora</a>
-                            {% endif %}
-                        </td>
+                        <td>{{ d.titulo|default:d.nombre_documento }}</td>
+                        <td>{{ d.tipo_documento|default:d.id_tipo_documento }}</td>
+                        <td>{{ d.fecha_subida|default:d.fecha_carga|default:"—" }}</td>
+                        <td>{% if d.archivo %}<a href="{{ d.archivo.url }}"><i class="fas fa-download"></i></a>{% else %}—{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        {% else %}
+        <p class="text-muted mb-0">No hay documentos registrados.</p>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

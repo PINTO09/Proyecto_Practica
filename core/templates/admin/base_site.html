@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | ULEAM Admin{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}" style="color:#fff;text-decoration:none;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-graduation-cap"></i> ULEAM · Administración
+    </a>
+</h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block extrastyle %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    #header { background: #1a1a2e; color: #fff; }
+    #branding h1 { margin: 0; font-weight: 600; font-size: 1.1rem; }
+    #user-tools a { color: rgba(255,255,255,0.85); }
+    #user-tools a:hover { color: #fff; }
+    .module h2, .module caption {
+        background: #16213e !important;
+        color: #fff !important;
+        font-size: 0.85rem;
+        padding: 8px 12px;
+        border-radius: 6px 6px 0 0;
+    }
+    .module { border-radius: 8px; overflow: hidden; }
+    .module table { width: 100%; }
+    .dashboard #content { display: block !important; }
+    .dashboard #content-main { float: none !important; width: 100% !important; }
+    .dashboard #content-related { display: none; }
+
+    .mod-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .mod-card {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 14px 12px;
+        text-align: center;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .mod-card:hover {
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+        color: inherit;
+    }
+    .mod-card .icn {
+        width: 40px; height: 40px;
+        border-radius: 8px;
+        display: inline-flex; align-items: center; justify-content: center;
+        margin-bottom: 6px;
+        font-size: 1.1rem;
+    }
+    .mod-card h6 { font-size: 0.78rem; margin: 0 0 2px; font-weight: 600; color: #212529; }
+    .mod-card .num { font-size: 1.3rem; font-weight: 700; color: #1a1a2e; margin: 0; }
+    .mod-card .lbl { font-size: 0.6rem; color: #6c757d; }
+</style>
+{% endblock %}

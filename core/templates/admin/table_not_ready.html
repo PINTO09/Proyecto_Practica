@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 40px 20px; text-align: center;">
+    <h2 style="color: #856404;">
+        <span style="font-size: 3rem; display: block; margin-bottom: 15px;">⚠️</span>
+        Tabla no disponible
+    </h2>
+    <p style="font-size: 1.1rem; color: #6c757d; max-width: 600px; margin: 20px auto;">
+        La tabla <code style="background: #f8f9fa; padding: 2px 8px; border-radius: 4px; font-weight: bold;">{{ table_name }}</code>
+        aún no existe en la base de datos <code>fcacc_academica</code>.
+    </p>
+    <p style="font-size: 0.95rem; color: #6c757d;">
+        Para crear todas las tablas de los 7 módulos, ejecuta en la terminal:
+    </p>
+    <pre style="background: #1a1a2e; color: #e0e0e0; padding: 15px; border-radius: 8px; max-width: 700px; margin: 15px auto; text-align: left; font-size: 0.85rem; overflow-x: auto;">
+<span style="color: #6c757d;"># Opción 1 — PowerShell:</span>
+$env:PGPASSWORD='1234'; psql -U postgres -h localhost -p 5432 -d fcacc_academica -f schema_fcacc.sql
+
+<span style="color: #6c757d;"># Opción 2 — Django management command:</span>
+python manage.py load_schema
+    </pre>
+    <a href="{% url 'admin:index' %}" class="button" style="margin-top: 15px; display: inline-block;">
+        ← Volver al inicio
+    </a>
+</div>
+{% endblock %}

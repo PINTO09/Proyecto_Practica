@@ -3,36 +3,6 @@
 
 {% block title %}{{ accion }} Publicación - Gestión Docente{% endblock %}
 
-{% block sidebar_menu %}
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:dashboard' %}">
-        <i class="fas fa-home"></i> Inicio
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_titulos' %}">
-        <i class="fas fa-graduation-cap"></i> Mis Títulos
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link active" href="{% url 'core:mis_publicaciones' %}">
-        <i class="fas fa-newspaper"></i> Mis Publicaciones
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_cursos' %}">
-        <i class="fas fa-chalkboard-teacher"></i> Mis Cursos
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_documentos' %}">
-        <i class="fas fa-file-alt"></i> Documentos
-    </a>
-</div>
-{% endblock %}
-
-{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}
-
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">

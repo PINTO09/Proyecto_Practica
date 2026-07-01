@@ -5,7 +5,13 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from .forms import LoginForm, UsuarioCreateForm, UsuarioEditForm
-from .models import Docente, Carrera, Periodo, DocenteTransaccional, Titulo, Publicacion, Curso, CursoDocente
+from .models import (
+    Docente, Carrera, Periodo, DocenteTransaccional, Titulo, Publicacion, Curso, CursoDocente,
+    CatalogoCarrera, CatalogoPeriodoAcademico, DocenteFcacc, DocenteTituloAcademico,
+    DocentePublicacionAcademica, DocenteCursoCapacitacion, DocenteAsignacionCarreraPeriodo,
+    CurriculoAsignatura, PlanificacionAsignacionDocente, PlanificacionMatrizF4,
+    SeguridadUsuario, AuditoriaRegistroCambios, Limitacion,
+)
 from .decorators import (
     role_required, ROLES_ADMIN, ROLES_ADMIN_AUTORIDAD,
     ROLES_ADMIN_AUTORIDAD_COORDINADOR, ROLES_ESCRITURA,
@@ -59,17 +65,33 @@ def login_view(request):
 
 @login_required
 def dashboard_view(request):
+    from django.db import ProgrammingError, OperationalError
     usuario = request.user
-    context = {}
+    context = {'active_section': 'dashboard', 'db_ready': False}
 
-    if usuario.is_superuser or usuario.groups.filter(name__in=[ADMIN, AUTORIDAD, COORDINADOR]).exists():
-        context.update({
-            'total_docentes': Docente.objects.count(),
-            'total_carreras': Carrera.objects.count(),
-            'total_periodos': Periodo.objects.count(),
-            'total_asignaciones': DocenteTransaccional.objects.count(),
-            'ultimos_docentes': Docente.objects.order_by('-id')[:5],
-        })
+    def db_stats():
+        try:
+            return {
+                'total_carreras_fcacc': CatalogoCarrera.objects.count(),
+                'total_periodos_fcacc': CatalogoPeriodoAcademico.objects.count(),
+                'periodo_activo': CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first(),
+                'total_docentes_fcacc': DocenteFcacc.objects.count(),
+                'total_titulos': DocenteTituloAcademico.objects.count(),
+                'total_publicaciones_fcacc': DocentePublicacionAcademica.objects.count(),
+                'total_cursos_capacitacion': DocenteCursoCapacitacion.objects.count(),
+                'total_usuarios_sistema': SeguridadUsuario.objects.count(),
+                'total_asignaturas': CurriculoAsignatura.objects.count(),
+                'total_asignaciones_docentes': PlanificacionAsignacionDocente.objects.count(),
+                'total_matriz_f4': PlanificacionMatrizF4.objects.count(),
+                'total_auditoria': AuditoriaRegistroCambios.objects.count(),
+                'total_limitaciones': Limitacion.objects.count(),
+                'ultimos_docentes_fcacc': list(DocenteFcacc.objects.order_by('-id_docente')[:5]),
+                'db_ready': True,
+            }
+        except (ProgrammingError, OperationalError):
+            return {}
+
+    context.update(db_stats())
 
     docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if docente:
@@ -101,7 +123,7 @@ def mi_perfil_view(request):
             return redirect('core:mi_perfil')
     else:
         form = DocentePerfilForm(instance=docente)
-    return render(request, 'core/mi_perfil.html', {'form': form, 'docente': docente})
+    return render(request, 'core/mi_perfil.html', {'form': form, 'docente': docente, 'active_section': 'perfil'})
 
 
 @login_required
@@ -113,7 +135,7 @@ def mis_titulos_view(request):
         titulos = Titulo.objects.filter(id_cedula=docente)
     else:
         titulos = []
-    return render(request, 'core/mis_titulos.html', {'titulos': titulos})
+    return render(request, 'core/mis_titulos.html', {'titulos': titulos, 'active_section': 'titulos'})
 
 
 @login_required
@@ -135,7 +157,7 @@ def crear_titulo_view(request):
             return redirect('core:mis_titulos')
     else:
         form = TituloForm()
-    return render(request, 'core/form_titulo.html', {'form': form, 'accion': 'Nuevo'})
+    return render(request, 'core/form_titulo.html', {'form': form, 'accion': 'Nuevo', 'active_section': 'titulos'})
 
 
 @login_required
@@ -147,7 +169,7 @@ def mis_publicaciones_view(request):
         publicaciones = Publicacion.objects.filter(id_docente=docente)
     else:
         publicaciones = []
-    return render(request, 'core/mis_publicaciones.html', {'publicaciones': publicaciones})
+    return render(request, 'core/mis_publicaciones.html', {'publicaciones': publicaciones, 'active_section': 'publicaciones'})
 
 
 @login_required
@@ -169,7 +191,7 @@ def crear_publicacion_view(request):
             return redirect('core:mis_publicaciones')
     else:
         form = PublicacionForm()
-    return render(request, 'core/form_publicacion.html', {'form': form, 'accion': 'Nueva'})
+    return render(request, 'core/form_publicacion.html', {'form': form, 'accion': 'Nueva', 'active_section': 'publicaciones'})
 
 
 @login_required
@@ -181,7 +203,7 @@ def mis_documentos_view(request):
         documentos = DocenteTransaccional.objects.filter(id_docente=docente)
     else:
         documentos = []
-    return render(request, 'core/mis_documentos.html', {'documentos': documentos})
+    return render(request, 'core/mis_documentos.html', {'documentos': documentos, 'active_section': 'documentos'})
 
 
 @login_required
@@ -196,7 +218,7 @@ def mis_cursos_view(request):
             cursos = Curso.objects.filter(cursodocente_set__id_docente=docente).distinct()
         else:
             cursos = []
-    return render(request, 'core/mis_cursos.html', {'cursos': cursos})
+    return render(request, 'core/mis_cursos.html', {'cursos': cursos, 'active_section': 'cursos'})
 
 
 @login_required
@@ -218,7 +240,7 @@ def subir_documento_view(request):
             return redirect('core:mis_documentos')
     else:
         form = DocumentoForm()
-    return render(request, 'core/form_documento.html', {'form': form, 'accion': 'Subir'})
+    return render(request, 'core/form_documento.html', {'form': form, 'accion': 'Subir', 'active_section': 'documentos'})
 
 
 def _require_admin(user):
@@ -234,6 +256,7 @@ def usuarios_list_view(request):
     usuarios = Usuario.objects.all().order_by('-date_joined')
     return render(request, 'core/usuarios_list.html', {
         'usuarios': usuarios,
+        'active_section': 'usuarios',
     })
 
 
@@ -261,6 +284,7 @@ def usuario_crear_view(request):
     return render(request, 'core/usuario_form.html', {
         'form': form,
         'accion': 'Crear',
+        'active_section': 'usuarios',
     })
 
 
@@ -287,4 +311,152 @@ def usuario_editar_view(request, usuario_id):
         'form': form,
         'usuario': usuario,
         'accion': 'Editar',
+        'active_section': 'usuarios',
     })
+
+
+# ─── Módulos CRUD ───────────────────────────────────────────────────────────
+
+from django.urls import reverse
+from django.db import ProgrammingError, OperationalError
+
+MODULOS = {
+    'catalogos': {
+        'nombre': 'Catálogos',
+        'icono': 'fa-database',
+        'modelos': [
+            ('Carreras', 'CatalogoCarrera'),
+            ('Modalidades Contratación', 'CatalogoModalidadContratacion'),
+            ('Dedicación Horaria', 'CatalogoDedicacionHoraria'),
+            ('Tipo Docente', 'CatalogoTipoDocente'),
+            ('Tipo Licencia', 'CatalogoTipoLicencia'),
+            ('Países', 'CatalogoPais'),
+            ('Títulos Posgrado', 'CatalogoTituloPosgrado'),
+            ('Campo Conocimiento', 'CatalogoCampoConocimiento'),
+            ('Grado Afinidad', 'CatalogoGradoAfinidad'),
+            ('Tipo Publicación', 'CatalogoTipoPublicacion'),
+            ('Tipo Curso Capacitación', 'CatalogoTipoCursoCapacitacion'),
+            ('Períodos Académicos', 'CatalogoPeriodoAcademico'),
+            ('Relación Carrera-Período', 'RelacionCarreraPeriodo'),
+        ],
+    },
+    'docentes': {
+        'nombre': 'Docentes',
+        'icono': 'fa-chalkboard-teacher',
+        'modelos': [
+            ('Docentes FCACC', 'DocenteFcacc'),
+            ('Títulos Académicos', 'DocenteTituloAcademico'),
+            ('Campos de Afinidad', 'DocenteCampoAfinidad'),
+            ('Asignación Carrera-Período', 'DocenteAsignacionCarreraPeriodo'),
+            ('Cursos de Capacitación', 'DocenteCursoCapacitacion'),
+            ('Participación en Cursos', 'DocenteParticipacionCurso'),
+            ('Publicaciones Académicas', 'DocentePublicacionAcademica'),
+        ],
+    },
+    'seguridad': {
+        'nombre': 'Seguridad',
+        'icono': 'fa-shield-alt',
+        'modelos': [
+            ('Roles', 'SeguridadRol'),
+            ('Usuarios', 'SeguridadUsuario'),
+            ('Usuario-Rol', 'SeguridadUsuarioRol'),
+        ],
+    },
+    'curriculo': {
+        'nombre': 'Currículo',
+        'icono': 'fa-book-open',
+        'modelos': [
+            ('Asignaturas', 'CurriculoAsignatura'),
+            ('Asignatura-Campo', 'CurriculoAsignaturaCampo'),
+            ('Relación Posgrado-Campo', 'RelacionPosgradoCampo'),
+        ],
+    },
+    'planificacion': {
+        'nombre': 'Planificación',
+        'icono': 'fa-calendar-check',
+        'modelos': [
+            ('Demanda Académica', 'PlanificacionDemandaAcademica'),
+            ('Asignación Docente', 'PlanificacionAsignacionDocente'),
+            ('Reparto de Horas', 'PlanificacionRepartoHoras'),
+            ('Matriz F4', 'PlanificacionMatrizF4'),
+            ('Aula / Horario', 'PlanificacionAulaHorario'),
+        ],
+    },
+    'auditoria': {
+        'nombre': 'Auditoría',
+        'icono': 'fa-history',
+        'modelos': [
+            ('Registro de Cambios', 'AuditoriaRegistroCambios'),
+        ],
+    },
+    'restricciones': {
+        'nombre': 'Restricciones',
+        'icono': 'fa-exclamation-triangle',
+        'modelos': [
+            ('Limitaciones', 'Limitacion'),
+            ('Historial Limitaciones', 'HistorialLimitacion'),
+            ('Cabecera', 'Cabecera'),
+            ('Cuerpo', 'Cuerpo'),
+        ],
+    },
+}
+
+
+def _obtener_modelo(name):
+    import core.models as m
+    return getattr(m, name, None)
+
+
+def _stats_modelo(model_class):
+    try:
+        return model_class.objects.count()
+    except (ProgrammingError, OperationalError):
+        return '—'
+
+
+def _build_admin_url(model_name, action='changelist'):
+    return reverse(f'admin:core_{model_name.lower()}_{action}')
+
+
+@login_required
+def modulo_view(request, slug):
+    info = MODULOS.get(slug)
+    if not info:
+        return redirect('core:dashboard')
+
+    from django.contrib.admin import site
+    modelos_con_stats = []
+    for label, class_name in info['modelos']:
+        cls = _obtener_modelo(class_name)
+        if cls is None:
+            continue
+        modelos_con_stats.append({
+            'label': label,
+            'class_name': class_name,
+            'count': _stats_modelo(cls),
+            'list_url': _build_admin_url(class_name, 'changelist'),
+            'add_url': _build_admin_url(class_name, 'add'),
+            'crud_url': reverse('core:crud_spa', args=[class_name]),
+        })
+
+    context = {
+        'active_section': f'modulo_{slug}',
+        'modulo': info,
+        'modulo_slug': slug,
+        'modelos': modelos_con_stats,
+    }
+    return render(request, 'core/modulo.html', context)
+
+
+@login_required
+def crud_spa_view(request, model_name):
+    modelo_cls = _obtener_modelo(model_name)
+    if modelo_cls is None:
+        return redirect('core:dashboard')
+    context = {
+        'active_section': 'dashboard',
+        'model_name': model_name,
+        'model_verbose_plural': getattr(modelo_cls._meta, 'verbose_name_plural', model_name),
+        'model_verbose': getattr(modelo_cls._meta, 'verbose_name', model_name),
+    }
+    return render(request, 'core/crud_spa.html', context)

@@ -1,0 +1,832 @@
+-- ============================================================
+--  BASE DE DATOS ACADÉMICA — FCACC · ULEAM
+--  Facultad de Ciencias Administrativas, Contables y Comerciales
+--  Período 2026-2 · Esquema Normalizado (3FN)
+--  Gestión docente · 7 módulos · 35 tablas
+-- ============================================================
+
+-- Crear la base de datos (descomentar si se ejecuta como superusuario)
+-- CREATE DATABASE fcacc_academica
+--   WITH ENCODING = 'UTF8'
+--        LC_COLLATE = 'es_EC.UTF-8'
+--        LC_CTYPE = 'es_EC.UTF-8'
+--        TEMPLATE = template0;
+
+-- ============================================================
+--  MÓDULO 1 · CATÁLOGOS BASE
+-- ============================================================
+
+CREATE TABLE catalogo_carrera (
+    ID_CARRERA          SERIAL          NOT NULL,
+    CODIGO_CARRERA      VARCHAR(20)     NOT NULL,
+    NOMBRE_CARRERA      VARCHAR(120)    NOT NULL,
+    CARRERA_ACTIVA      BOOLEAN         NOT NULL DEFAULT TRUE,
+    CONSTRAINT PK_CATALOGO_CARRERA PRIMARY KEY (ID_CARRERA),
+    CONSTRAINT UK_CARRERA_CODIGO UNIQUE (CODIGO_CARRERA)
+);
+
+COMMENT ON table CATALOGO_CARRERA IS 'Catálogo maestro de carreras de la FCACC-ULEAM';
+
+CREATE TABLE catalogo_modalidad_contratacion (
+    ID_MODALIDAD        SERIAL          NOT NULL,
+    CODIGO_MODALIDAD    VARCHAR(15)     NOT NULL,
+    NOMBRE_MODALIDAD    VARCHAR(50)     NOT NULL,
+    CONSTRAINT PK_CATALOGO_MODALIDAD PRIMARY KEY (ID_MODALIDAD),
+    CONSTRAINT UK_MODALIDAD_CODIGO UNIQUE (CODIGO_MODALIDAD)
+);
+
+INSERT INTO catalogo_modalidad_contratacion (CODIGO_MODALIDAD, NOMBRE_MODALIDAD) VALUES
+    ('NOMBRAMIENTO', 'NOMBRAMIENTO'),
+    ('CONTRATO',     'CONTRATO'),
+    ('COMISION',     'COMISION de SERVICIO');
+
+CREATE TABLE catalogo_dedicacion_horaria (
+    ID_DEDICACION       serial          NOT NULL,
+    CODIGO_DEDICACION   varchar(5)      NOT NULL,
+    NOMBRE_DEDICACION   varchar(30)     NOT NULL,
+    CONSTRAINT PK_CATALOGO_DEDICACION primary KEY (ID_DEDICACION),
+    CONSTRAINT UK_DEDICACION_CODIGO UNIQUE (CODIGO_DEDICACION)
+);
+
+INSERT INTO catalogo_dedicacion_horaria (CODIGO_DEDICACION, NOMBRE_DEDICACION) VALUES
+    ('TC', 'Tiempo Completo'),
+    ('MT', 'Medio Tiempo'),
+    ('TP', 'Tiempo Parcial');
+
+CREATE TABLE catalogo_tipo_docente (
+    ID_TIPO_DOCENTE     SERIAL          NOT NULL,
+    CODIGO_TIPO_DOCENTE VARCHAR(15)     NOT NULL,
+    NOMBRE_TIPO_DOCENTE VARCHAR(30)     NOT NULL,
+    CONSTRAINT PK_CATALOGO_TIPO_DOCENTE PRIMARY KEY (ID_TIPO_DOCENTE),
+    CONSTRAINT UK_TIPO_DOCENTE_CODIGO UNIQUE (CODIGO_TIPO_DOCENTE)
+);
+
+INSERT INTO catalogo_tipo_docente (CODIGO_TIPO_DOCENTE, NOMBRE_TIPO_DOCENTE) VALUES
+    ('TITULAR',  'TITULAR'),
+    ('CONTRATO', 'CONTRATO'),
+    ('SABATICO', 'SABÁTICO'),
+    ('JUBILADO', 'JUBILADO');
+
+CREATE TABLE catalogo_tipo_licencia (
+    ID_LICENCIA         SERIAL          NOT NULL,
+    CODIGO_LICENCIA     VARCHAR(15)     NOT NULL,
+    NOMBRE_LICENCIA     VARCHAR(50)     NOT NULL,
+    CONSTRAINT PK_CATALOGO_TIPO_LICENCIA PRIMARY KEY (ID_LICENCIA),
+    CONSTRAINT UK_LICENCIA_CODIGO UNIQUE (CODIGO_LICENCIA)
+);
+
+INSERT INTO catalogo_tipo_licencia (CODIGO_LICENCIA, NOMBRE_LICENCIA) VALUES
+    ('NINGUNA',  'NINGUNA'),
+    ('VACACION', 'VACACIONES'),
+    ('CON_SUE',  'CON sueldo'),
+    ('SIN_SUE',  'SIN SUELDO'),
+    ('COMISION', 'COMISION de SERVICIO');
+
+CREATE TABLE catalogo_pais (
+    ID_PAIS             SERIAL          NOT NULL,
+    CODIGO_ISO_PAIS     CHAR(2)         NOT NULL,
+    NOMBRE_PAIS         VARCHAR(100)    NOT NULL,
+    NOMBRE_NACIONALIDAD VARCHAR(100)    NOT NULL,
+    CONSTRAINT PK_CATALOGO_PAIS PRIMARY KEY (ID_PAIS),
+    CONSTRAINT UK_PAIS_ISO UNIQUE (CODIGO_ISO_PAIS)
+);
+
+CREATE TABLE catalogo_titulo_posgrado (
+    ID_POSGRADO             SERIAL          NOT NULL,
+    CODIGO_POSGRADO         VARCHAR(20)     NOT NULL,
+    NOMBRE_TITULO_POSGRADO  VARCHAR(200)    NOT NULL,
+    CONSTRAINT PK_CATALOGO_TITULO_POSGRADO PRIMARY KEY (ID_POSGRADO),
+    CONSTRAINT UK_POSGRADO_CODIGO UNIQUE (CODIGO_POSGRADO)
+);
+
+CREATE TABLE catalogo_campo_conocimiento (
+    ID_CAMPO                    SERIAL          NOT NULL,
+    CODIGO_CAMPO                VARCHAR(20)     NOT NULL,
+    NOMBRE_CAMPO_CONOCIMIENTO   VARCHAR(100)    NOT NULL,
+    CONSTRAINT PK_CATALOGO_CAMPO_CONOCIMIENTO PRIMARY KEY (ID_CAMPO),
+    CONSTRAINT UK_CAMPO_CODIGO UNIQUE (CODIGO_CAMPO)
+);
+
+CREATE TABLE catalogo_grado_afinidad (
+    ID_GRADO_AFINIDAD       SERIAL          NOT NULL,
+    CODIGO_GRADO_AFINIDAD   VARCHAR(10)     NOT NULL,
+    NOMBRE_GRADO_AFINIDAD   VARCHAR(50)     NOT NULL,
+    NIVEL_PRIORIDAD         SMALLINT        NOT NULL,
+    CONSTRAINT PK_CATALOGO_GRADO_AFINIDAD PRIMARY KEY (ID_GRADO_AFINIDAD),
+    CONSTRAINT UK_GRADO_AFINIDAD_CODIGO UNIQUE (CODIGO_GRADO_AFINIDAD),
+    CONSTRAINT CHK_GRADO_PRIORIDAD CHECK (NIVEL_PRIORIDAD >= 1 AND NIVEL_PRIORIDAD <= 10)
+);
+
+INSERT INTO catalogo_grado_afinidad (CODIGO_GRADO_AFINIDAD, NOMBRE_GRADO_AFINIDAD, NIVEL_PRIORIDAD) VALUES
+    ('ALTA',  'ALTA',  3),
+    ('MEDIA', 'MEDIA', 2),
+    ('BAJA',  'BAJA',  1);
+
+CREATE TABLE catalogo_tipo_publicacion (
+    ID_TIPO_PUBLICACION     serial          NOT NULL,
+    CODIGO_TIPO_PUBLICACION varchar(15)     NOT NULL,
+    NOMBRE_TIPO_PUBLICACION varchar(50)     NOT NULL,
+    CONSTRAINT PK_CATALOGO_TIPO_PUBLICACION primary KEY (ID_TIPO_PUBLICACION),
+    CONSTRAINT UK_TIPO_PUBLICACION_CODIGO UNIQUE (CODIGO_TIPO_PUBLICACION)
+);
+
+INSERT INTO catalogo_tipo_publicacion (CODIGO_TIPO_PUBLICACION, NOMBRE_TIPO_PUBLICACION) VALUES
+    ('REV_CIENT', 'REVISTA CIENTIFICA'),
+    ('REVISTA',   'REVISTA'),
+    ('LIBRO',     'LIBRO');
+
+CREATE TABLE catalogo_tipo_curso_capacitacion (
+    ID_TIPO_CURSO       SERIAL          NOT NULL,
+    CODIGO_TIPO_CURSO   VARCHAR(15)     NOT NULL,
+    NOMBRE_TIPO_CURSO   VARCHAR(50)     NOT NULL,
+    CONSTRAINT PK_CATALOGO_TIPO_CURSO PRIMARY KEY (ID_TIPO_CURSO),
+    CONSTRAINT UK_TIPO_CURSO_CODIGO UNIQUE (CODIGO_TIPO_CURSO)
+);
+
+INSERT INTO catalogo_tipo_curso_capacitacion (CODIGO_TIPO_CURSO, NOMBRE_TIPO_CURSO) VALUES
+    ('PRESENCIAL',  'PRESENCIAL'),
+    ('SEMIPRES',    'SEMI-PRESENCIAL'),
+    ('ASINCRONICA', 'ASINCRONICA');
+
+CREATE TABLE catalogo_periodo_academico (
+    ID_PERIODO              SERIAL          NOT NULL,
+    CODIGO_PERIODO          VARCHAR(10)     NOT NULL,
+    NOMBRE_PERIODO          VARCHAR(20)     NOT NULL,
+    PERIODO_ACTIVO          BOOLEAN         NOT NULL DEFAULT FALSE,
+    FECHA_INICIO_PERIODO    DATE            NULL,
+    FECHA_FIN_PERIODO       DATE            NULL,
+    CONSTRAINT PK_CATALOGO_PERIODO PRIMARY KEY (ID_PERIODO),
+    CONSTRAINT UK_PERIODO_CODIGO UNIQUE (CODIGO_PERIODO),
+    CONSTRAINT CHK_PERIODO_FECHAS CHECK (
+        FECHA_FIN_PERIODO IS NULL OR 
+        FECHA_INICIO_PERIODO IS NULL OR 
+        FECHA_FIN_PERIODO >= FECHA_INICIO_PERIODO
+    )
+);
+
+CREATE TABLE relacion_carrera_periodo (
+    ID_CARRERA_PERIODO  SERIAL          NOT NULL,
+    ID_CARRERA          INTEGER         NOT NULL,
+    ID_PERIODO          INTEGER         NOT NULL,
+    CONSTRAINT PK_RELACION_CARRERA_PERIODO PRIMARY KEY (ID_CARRERA_PERIODO),
+    CONSTRAINT UK_CARRERA_PERIODO UNIQUE (ID_CARRERA, ID_PERIODO),
+    CONSTRAINT FK_RCP_CARRERA FOREIGN KEY (ID_CARRERA) 
+        REFERENCES catalogo_carrera (ID_CARRERA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_RCP_PERIODO FOREIGN KEY (ID_PERIODO) 
+        REFERENCES catalogo_periodo_academico (ID_PERIODO)
+        ON update cascade ON delete RESTRICT
+);
+
+-- ============================================================
+--  MÓDULO 2 · DOCENTES
+-- ============================================================
+
+CREATE TABLE docente (
+    ID_DOCENTE              BIGSERIAL       NOT NULL,
+    CEDULA_DOCENTE          VARCHAR(13)     NOT NULL,
+    ID_TIPO_DOCENTE         INTEGER         NOT NULL,
+    ID_MODALIDAD            INTEGER         NOT NULL,
+    ID_DEDICACION           integer         NOT NULL,
+    NOMBRES_COMPLETOS       VARCHAR(200)    NOT NULL,
+    UNIDAD_ORGANICA         VARCHAR(100)    NULL,
+    CORREO_INSTITUCIONAL    VARCHAR(100)    NULL,
+    NUMERO_CELULAR          VARCHAR(15)     NULL,
+    TIPO_SANGRE             CHAR(5)         NULL,
+    DOCENTE_ACTIVO          BOOLEAN         NOT NULL DEFAULT TRUE,
+    FECHA_CREACION_REGISTRO TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT PK_DOCENTE PRIMARY KEY (ID_DOCENTE),
+    CONSTRAINT UK_DOCENTE_CEDULA UNIQUE (CEDULA_DOCENTE),
+    CONSTRAINT UK_DOCENTE_CORREO UNIQUE (CORREO_INSTITUCIONAL),
+    CONSTRAINT FK_DOC_TIPO FOREIGN KEY (ID_TIPO_DOCENTE) 
+        REFERENCES catalogo_tipo_docente (ID_TIPO_DOCENTE)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_DOC_MODALIDAD FOREIGN KEY (ID_MODALIDAD) 
+        REFERENCES catalogo_modalidad_contratacion (ID_MODALIDAD)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_DOC_DEDICACION foreign KEY (ID_DEDICACION) 
+        REFERENCES catalogo_dedicacion_horaria (ID_DEDICACION)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_DOC_CEDULA_FORMATO CHECK (
+        CEDULA_DOCENTE ~ '^[0-9]{10}$' OR 
+        CEDULA_DOCENTE ~ '^[0-9]{13}$'
+    ),
+    CONSTRAINT CHK_DOC_CORREO_FORMATO CHECK (
+        CORREO_INSTITUCIONAL IS NULL OR
+        CORREO_INSTITUCIONAL ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+    )
+);
+
+CREATE TABLE docente_titulo_academico (
+    ID_TITULO                   BIGSERIAL       NOT NULL,
+    ID_DOCENTE                  BIGINT          NOT NULL,
+    ID_PAIS                     INTEGER         NOT NULL,
+    ID_POSGRADO                 INTEGER         NULL,
+    NOMBRE_TITULO               VARCHAR(200)    NOT NULL,
+    NIVEL_TITULO                SMALLINT        NOT NULL,
+    FECHA_OBTENCION_TITULO      DATE            NULL,
+    NUMERO_REGISTRO_TITULO      VARCHAR(50)     NULL,
+    NUMERO_REGISTRO_SENESCYT    VARCHAR(50)     NULL,
+    FECHA_REGISTRO_SENESCYT     DATE            NULL,
+    CONSTRAINT PK_DOCENTE_TITULO PRIMARY KEY (ID_TITULO),
+    CONSTRAINT UK_TITULO_SENESCYT UNIQUE (NUMERO_REGISTRO_SENESCYT),
+    CONSTRAINT FK_DT_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_DT_PAIS FOREIGN KEY (ID_PAIS) 
+        REFERENCES catalogo_pais (ID_PAIS)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_DT_POSGRADO FOREIGN KEY (ID_POSGRADO) 
+        REFERENCES catalogo_titulo_posgrado (ID_POSGRADO)
+        ON update cascade ON delete SET NULL,
+    CONSTRAINT CHK_DT_NIVEL CHECK (NIVEL_TITULO IN (3, 4)),
+    CONSTRAINT CHK_DT_FECHA_SENESCYT CHECK (
+        FECHA_REGISTRO_SENESCYT IS NULL OR 
+        FECHA_OBTENCION_TITULO IS NULL OR 
+        FECHA_REGISTRO_SENESCYT >= FECHA_OBTENCION_TITULO
+    )
+);
+
+CREATE TABLE docente_campo_afinidad (
+    ID_DOCENTE_CAMPO    BIGSERIAL       NOT NULL,
+    ID_DOCENTE          BIGINT          NOT NULL,
+    ID_CAMPO            INTEGER         NOT NULL,
+    CONSTRAINT PK_DOCENTE_CAMPO_AFINIDAD PRIMARY KEY (ID_DOCENTE_CAMPO),
+    CONSTRAINT UK_DOCENTE_CAMPO UNIQUE (ID_DOCENTE, ID_CAMPO),
+    CONSTRAINT FK_DCA_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_DCA_CAMPO FOREIGN KEY (ID_CAMPO) 
+        REFERENCES catalogo_campo_conocimiento (ID_CAMPO)
+        ON update cascade ON delete RESTRICT
+);
+
+CREATE TABLE docente_asignacion_carrera_periodo (
+    ID_ASIGNACION_CARRERA_PERIODO   BIGSERIAL       NOT NULL,
+    ID_DOCENTE                      BIGINT          NOT NULL,
+    ID_CARRERA                      INTEGER         NOT NULL,
+    ID_PERIODO                      INTEGER         NOT NULL,
+    ID_LICENCIA                     INTEGER         NOT NULL,
+    HORAS_OTRAS_UNIDADES_ACADEMICAS INTEGER         NOT NULL DEFAULT 0,
+    OBSERVACION_PERIODO             TEXT            NULL,
+    CONSTRAINT PK_DOCENTE_ASIG_CARRERA_PERIODO PRIMARY KEY (ID_ASIGNACION_CARRERA_PERIODO),
+    CONSTRAINT UK_DACP_DOCENTE_CARRERA_PERIODO UNIQUE (ID_DOCENTE, ID_CARRERA, ID_PERIODO),
+    CONSTRAINT FK_DACP_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_DACP_CARRERA FOREIGN KEY (ID_CARRERA) 
+        REFERENCES catalogo_carrera (ID_CARRERA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_DACP_PERIODO FOREIGN KEY (ID_PERIODO) 
+        REFERENCES catalogo_periodo_academico (ID_PERIODO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_DACP_LICENCIA FOREIGN KEY (ID_LICENCIA) 
+        REFERENCES catalogo_tipo_licencia (ID_LICENCIA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_DACP_HORAS CHECK (HORAS_OTRAS_UNIDADES_ACADEMICAS >= 0)
+);
+
+CREATE TABLE docente_curso_capacitacion (
+    ID_CURSO                    SERIAL          NOT NULL,
+    ID_TIPO_CURSO               INTEGER         NOT NULL,
+    NOMBRE_CURSO_CAPACITACION   varchar(200)    NOT NULL,
+    FECHA_INICIO_CURSO          DATE            NULL,
+    FECHA_FIN_CURSO             DATE            NULL,
+    HORAS_TOTALES_CURSO         SMALLINT        NOT NULL DEFAULT 0,
+    CONSTRAINT PK_DOCENTE_CURSO PRIMARY KEY (ID_CURSO),
+    CONSTRAINT FK_DC_TIPO_CURSO FOREIGN KEY (ID_TIPO_CURSO) 
+        REFERENCES catalogo_tipo_curso_capacitacion (ID_TIPO_CURSO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_DC_HORAS CHECK (HORAS_TOTALES_CURSO >= 0),
+    CONSTRAINT CHK_DC_FECHAS CHECK (
+        FECHA_FIN_CURSO IS NULL OR 
+        FECHA_INICIO_CURSO IS NULL OR 
+        FECHA_FIN_CURSO >= FECHA_INICIO_CURSO
+    )
+);
+
+CREATE TABLE docente_participacion_curso (
+    ID_PARTICIPACION    bigserial       NOT NULL,
+    ID_DOCENTE          BIGINT          NOT NULL,
+    ID_CURSO            INTEGER         NOT NULL,
+    FECHA_PARTICIPACION date            NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT PK_DOCENTE_PARTICIPACION_CURSO PRIMARY KEY (ID_PARTICIPACION),
+    CONSTRAINT UK_DPC_DOCENTE_CURSO UNIQUE (ID_DOCENTE, ID_CURSO),
+    CONSTRAINT FK_DPC_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_DPC_CURSO FOREIGN KEY (ID_CURSO) 
+        REFERENCES docente_curso_capacitacion (ID_CURSO)
+        ON update cascade ON delete RESTRICT
+);
+
+CREATE TABLE docente_publicacion_academica (
+    ID_PUBLICACION          bigserial       NOT NULL,
+    ID_DOCENTE              BIGINT          NOT NULL,
+    ID_TIPO_PUBLICACION     integer         NOT NULL,
+    NOMBRE_PUBLICACION      varchar(200)    NOT NULL,
+    FECHA_PUBLICACION       date            NULL,
+    DETALLE_PUBLICACION     text            NULL,
+    CONSTRAINT PK_DOCENTE_PUBLICACION primary KEY (ID_PUBLICACION),
+    CONSTRAINT FK_DPA_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_DPA_TIPO_PUB FOREIGN KEY (ID_TIPO_PUBLICACION) 
+        REFERENCES catalogo_tipo_publicacion (ID_TIPO_PUBLICACION)
+        ON update cascade ON delete RESTRICT
+);
+
+-- ============================================================
+--  MÓDULO 3 · SEGURIDAD
+-- ============================================================
+
+CREATE TABLE seguridad_rol (
+    ID_ROL          SERIAL          NOT NULL,
+    CODIGO_ROL      VARCHAR(15)     NOT NULL,
+    NOMBRE_ROL      VARCHAR(50)     NOT NULL,
+    DESCRIPCION_ROL VARCHAR(200)    NULL,
+    ROL_ACTIVO      BOOLEAN         NOT NULL DEFAULT TRUE,
+    CONSTRAINT PK_SEGURIDAD_ROL PRIMARY KEY (ID_ROL),
+    CONSTRAINT UK_ROL_CODIGO UNIQUE (CODIGO_ROL)
+);
+
+INSERT INTO seguridad_rol (CODIGO_ROL, NOMBRE_ROL, DESCRIPCION_ROL) VALUES
+    ('ADMIN',      'ADMINISTRADOR',     'Acceso total al sistema'),
+    ('DIR_CAR',    'DIRECTOR_CARRERA',  'Gestión de su carrera asignada'),
+    ('DOCENTE',    'DOCENTE',           'Visualización de su propia información'),
+    ('COORD',      'COORDINADOR',       'Coordinación académica'),
+    ('SECRETARIA', 'SECRETARIA',        'Gestión administrativa');
+
+CREATE TABLE seguridad_usuario (
+    ID_USUARIO              SERIAL          NOT NULL,
+    ID_DOCENTE              BIGINT          NULL,
+    NOMBRE_USUARIO          VARCHAR(100)    NOT NULL,
+    CONTRASENA_HASH         VARCHAR(255)    NOT NULL,
+    USUARIO_ACTIVO          BOOLEAN         NOT NULL DEFAULT TRUE,
+    FECHA_ULTIMO_ACCESO     TIMESTAMP       NULL,
+    FECHA_CREACION_USUARIO  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT PK_SEGURIDAD_USUARIO PRIMARY KEY (ID_USUARIO),
+    CONSTRAINT UK_USUARIO_NOMBRE UNIQUE (NOMBRE_USUARIO),
+    CONSTRAINT UK_USUARIO_DOCENTE UNIQUE (ID_DOCENTE),
+    CONSTRAINT FK_SU_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete SET NULL
+);
+
+CREATE TABLE seguridad_usuario_rol (
+    ID_USUARIO_ROL      BIGSERIAL       NOT NULL,
+    ID_USUARIO          INTEGER         NOT NULL,
+    ID_ROL              INTEGER         NOT NULL,
+    ID_CARRERA          INTEGER         NOT NULL,
+    FECHA_ASIGNACION_ROL DATE           NOT NULL DEFAULT CURRENT_DATE,
+    CONSTRAINT PK_SEGURIDAD_USUARIO_ROL PRIMARY KEY (ID_USUARIO_ROL),
+    CONSTRAINT UK_USUARIO_ROL_CARRERA UNIQUE (ID_USUARIO, ID_ROL, ID_CARRERA),
+    CONSTRAINT FK_SUR_USUARIO FOREIGN KEY (ID_USUARIO) 
+        REFERENCES seguridad_usuario (ID_USUARIO)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_SUR_ROL FOREIGN KEY (ID_ROL) 
+        REFERENCES seguridad_rol (ID_ROL)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_SUR_CARRERA FOREIGN KEY (ID_CARRERA) 
+        REFERENCES catalogo_carrera (ID_CARRERA)
+        ON update cascade ON delete RESTRICT
+);
+
+-- ============================================================
+--  MÓDULO 4 · CURRÍCULO
+-- ============================================================
+
+CREATE TABLE curriculo_asignatura (
+    ID_ASIGNATURA               SERIAL          NOT NULL,
+    CODIGO_ASIGNATURA           VARCHAR(20)     NOT NULL,
+    ID_CARRERA                  INTEGER         NOT NULL,
+    NOMBRE_ASIGNATURA           VARCHAR(200)    NOT NULL,
+    HORAS_SEMANALES_ASIGNATURA  SMALLINT        NOT NULL DEFAULT 0,
+    NIVEL_SEMESTRE              SMALLINT        NOT NULL,
+    CONSTRAINT PK_CURRICULO_ASIGNATURA PRIMARY KEY (ID_ASIGNATURA),
+    CONSTRAINT UK_ASIGNATURA_CODIGO UNIQUE (CODIGO_ASIGNATURA),
+    CONSTRAINT FK_CA_CARRERA FOREIGN KEY (ID_CARRERA) 
+        REFERENCES catalogo_carrera (ID_CARRERA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_CA_HORAS CHECK (HORAS_SEMANALES_ASIGNATURA >= 0),
+    CONSTRAINT CHK_CA_NIVEL CHECK (NIVEL_SEMESTRE BETWEEN 1 AND 10)
+);
+
+CREATE TABLE curriculo_asignatura_campo (
+    ID_ASIGNATURA_CAMPO SERIAL          NOT NULL,
+    ID_ASIGNATURA       INTEGER         NOT NULL,
+    ID_CAMPO            INTEGER         NOT NULL,
+    CONSTRAINT PK_CURRICULO_ASIGNATURA_CAMPO PRIMARY KEY (ID_ASIGNATURA_CAMPO),
+    CONSTRAINT UK_ASIGNATURA_CAMPO UNIQUE (ID_ASIGNATURA, ID_CAMPO),
+    CONSTRAINT FK_CAC_ASIGNATURA FOREIGN KEY (ID_ASIGNATURA) 
+        REFERENCES curriculo_asignatura (ID_ASIGNATURA)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_CAC_CAMPO FOREIGN KEY (ID_CAMPO) 
+        REFERENCES catalogo_campo_conocimiento (ID_CAMPO)
+        ON update cascade ON delete RESTRICT
+);
+
+CREATE TABLE relacion_posgrado_campo (
+    ID_POSGRADO_CAMPO   SERIAL          NOT NULL,
+    ID_POSGRADO         INTEGER         NOT NULL,
+    ID_CAMPO            INTEGER         NOT NULL,
+    CONSTRAINT PK_RELACION_POSGRADO_CAMPO PRIMARY KEY (ID_POSGRADO_CAMPO),
+    CONSTRAINT UK_POSGRADO_CAMPO UNIQUE (ID_POSGRADO, ID_CAMPO),
+    CONSTRAINT FK_RPC_POSGRADO FOREIGN KEY (ID_POSGRADO) 
+        REFERENCES catalogo_titulo_posgrado (ID_POSGRADO)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_RPC_CAMPO FOREIGN KEY (ID_CAMPO) 
+        REFERENCES catalogo_campo_conocimiento (ID_CAMPO)
+        ON update cascade ON delete RESTRICT
+);
+
+-- ============================================================
+--  MÓDULO 5 · PLANIFICACIÓN
+-- ============================================================
+
+CREATE TABLE planificacion_demanda_academica (
+    ID_DEMANDA              BIGSERIAL       NOT NULL,
+    ID_ASIGNATURA           INTEGER         NOT NULL,
+    ID_CARRERA              INTEGER         NOT NULL,
+    ID_PERIODO              INTEGER         NOT NULL,
+    PROYECCION_ESTUDIANTES  INTEGER         NOT NULL DEFAULT 0,
+    NUMERO_PARALELOS        SMALLINT        NOT NULL DEFAULT 1,
+    CONSTRAINT PK_PLAN_DEMANDA PRIMARY KEY (ID_DEMANDA),
+    CONSTRAINT UK_PDA_ASIG_CARRERA_PERIODO UNIQUE (ID_ASIGNATURA, ID_CARRERA, ID_PERIODO),
+    CONSTRAINT FK_PDA_ASIGNATURA FOREIGN KEY (ID_ASIGNATURA) 
+        REFERENCES curriculo_asignatura (ID_ASIGNATURA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PDA_CARRERA FOREIGN KEY (ID_CARRERA) 
+        REFERENCES catalogo_carrera (ID_CARRERA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PDA_PERIODO FOREIGN KEY (ID_PERIODO) 
+        REFERENCES catalogo_periodo_academico (ID_PERIODO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_PDA_PROYECCION check (PROYECCION_ESTUDIANTES >= 0),
+    CONSTRAINT CHK_PDA_PARALELOS CHECK (NUMERO_PARALELOS >= 1)
+);
+
+CREATE TABLE planificacion_asignacion_docente (
+    ID_ASIGNACION               bigserial       NOT NULL,
+    ID_DOCENTE                  BIGINT          NOT NULL,
+    ID_ASIGNATURA               INTEGER         NOT NULL,
+    ID_CARRERA                  INTEGER         NOT NULL,
+    ID_PERIODO                  INTEGER         NOT NULL,
+    ID_CAMPO                    INTEGER         NOT NULL,
+    NIVEL_SEMESTRE_ASIGNADO     SMALLINT        NOT NULL,
+    PARALELO_ASIGNADO           CHAR(3)         NOT NULL,
+    HORAS_CLASE                 SMALLINT        NOT NULL DEFAULT 0,
+    HORAS_COMPLEMENTARIAS       SMALLINT        NOT NULL DEFAULT 0,
+    COMISION_SERVICIO           VARCHAR(100)    NULL,
+    CONSTRAINT PK_PLAN_ASIGNACION_DOCENTE PRIMARY KEY (ID_ASIGNACION),
+    CONSTRAINT UK_PAD_DOCENTE_ASIG_PERIODO_PARALELO 
+        UNIQUE (ID_DOCENTE, ID_ASIGNATURA, ID_PERIODO, PARALELO_ASIGNADO),
+    CONSTRAINT FK_PAD_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PAD_ASIGNATURA FOREIGN KEY (ID_ASIGNATURA) 
+        REFERENCES curriculo_asignatura (ID_ASIGNATURA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PAD_CARRERA FOREIGN KEY (ID_CARRERA) 
+        REFERENCES catalogo_carrera (ID_CARRERA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PAD_PERIODO FOREIGN KEY (ID_PERIODO) 
+        REFERENCES catalogo_periodo_academico (ID_PERIODO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PAD_CAMPO FOREIGN KEY (ID_CAMPO) 
+        REFERENCES catalogo_campo_conocimiento (ID_CAMPO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_PAD_HORAS_CLASE CHECK (HORAS_CLASE >= 0),
+    CONSTRAINT CHK_PAD_HORAS_COMPL CHECK (HORAS_COMPLEMENTARIAS >= 0)
+);
+
+CREATE TABLE planificacion_reparto_horas (
+    ID_REPARTO                      BIGSERIAL       NOT NULL,
+    ID_DOCENTE                      BIGINT          NOT NULL,
+    ID_ASIGNATURA                   INTEGER         NOT NULL,
+    ID_PERIODO                      INTEGER         NOT NULL,
+    NIVEL_PARALELO                  VARCHAR(5)      NOT NULL,
+    HORAS_PRESENCIALES_ASIGNADAS    SMALLINT        NOT NULL DEFAULT 0,
+    CONSTRAINT PK_PLAN_REPARTO_HORAS PRIMARY KEY (ID_REPARTO),
+    CONSTRAINT UK_PRH_DOCENTE_ASIG_PERIODO_NIVEL 
+        UNIQUE (ID_DOCENTE, ID_ASIGNATURA, ID_PERIODO, NIVEL_PARALELO),
+    CONSTRAINT FK_PRH_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PRH_ASIGNATURA FOREIGN KEY (ID_ASIGNATURA) 
+        REFERENCES curriculo_asignatura (ID_ASIGNATURA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PRH_PERIODO FOREIGN KEY (ID_PERIODO) 
+        REFERENCES catalogo_periodo_academico (ID_PERIODO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_PRH_HORAS CHECK (HORAS_PRESENCIALES_ASIGNADAS >= 0)
+);
+
+CREATE TABLE planificacion_matriz_f4 (
+    ID_REGISTRO_F4               BIGSERIAL       NOT NULL,
+    ID_DOCENTE                   BIGINT          NOT NULL,
+    ID_CARRERA                   INTEGER         NOT NULL,
+    ID_PERIODO                   INTEGER         NOT NULL,
+    ID_GRADO_AFINIDAD            INTEGER         NOT NULL,
+    TIPO_ACTIVIDAD               VARCHAR(100)    NOT NULL,
+    NOMBRE_ASIGNATURA_ACTIVIDAD  VARCHAR(200)    NULL,
+    NIVEL_SEMESTRE_ACTIVIDAD     VARCHAR(20)     NULL,
+    HORAS_ACTIVIDAD              SMALLINT        NOT NULL DEFAULT 0,
+    NUMERO_PARALELOS_ACTIVIDAD   SMALLINT        NOT NULL DEFAULT 1,
+    OBSERVACIONES                TEXT            NULL,
+    CONSTRAINT PK_PLAN_MATRIZ_F4 PRIMARY KEY (ID_REGISTRO_F4),
+    CONSTRAINT FK_PMF4_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PMF4_CARRERA FOREIGN KEY (ID_CARRERA) 
+        REFERENCES catalogo_carrera (ID_CARRERA)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PMF4_PERIODO FOREIGN KEY (ID_PERIODO) 
+        REFERENCES catalogo_periodo_academico (ID_PERIODO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_PMF4_GRADO_AFINIDAD FOREIGN KEY (ID_GRADO_AFINIDAD) 
+        REFERENCES catalogo_grado_afinidad (ID_GRADO_AFINIDAD)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_PMF4_HORAS CHECK (HORAS_ACTIVIDAD >= 0),
+    CONSTRAINT CHK_PMF4_PARALELOS CHECK (NUMERO_PARALELOS_ACTIVIDAD >= 1)
+);
+
+CREATE TABLE planificacion_aula_horario (
+    ID_HORARIO      SERIAL          NOT NULL,
+    ID_PERIODO      INTEGER         NOT NULL,
+    NOMBRE_AULA     VARCHAR(50)     NOT NULL,
+    TURNO_HORARIO   VARCHAR(10)     NOT NULL,
+    NIVEL_ASIGNADO  VARCHAR(10)     NULL,
+    CONSTRAINT PK_PLAN_AULA_HORARIO PRIMARY KEY (ID_HORARIO),
+    CONSTRAINT UK_PAH_PERIODO_AULA_TURNO UNIQUE (ID_PERIODO, NOMBRE_AULA, TURNO_HORARIO),
+    CONSTRAINT FK_PAH_PERIODO FOREIGN KEY (ID_PERIODO) 
+        REFERENCES catalogo_periodo_academico (ID_PERIODO)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_PAH_TURNO CHECK (TURNO_HORARIO IN ('MANANA', 'TARDE', 'NOCHE'))
+);
+
+-- ============================================================
+--  MÓDULO 6 · AUDITORÍA
+-- ============================================================
+
+CREATE TABLE auditoria_registro_cambios (
+    ID_REGISTRO_AUDITORIA   BIGSERIAL       NOT NULL,
+    ID_USUARIO              INTEGER         NULL,
+    NOMBRE_TABLA_AFECTADA   VARCHAR(60)     NOT NULL,
+    ID_REGISTRO_AFECTADO    BIGINT          NOT NULL,
+    TIPO_ACCION             char(10)        NOT NULL,
+    VALOR_ANTERIOR          JSONB           NULL,
+    VALOR_NUEVO             JSONB           NULL,
+    FECHA_HORA_CAMBIO       TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    DIRECCION_IP_ORIGEN     VARCHAR(45)     NULL,
+    CONSTRAINT PK_AUDITORIA PRIMARY KEY (ID_REGISTRO_AUDITORIA),
+    CONSTRAINT FK_AUD_USUARIO FOREIGN KEY (ID_USUARIO) 
+        REFERENCES seguridad_usuario (ID_USUARIO)
+        ON update cascade ON delete SET NULL,
+    CONSTRAINT CHK_AUD_ACCION check (TIPO_ACCION in ('INSERT', 'UPDATE', 'DELETE'))
+);
+
+-- ============================================================
+--  MÓDULO 7 · LIMITACIONES Y PLANIFICACIÓN COMPLEMENTARIA
+-- ============================================================
+
+CREATE TABLE limitacion (
+    ID_LIMITACION       serial          NOT NULL,
+    CODIGO_LIMITACION   varchar(15)     NOT NULL,
+    NOMBRE_LIMITACION   varchar(150)    NOT NULL,
+    HORA_MINIMA         INTEGER         NOT NULL,
+    HORA_MAXIMA         INTEGER         NOT NULL,
+    CONSTRAINT PK_LIMITACION primary KEY (ID_LIMITACION),
+    CONSTRAINT UK_LIMITACION_CODIGO UNIQUE (CODIGO_LIMITACION),
+    CONSTRAINT CHK_LIMITACION_RANGO CHECK (HORA_MAXIMA >= HORA_MINIMA),
+    CONSTRAINT CHK_LIMITACION_NO_NEGATIVO CHECK (HORA_MINIMA >= 0)
+);
+
+CREATE TABLE historial_limitacion (
+    ID_HISTORIAL            BIGSERIAL       NOT NULL,
+    ID_DOCENTE              BIGINT          NOT NULL,
+    ID_LIMITACION           integer         NOT NULL,
+    FECHA_INICIO_VIGENCIA   DATE            NOT NULL,
+    FECHA_FIN_VIGENCIA      DATE            NOT NULL,
+    CONSTRAINT PK_HISTORIAL_LIMITACION primary KEY (ID_HISTORIAL),
+    CONSTRAINT FK_HL_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT FK_HL_LIMITACION foreign KEY (ID_LIMITACION) 
+        REFERENCES limitacion (ID_LIMITACION)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_HL_FECHAS CHECK (FECHA_FIN_VIGENCIA >= FECHA_INICIO_VIGENCIA)
+);
+
+CREATE TABLE cabecera (
+    ID_CABECERA         SERIAL          NOT NULL,
+    DESCRIPCION_PERIODO VARCHAR(100)    NOT NULL,
+    CONSTRAINT PK_CABECERA PRIMARY KEY (ID_CABECERA)
+);
+
+CREATE TABLE cuerpo (
+    ID_CUERPO       BIGSERIAL       NOT NULL,
+    ID_CABECERA     INTEGER         NOT NULL,
+    ID_DOCENTE      BIGINT          NOT NULL,
+    HORAS           INTEGER         NOT NULL,
+    CONSTRAINT PK_CUERPO PRIMARY KEY (ID_CUERPO),
+    CONSTRAINT FK_CUERPO_CABECERA FOREIGN KEY (ID_CABECERA) 
+        REFERENCES cabecera (ID_CABECERA)
+        ON update cascade ON delete CASCADE,
+    CONSTRAINT FK_CUERPO_DOCENTE FOREIGN KEY (ID_DOCENTE) 
+        REFERENCES docente (ID_DOCENTE)
+        ON update cascade ON delete RESTRICT,
+    CONSTRAINT CHK_CUERPO_HORAS CHECK (HORAS >= 0)
+);
+
+-- ============================================================
+--  ÍNDICES DE RENDIMIENTO
+-- ============================================================
+
+CREATE INDEX idx_docente_activo ON docente (DOCENTE_ACTIVO);
+CREATE INDEX idx_docente_nombres ON docente (NOMBRES_COMPLETOS);
+CREATE INDEX idx_titulo_nivel ON docente_titulo_academico (NIVEL_TITULO);
+CREATE INDEX idx_asig_nivel ON curriculo_asignatura (NIVEL_SEMESTRE);
+CREATE INDEX idx_pad_docente_periodo ON planificacion_asignacion_docente (ID_DOCENTE, ID_PERIODO);
+CREATE INDEX idx_pad_carrera_periodo ON planificacion_asignacion_docente (ID_CARRERA, ID_PERIODO);
+CREATE INDEX idx_pmf4_DOCENTE_PERIODO ON planificacion_matriz_f4 (ID_DOCENTE, ID_PERIODO);
+CREATE INDEX idx_aud_tabla_fecha ON auditoria_registro_cambios (NOMBRE_TABLA_AFECTADA, FECHA_HORA_CAMBIO);
+CREATE INDEX idx_aud_usuario ON auditoria_registro_cambios (ID_USUARIO);
+CREATE INDEX idx_hl_vigencia ON historial_limitacion (FECHA_INICIO_VIGENCIA, FECHA_FIN_VIGENCIA);
+
+-- ============================================================
+--  TRIGGERS DE AUDITORÍA
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION trg_docente_after_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO auditoria_registro_cambios
+        (ID_USUARIO, NOMBRE_TABLA_AFECTADA, ID_REGISTRO_AFECTADO, TIPO_ACCION, VALOR_NUEVO)
+    VALUES
+        (NULL, 'DOCENTE', NEW.ID_DOCENTE, 'INSERT',
+         jsonb_build_object(
+             'ID_DOCENTE', NEW.ID_DOCENTE,
+             'CEDULA_DOCENTE', NEW.CEDULA_DOCENTE,
+             'NOMBRES_COMPLETOS', NEW.NOMBRES_COMPLETOS,
+             'DOCENTE_ACTIVO', NEW.DOCENTE_ACTIVO
+         ));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION trg_docente_after_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO auditoria_registro_cambios
+        (ID_USUARIO, NOMBRE_TABLA_AFECTADA, ID_REGISTRO_AFECTADO, TIPO_ACCION, VALOR_ANTERIOR, VALOR_NUEVO)
+    VALUES
+        (NULL, 'DOCENTE', NEW.ID_DOCENTE, 'UPDATE',
+         jsonb_build_object(
+             'CEDULA_DOCENTE', OLD.CEDULA_DOCENTE,
+             'NOMBRES_COMPLETOS', OLD.NOMBRES_COMPLETOS,
+             'DOCENTE_ACTIVO', OLD.DOCENTE_ACTIVO,
+             'ID_MODALIDAD', OLD.ID_MODALIDAD,
+             'ID_DEDICACION', OLD.ID_DEDICACION
+         ),
+         jsonb_build_object(
+             'CEDULA_DOCENTE', NEW.CEDULA_DOCENTE,
+             'NOMBRES_COMPLETOS', NEW.NOMBRES_COMPLETOS,
+             'DOCENTE_ACTIVO', NEW.DOCENTE_ACTIVO,
+             'ID_MODALIDAD', NEW.ID_MODALIDAD,
+             'ID_DEDICACION', NEW.ID_DEDICACION
+         ));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION trg_docente_after_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO auditoria_registro_cambios
+        (ID_USUARIO, NOMBRE_TABLA_AFECTADA, ID_REGISTRO_AFECTADO, TIPO_ACCION, VALOR_ANTERIOR)
+    VALUES
+        (NULL, 'DOCENTE', OLD.ID_DOCENTE, 'DELETE',
+         jsonb_build_object(
+             'CEDULA_DOCENTE', OLD.CEDULA_DOCENTE,
+             'NOMBRES_COMPLETOS', OLD.NOMBRES_COMPLETOS
+         ));
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION trg_asignacion_after_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO auditoria_registro_cambios
+        (ID_USUARIO, NOMBRE_TABLA_AFECTADA, ID_REGISTRO_AFECTADO, TIPO_ACCION, VALOR_NUEVO)
+    VALUES
+        (NULL, 'PLANIFICACION_ASIGNACION_DOCENTE', NEW.ID_ASIGNACION, 'INSERT',
+         jsonb_build_object(
+             'ID_DOCENTE', NEW.ID_DOCENTE,
+             'ID_ASIGNATURA', NEW.ID_ASIGNATURA,
+             'ID_PERIODO', NEW.ID_PERIODO,
+             'HORAS_CLASE', NEW.HORAS_CLASE,
+             'HORAS_COMPLEMENTARIAS', NEW.HORAS_COMPLEMENTARIAS
+         ));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_docente_after_insert
+    AFTER INSERT ON docente
+    FOR EACH ROW
+    EXECUTE FUNCTION trg_docente_after_insert();
+
+CREATE TRIGGER trg_docente_after_update
+    after UPDATE on docente
+    FOR EACH ROW
+    EXECUTE FUNCTION trg_docente_after_update();
+
+CREATE TRIGGER trg_docente_after_delete
+    AFTER DELETE ON docente
+    FOR EACH ROW
+    EXECUTE FUNCTION trg_docente_after_delete();
+
+CREATE TRIGGER trg_asignacion_after_insert
+    AFTER INSERT ON planificacion_asignacion_docente
+    FOR EACH ROW
+    EXECUTE FUNCTION trg_asignacion_after_insert();
+
+-- ============================================================
+--  VISTAS
+-- ============================================================
+
+CREATE OR REPLACE VIEW VISTA_CARGA_DOCENTE_PERIODO AS
+SELECT
+    d.ID_DOCENTE,
+    d.CEDULA_DOCENTE,
+    d.NOMBRES_COMPLETOS,
+    cd.NOMBRE_DEDICACION,
+    cm.NOMBRE_MODALIDAD,
+    ct.NOMBRE_TIPO_DOCENTE,
+    c.NOMBRE_CARRERA,
+    p.NOMBRE_PERIODO,
+    SUM(pad.HORAS_CLASE + pad.HORAS_COMPLEMENTARIAS) AS TOTAL_HORAS_ASIGNADAS
+FROM docente d
+    INNER JOIN CATALOGO_DEDICACION_HORARIA      cd  ON d.ID_DEDICACION = cd.ID_DEDICACION
+    inner JOIN CATALOGO_MODALIDAD_CONTRATACION  cm  ON d.ID_MODALIDAD = cm.ID_MODALIDAD
+    INNER JOIN CATALOGO_TIPO_DOCENTE            ct  ON d.ID_TIPO_DOCENTE = ct.ID_TIPO_DOCENTE
+    INNER JOIN PLANIFICACION_ASIGNACION_DOCENTE pad ON d.ID_DOCENTE = pad.ID_DOCENTE
+    INNER JOIN CATALOGO_CARRERA                 c   ON pad.ID_CARRERA = c.ID_CARRERA
+    INNER JOIN CATALOGO_PERIODO_ACADEMICO       p   ON pad.ID_PERIODO = p.ID_PERIODO
+GROUP BY
+    d.ID_DOCENTE, d.CEDULA_DOCENTE, d.NOMBRES_COMPLETOS,
+    cd.NOMBRE_DEDICACION, cm.NOMBRE_MODALIDAD, ct.NOMBRE_TIPO_DOCENTE,
+    c.NOMBRE_CARRERA, p.NOMBRE_PERIODO;
+
+CREATE OR REPLACE VIEW VISTA_DOCENTE_TITULOS AS
+SELECT
+    d.ID_DOCENTE,
+    d.CEDULA_DOCENTE,
+    d.NOMBRES_COMPLETOS,
+    dt.NOMBRE_TITULO,
+    dt.NIVEL_TITULO,
+    dt.NUMERO_REGISTRO_SENESCYT,
+    dt.FECHA_REGISTRO_SENESCYT,
+    tp.NOMBRE_TITULO_POSGRADO,
+    cp.NOMBRE_PAIS AS PAIS_OBTENCION
+from docente d
+    INNER JOIN DOCENTE_TITULO_ACADEMICO dt  ON d.ID_DOCENTE = dt.ID_DOCENTE
+    INNER JOIN CATALOGO_PAIS            cp  ON dt.ID_PAIS = cp.ID_PAIS
+    LEFT  JOIN CATALOGO_TITULO_POSGRADO tp  ON dt.ID_POSGRADO = tp.ID_POSGRADO;
+
+CREATE OR REPLACE VIEW VISTA_ASIGNACIONES_PERIODO_ACTIVO AS
+SELECT
+    d.ID_DOCENTE,
+    d.CEDULA_DOCENTE,
+    d.NOMBRES_COMPLETOS,
+    a.NOMBRE_ASIGNATURA,
+    c.NOMBRE_CARRERA,
+    p.NOMBRE_PERIODO,
+    pad.NIVEL_SEMESTRE_ASIGNADO,
+    pad.PARALELO_ASIGNADO,
+    pad.HORAS_CLASE,
+    pad.HORAS_COMPLEMENTARIAS,
+    (pad.HORAS_CLASE + pad.HORAS_COMPLEMENTARIAS) AS TOTAL_HORAS
+FROM planificacion_asignacion_docente pad
+    INNER JOIN DOCENTE                    d ON pad.ID_DOCENTE = d.ID_DOCENTE
+    INNER JOIN CURRICULO_ASIGNATURA       a ON pad.ID_ASIGNATURA = a.ID_ASIGNATURA
+    INNER JOIN CATALOGO_CARRERA           c ON pad.ID_CARRERA = c.ID_CARRERA
+    INNER JOIN CATALOGO_PERIODO_ACADEMICO p ON pad.ID_PERIODO = p.ID_PERIODO
+WHERE p.PERIODO_ACTIVO = TRUE;
+
+CREATE OR REPLACE VIEW VISTA_LIMITACIONES_VIGENTES AS
+SELECT
+    d.ID_DOCENTE,
+    d.CEDULA_DOCENTE,
+    d.NOMBRES_COMPLETOS,
+    l.NOMBRE_LIMITACION,
+    l.HORA_MINIMA,
+    l.HORA_MAXIMA,
+    hl.FECHA_INICIO_VIGENCIA,
+    hl.FECHA_FIN_VIGENCIA
+FROM historial_limitacion hl
+    INNER JOIN DOCENTE     d ON hl.ID_DOCENTE = d.ID_DOCENTE
+    INNER JOIN LIMITACION  l ON hl.ID_LIMITACION = l.ID_LIMITACION
+where CURRENT_DATE BETWEEN hl.FECHA_INICIO_VIGENCIA AND hl.FECHA_FIN_VIGENCIA;

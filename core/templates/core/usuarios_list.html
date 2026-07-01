@@ -1,97 +1,41 @@
 {% extends 'core/base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Usuarios - Gestión Docente{% endblock %}
+{% block title %}Gestión de Usuarios{% endblock %}
 
 {% block sidebar_menu %}
-<div class="nav-item">
-    <a class="nav-link active" href="{% url 'core:dashboard' %}">
-        <i class="fas fa-home"></i> Inicio
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_titulos' %}">
-        <i class="fas fa-graduation-cap"></i> Mis Títulos
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_publicaciones' %}">
-        <i class="fas fa-newspaper"></i> Mis Publicaciones
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_cursos' %}">
-        <i class="fas fa-chalkboard-teacher"></i> Mis Cursos
-    </a>
-</div>
-<div class="nav-item">
-    <a class="nav-link" href="{% url 'core:mis_documentos' %}">
-        <i class="fas fa-file-alt"></i> Documentos
-    </a>
-</div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:dashboard' %}"><i class="fas fa-home"></i> Inicio</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mi_perfil' %}"><i class="fas fa-user-circle"></i> Mi Perfil</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i> Mis Títulos</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i> Mis Publicaciones</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_cursos' %}"><i class="fas fa-chalkboard"></i> Mis Cursos</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i> Documentos</a></div>
+{% if request.user.is_superuser or request.user.groups.all.0.name == 'Administrador' or request.user.groups.all.0.name == 'Autoridad' %}
+<div class="nav-item mt-3"><a class="nav-link active" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users-cog"></i> Usuarios</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'admin:index' %}"><i class="fas fa-cog"></i> Admin</a></div>
+{% endif %}
 {% endblock %}
 
-{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}
-
 {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0"><i class="fas fa-users-cog me-2 text-primary"></i>Usuarios del Sistema</h4>
+    <a href="{% url 'admin:core_usuario_add' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Nuevo</a>
+</div>
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-        <h5 class="mb-0 fw-semibold"><i class="fas fa-users me-2 text-primary"></i>Usuarios del Sistema</h5>
-        <a href="{% url 'core:usuario_crear' %}" class="btn btn-primary btn-sm">
-            <i class="fas fa-user-plus me-1"></i>Nuevo Usuario
-        </a>
-    </div>
-    <div class="card-body p-0">
+    <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
-                    <tr>
-                        <th class="ps-3">Cédula</th>
-                        <th>Rol</th>
-                        <th>Activo</th>
-                        <th>Último acceso</th>
-                        <th>Fecha de registro</th>
-                        <th class="pe-3">Acciones</th>
-                    </tr>
+                    <tr><th>Cédula</th><th>Email</th><th>Grupo</th><th>Activo</th><th>Staff</th></tr>
                 </thead>
                 <tbody>
                     {% for u in usuarios %}
                     <tr>
-                        <td class="ps-3 fw-medium">{{ u.cedula }}</td>
-                        <td>
-                            {% if u.is_superuser %}
-                                <span class="badge bg-warning text-dark">Superusuario</span>
-                            {% else %}
-                                {% with grupos=u.groups.all %}
-                                    {% if grupos %}
-                                        <span class="badge bg-info text-dark">{{ grupos.0.name }}</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Sin rol</span>
-                                    {% endif %}
-                                {% endwith %}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if u.is_active %}
-                                <span class="badge bg-success">Activo</span>
-                            {% else %}
-                                <span class="badge bg-danger">Inactivo</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ u.last_login|default:"Nunca" }}</td>
-                        <td>{{ u.date_joined }}</td>
-                        <td class="pe-3">
-                            <a href="{% url 'core:usuario_editar' u.id %}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">
-                            <i class="fas fa-inbox fa-2x d-block mb-2"></i>
-                            No hay usuarios registrados
-                        </td>
+                        <td class="fw-medium">{{ u.cedula }}</td>
+                        <td>{{ u.email|default:"—" }}</td>
+                        <td>{{ u.groups.first.name|default:"—" }}</td>
+                        <td>{% if u.is_active %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}</td>
+                        <td>{% if u.is_staff %}<span class="badge bg-info">Sí</span>{% else %}No{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

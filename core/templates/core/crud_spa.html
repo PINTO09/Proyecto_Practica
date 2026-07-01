@@ -1,0 +1,432 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ model_verbose_plural }} - ULEAM{% endblock %}
+
+{% block sidebar_menu %}
+<div class="nav-item"><a class="nav-link" href="{% url 'core:dashboard' %}"><i class="fas fa-home"></i> Inicio</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mi_perfil' %}"><i class="fas fa-user-circle"></i> Mi Perfil</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i> Mis Títulos</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i> Mis Publicaciones</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_cursos' %}"><i class="fas fa-chalkboard"></i> Mis Cursos</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i> Documentos</a></div>
+{% if request.user.is_superuser or request.user.groups.all.0.name == 'Administrador' or request.user.groups.all.0.name == 'Autoridad' %}
+<div class="nav-item mt-2"><a class="nav-link" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users-cog"></i> Usuarios</a></div>
+<div class="nav-item"><a class="nav-link" href="{% url 'admin:index' %}"><i class="fas fa-cog"></i> Admin</a></div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div id="crud-app">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="fas fa-database me-2 text-primary"></i>{{ model_verbose_plural }}</h4>
+            <p class="text-muted mb-0 mt-1" id="total-count">Cargando…</p>
+        </div>
+        <button class="btn btn-primary" id="btnAgregar">
+            <i class="fas fa-plus me-1"></i>Agregar {{ model_verbose }}
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="row g-2 mb-3 align-items-center">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" class="form-control" id="buscador" placeholder="Buscar…" autocomplete="off">
+                        <button class="btn btn-outline-secondary" id="btnLimpiarBusqueda" title="Limpiar"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="selectPagina">
+                        <option value="5">5 por pág.</option>
+                        <option value="10" selected>10 por pág.</option>
+                        <option value="25">25 por pág.</option>
+                        <option value="50">50 por pág.</option>
+                    </select>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <span class="text-muted small" id="paginacion-info"></span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tabla-crud">
+                    <thead class="table-light" id="tabla-head"></thead>
+                    <tbody id="tabla-body">
+                        <tr><td colspan="10" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="text-muted mt-2 mb-0">Cargando datos…</p>
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <nav class="mt-3" id="paginacion-nav">
+                <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+{# ─── Modal Crear/Editar ──────────────────────────────────────────────── #}
+<div class="modal fade" id="modalForm" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title fw-bold" id="modalFormTitle">
+                    <i class="fas fa-pen me-2"></i><span id="modalFormAction">Nuevo</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="crud-form" novalidate>
+                <div class="modal-body" id="modalFormBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="text-muted mt-2">Preparando formulario…</p>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardar">
+                        <i class="fas fa-save me-1"></i>Guardar
+                        <span class="spinner-border spinner-border-sm d-none ms-1" id="spinnerGuardar"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ─── Modal Confirmar Eliminación ─────────────────────────────────────── #}
+<div class="modal fade" id="modalDelete" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white py-2">
+                <h6 class="modal-title fw-bold"><i class="fas fa-trash me-2"></i>Confirmar</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i class="fas fa-exclamation-triangle text-danger fs-1 mb-3 d-block"></i>
+                <p class="mb-0 fw-semibold">¿Estás seguro de eliminar este registro?</p>
+                <small class="text-muted">Esta acción no se puede deshacer.</small>
+                <p class="mt-2 mb-0 text-break" id="deleteItemInfo" style="font-size:0.85rem;"></p>
+            </div>
+            <div class="modal-footer bg-light justify-content-center">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" id="btnConfirmarDelete">
+                    <i class="fas fa-trash me-1"></i>Sí, eliminar
+                    <span class="spinner-border spinner-border-sm d-none ms-1" id="spinnerDelete"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ─── Contenedor de Toasts ────────────────────────────────────────────── #}
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999;" id="toastContainer"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const MODEL_NAME = '{{ model_name }}';
+const MODEL_VERBOSE = '{{ model_verbose|escapejs }}';
+const API_BASE = '{% url "core:api_list" model_name="__MODEL__" %}'.replace('__MODEL__', MODEL_NAME).replace('/list/', '');
+let currentPage = 1, currentSearch = '', pageSize = 10, editingId = null, deletingId = null;
+let fieldMeta = [], currentData = [];
+
+// ─── Utilidades ──────────────────────────────────────────────────────────
+function apiUrl(action, pk = '') {
+    if (action === 'list') return `${API_BASE}/list/`;
+    if (action === 'create') return `${API_BASE}/create/`;
+    if (action === 'fields') return `${API_BASE}/fields/`;
+    if (action === 'update') return `${API_BASE}/${pk}/update/`;
+    if (action === 'delete') return `${API_BASE}/${pk}/delete/`;
+}
+
+function showToast(message, type = 'success') {
+    const colors = { success: '#198754', danger: '#dc3545', warning: '#ffc107', info: '#0dcaf0' };
+    const icon = { success: 'fa-check-circle', danger: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+    const c = document.getElementById('toastContainer');
+    const id = 't' + Date.now();
+    c.insertAdjacentHTML('beforeend', `
+        <div id="${id}" class="toast align-items-center text-white border-0 show" role="alert" style="background:${colors[type]||'#198754'};min-width:280px;">
+            <div class="d-flex">
+                <div class="toast-body"><i class="fas ${icon[type]||'fa-check-circle'} me-2"></i>${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>`);
+    setTimeout(() => { const el = document.getElementById(id); if (el) el.remove(); }, 3500);
+}
+
+function loadingBtn(btn, spinner, loading) {
+    btn.disabled = loading;
+    document.getElementById(spinner).classList.toggle('d-none', !loading);
+}
+
+// ─── Cargar metadatos de campos ──────────────────────────────────────────
+async function loadFieldMeta() {
+    const r = await fetch(apiUrl('fields'));
+    const d = await r.json();
+    if (d.error) { showToast(d.error, 'danger'); return []; }
+    fieldMeta = d.fields || [];
+    return fieldMeta;
+}
+
+// ─── Renderizar encabezados de tabla ─────────────────────────────────────
+function renderTableHead(fields) {
+    const displayFields = fields.filter(f => !f.auto_pk);
+    let html = '<tr>';
+    displayFields.forEach(f => { html += `<th>${f.verbose_name}</th>`; });
+    html += '<th class="text-center" style="width:100px;">Acciones</th></tr>';
+    document.getElementById('tabla-head').innerHTML = html;
+}
+
+// ─── Renderizar filas ────────────────────────────────────────────────────
+function renderTableBody(data) {
+    const displayFields = fieldMeta.filter(f => !f.auto_pk);
+    const tbody = document.getElementById('tabla-body');
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-5 text-muted"><i class="fas fa-inbox fs-2 d-block mb-2"></i>No hay registros</td></tr>';
+        return;
+    }
+    let html = '';
+    data.forEach(row => {
+        html += '<tr>';
+        displayFields.forEach(f => {
+            let val = row[f.name] !== null && row[f.name] !== undefined ? row[f.name] : '';
+            if (f.type === 'BooleanField' || f.type === 'NullBooleanField') {
+                val = val ? '<span class="badge bg-success"><i class="fas fa-check"></i></span>' : '<span class="badge bg-secondary"><i class="fas fa-times"></i></span>';
+            } else if (f.type === 'DateField' || f.type === 'DateTimeField') {
+                val = val || '—';
+            } else if (f.fk_model) {
+                val = row[f.name + '_display'] || (val || '—');
+            }
+            if (typeof val === 'string' && val.length > 40) val = val.substring(0, 40) + '…';
+            html += `<td>${val}</td>`;
+        });
+        html += `<td class="text-center">
+            <button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="${row.id}" title="Editar"><i class="fas fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger btn-eliminar" data-id="${row.id}" title="Eliminar"><i class="fas fa-trash"></i></button>
+        </td></tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+// ─── Cargar datos ────────────────────────────────────────────────────────
+async function loadData() {
+    const tbody = document.getElementById('tabla-body');
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="text-muted mt-2 mb-0">Cargando datos…</p></td></tr>';
+    try {
+        const r = await fetch(`${apiUrl('list')}?page=${currentPage}&page_size=${pageSize}&search=${encodeURIComponent(currentSearch)}`);
+        const d = await r.json();
+        if (d.error) { showToast(d.error, 'danger'); return; }
+        currentData = d.results;
+        renderTableBody(d.results);
+        document.getElementById('total-count').textContent = `${d.count} registro(s)`;
+        document.getElementById('paginacion-info').textContent = `Pág. ${d.page} de ${d.num_pages || 1} (${d.count} total)`;
+        renderPagination(d.page, d.num_pages);
+    } catch (e) {
+        showToast('Error al cargar datos: ' + e.message, 'danger');
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-5 text-danger"><i class="fas fa-exclamation-triangle fs-2 d-block mb-2"></i>Error al cargar</td></tr>';
+    }
+}
+
+// ─── Paginación ───────────────────────────────────────────────────────────
+function renderPagination(current, total) {
+    const ul = document.querySelector('#paginacion-nav ul');
+    ul.innerHTML = '';
+    if (total <= 1) return;
+    const add = (label, page, disabled = false, active = false) => {
+        const li = document.createElement('li');
+        li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#" data-page="${page}">${label}</a>`;
+        ul.appendChild(li);
+    };
+    add('&laquo;', current - 1, current <= 1);
+    for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) add(i, i, false, i === current);
+    add('&raquo;', current + 1, current >= total);
+    ul.querySelectorAll('a.page-link').forEach(a => {
+        a.addEventListener('click', e => { e.preventDefault(); currentPage = parseInt(a.dataset.page); loadData(); });
+    });
+}
+
+// ─── Generar formulario dinámico ──────────────────────────────────────────
+function renderForm(fields, data = null) {
+    let html = '';
+    const displayFields = fields.filter(f => !f.auto_pk);
+    displayFields.forEach(f => {
+        const val = data ? (data[f.name] !== null && data[f.name] !== undefined ? data[f.name] : '') : '';
+        const required = f.required ? 'required' : '';
+        let input = '';
+        if (f.type === 'BooleanField' || f.type === 'NullBooleanField') {
+            const checked = val ? 'checked' : '';
+            input = `<div class="form-check"><input type="checkbox" class="form-check-input" id="field_${f.name}" ${checked} ${f.required ? 'required' : ''}><label class="form-check-label" for="field_${f.name}">${f.verbose_name}</label></div>`;
+        } else if (f.type === 'TextField') {
+            input = `<textarea class="form-control" id="field_${f.name}" rows="3" ${required}>${val}</textarea>`;
+        } else if (f.type === 'DateField') {
+            input = `<input type="date" class="form-control" id="field_${f.name}" value="${val}" ${required}>`;
+        } else if (f.type === 'DateTimeField') {
+            input = `<input type="datetime-local" class="form-control" id="field_${f.name}" value="${val}" ${required}>`;
+        } else if (f.type === 'IntegerField') {
+            input = `<input type="number" class="form-control" id="field_${f.name}" value="${val}" ${required} ${f.max_length ? `max="${f.max_length}"` : ''}>`;
+        } else if (f.type === 'BigIntegerField' || f.type === 'SmallIntegerField') {
+            input = `<input type="number" class="form-control" id="field_${f.name}" value="${val}" ${required}>`;
+        } else if (f.type === 'DecimalField' || f.type === 'FloatField') {
+            input = `<input type="number" step="any" class="form-control" id="field_${f.name}" value="${val}" ${required}>`;
+        } else if (f.fk_model) {
+            input = `<input type="text" class="form-control" id="field_${f.name}" value="${data ? (data[f.name + '_display'] || val) : ''}" ${required} placeholder="FK: ${f.fk_model}"><small class="text-muted">ID: ${val || ''}</small>`;
+        } else {
+            input = `<input type="text" class="form-control" id="field_${f.name}" value="${val}" ${required} ${f.max_length ? `maxlength="${f.max_length}"` : ''}>`;
+        }
+        if (f.type !== 'BooleanField' && f.type !== 'NullBooleanField') {
+            html += `<div class="mb-3">
+                <label class="form-label fw-semibold small" for="field_${f.name}">${f.verbose_name} ${f.required ? '<span class="text-danger">*</span>' : ''}</label>
+                ${input}
+                <div class="invalid-feedback" id="error_${f.name}"></div>
+            </div>`;
+        } else {
+            html += `<div class="mb-3">${input}</div>`;
+        }
+    });
+    return html;
+}
+
+// ─── Validar formulario ──────────────────────────────────────────────────
+function validateForm() {
+    let valid = true;
+    const displayFields = fieldMeta.filter(f => !f.auto_pk);
+    displayFields.forEach(f => {
+        const el = document.getElementById(`field_${f.name}`);
+        if (!el) return;
+        const err = document.getElementById(`error_${f.name}`);
+        if (f.required && !el.value && el.type !== 'checkbox') {
+            el.classList.add('is-invalid');
+            if (err) err.textContent = 'Este campo es obligatorio';
+            valid = false;
+        } else {
+            el.classList.remove('is-invalid');
+            if (err) err.textContent = '';
+        }
+        el.classList.add('is-valid');
+    });
+    return valid;
+}
+
+async function openFormModal(data = null) {
+    await loadFieldMeta();
+    if (!fieldMeta.length) { showToast('No se pudieron cargar los campos', 'danger'); return; }
+    editingId = data ? data.id : null;
+    document.getElementById('modalFormAction').textContent = editingId ? 'Editar' : 'Nuevo';
+    const verbLabel = document.getElementById('modelVerboseLabel');
+    document.getElementById('modalFormTitle').innerHTML = `<i class="fas ${editingId ? 'fa-pen' : 'fa-plus'} me-2"></i>${editingId ? 'Editar' : 'Nuevo'} ${MODEL_VERBOSE}`;
+    document.getElementById('modalFormBody').innerHTML = renderForm(fieldMeta, data);
+    const modal = new bootstrap.Modal(document.getElementById('modalForm'));
+    modal.show();
+}
+
+// ─── Enviar formulario ────────────────────────────────────────────────────
+document.getElementById('crud-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (!validateForm()) return;
+    const btn = document.getElementById('btnGuardar');
+    loadingBtn(btn, 'spinnerGuardar', true);
+    const payload = {};
+    fieldMeta.filter(f => !f.auto_pk).forEach(f => {
+        const el = document.getElementById(`field_${f.name}`);
+        if (!el) return;
+        if (f.type === 'BooleanField' || f.type === 'NullBooleanField') {
+            payload[f.name] = el.checked;
+        } else if (f.type === 'IntegerField' || f.type === 'BigIntegerField' || f.type === 'SmallIntegerField') {
+            payload[f.name] = el.value ? parseInt(el.value) : null;
+        } else if (f.type === 'DecimalField' || f.type === 'FloatField') {
+            payload[f.name] = el.value ? parseFloat(el.value) : null;
+        } else {
+            payload[f.name] = el.value;
+        }
+    });
+    try {
+        const url = editingId ? apiUrl('update', editingId) : apiUrl('create');
+        const method = editingId ? 'PUT' : 'POST';
+        const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const d = await r.json();
+        if (d.error) { showToast(d.error, 'danger'); return; }
+        bootstrap.Modal.getInstance(document.getElementById('modalForm')).hide();
+        showToast(editingId ? '¡Registro actualizado con éxito!' : '¡Registro creado con éxito!');
+        loadData();
+    } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+    finally { loadingBtn(btn, 'spinnerGuardar', false); }
+});
+
+// ─── Eliminar ────────────────────────────────────────────────────────────
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-eliminar');
+    if (btn) {
+        deletingId = btn.dataset.id;
+        const row = btn.closest('tr');
+        const info = row ? row.cells[0]?.textContent?.trim() || `ID: ${deletingId}` : `ID: ${deletingId}`;
+        document.getElementById('deleteItemInfo').textContent = info;
+        new bootstrap.Modal(document.getElementById('modalDelete')).show();
+    }
+});
+
+document.getElementById('btnConfirmarDelete').addEventListener('click', async function() {
+    if (!deletingId) return;
+    const btn = this;
+    loadingBtn(btn, 'spinnerDelete', true);
+    try {
+        const r = await fetch(apiUrl('delete', deletingId), { method: 'DELETE' });
+        const d = await r.json();
+        if (d.error) { showToast(d.error, 'danger'); return; }
+        bootstrap.Modal.getInstance(document.getElementById('modalDelete')).hide();
+        showToast('¡Registro eliminado con éxito!');
+        loadData();
+    } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+    finally { loadingBtn(btn, 'spinnerDelete', false); deletingId = null; }
+});
+
+// ─── Event Listeners ─────────────────────────────────────────────────────
+document.getElementById('btnAgregar').addEventListener('click', () => openFormModal());
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-editar');
+    if (btn) {
+        const id = parseInt(btn.dataset.id);
+        const item = currentData.find(r => r.id === id);
+        if (item) openFormModal(item);
+        else showToast('No se encontró el registro', 'warning');
+    }
+});
+
+let searchTimer;
+document.getElementById('buscador').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { currentSearch = this.value; currentPage = 1; loadData(); }, 300);
+});
+
+document.getElementById('btnLimpiarBusqueda').addEventListener('click', function() {
+    document.getElementById('buscador').value = '';
+    currentSearch = '';
+    currentPage = 1;
+    loadData();
+});
+
+document.getElementById('selectPagina').addEventListener('change', function() {
+    pageSize = parseInt(this.value);
+    currentPage = 1;
+    loadData();
+});
+
+// ─── Iniciar ─────────────────────────────────────────────────────────────
+(async function init() {
+    await loadFieldMeta();
+    if (fieldMeta.length) renderTableHead(fieldMeta);
+    loadData();
+})();
+</script>
+{% endblock %}
