@@ -524,6 +524,13 @@ def _build_admin_url(model_name, action='changelist'):
     return reverse(f'admin:core_{model_name.lower()}_{action}')
 
 
+def _module_slug_for_model(model_name):
+    for slug, info in MODULOS.items():
+        if any(class_name == model_name for _, class_name in info['modelos']):
+            return slug
+    return None
+
+
 @login_required
 def modulo_view(request, slug):
     info = MODULOS.get(slug)
@@ -559,8 +566,10 @@ def crud_spa_view(request, model_name):
     modelo_cls = _obtener_modelo(model_name)
     if modelo_cls is None:
         return redirect('core:dashboard')
+    modulo_slug = _module_slug_for_model(model_name)
     context = {
-        'active_section': 'dashboard',
+        'active_section': f'modulo_{modulo_slug}' if modulo_slug else 'dashboard',
+        'modulo_slug': modulo_slug,
         'model_name': model_name,
         'model_verbose_plural': getattr(modelo_cls._meta, 'verbose_name_plural', model_name),
         'model_verbose': getattr(modelo_cls._meta, 'verbose_name', model_name),
