@@ -1,0 +1,53 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Mi docente{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fas fa-id-card me-2 text-primary"></i>Datos del docente</h4>
+        <p class="text-muted mb-0 mt-1">Actualiza los datos del docente normalizado asociados a tu usuario.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <div class="avatar-xl mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center" style="width:100px;height:100px;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;font-size:2.5rem;font-weight:700;">
+                    {{ request.user.cedula|first|upper }}
+                </div>
+                <h5 class="fw-bold">{{ docente_fcacc.nombres_completos|default:request.user.cedula }}</h5>
+                <p class="text-muted mb-0">Cédula: {{ request.user.cedula }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-semibold"><i class="fas fa-edit me-2 text-primary"></i>Actualizar información</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    <div class="row g-3">
+                        {% for field in form %}
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                        <a href="{% url 'core:dashboard' %}" class="btn btn-outline-secondary ms-2">Volver</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

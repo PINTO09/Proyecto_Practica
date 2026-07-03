@@ -459,18 +459,18 @@ class RelacionCarreraPeriodo(models.Model):
 # =============================================================================
 
 class DocenteFcacc(models.Model):
-    id_docente = models.BigAutoField(primary_key=True, db_column='ID_DOCENTE')
-    cedula_docente = models.CharField(max_length=13, unique=True, db_column='CEDULA_DOCENTE')
-    id_tipo_docente = models.ForeignKey(CatalogoTipoDocente, on_delete=models.RESTRICT, db_column='ID_TIPO_DOCENTE')
-    id_modalidad = models.ForeignKey(CatalogoModalidadContratacion, on_delete=models.RESTRICT, db_column='ID_MODALIDAD')
-    id_dedicacion = models.ForeignKey(CatalogoDedicacionHoraria, on_delete=models.RESTRICT, db_column='ID_DEDICACION')
-    nombres_completos = models.CharField(max_length=200, db_column='NOMBRES_COMPLETOS')
-    unidad_organica = models.CharField(max_length=100, null=True, blank=True, db_column='UNIDAD_ORGANICA')
-    correo_institucional = models.EmailField(max_length=100, null=True, blank=True, unique=True, db_column='CORREO_INSTITUCIONAL')
-    numero_celular = models.CharField(max_length=15, null=True, blank=True, db_column='NUMERO_CELULAR')
-    tipo_sangre = models.CharField(max_length=5, null=True, blank=True, db_column='TIPO_SANGRE')
-    docente_activo = models.BooleanField(default=True, db_column='DOCENTE_ACTIVO')
-    fecha_creacion_registro = models.DateTimeField(auto_now_add=True, db_column='FECHA_CREACION_REGISTRO')
+    id_docente = models.BigAutoField(primary_key=True, db_column='id_docente')
+    cedula_docente = models.CharField(max_length=13, unique=True, db_column='cedula_docente')
+    id_tipo_docente = models.ForeignKey(CatalogoTipoDocente, on_delete=models.RESTRICT, db_column='id_tipo_docente')
+    id_modalidad = models.ForeignKey(CatalogoModalidadContratacion, on_delete=models.RESTRICT, db_column='id_modalidad')
+    id_dedicacion = models.ForeignKey(CatalogoDedicacionHoraria, on_delete=models.RESTRICT, db_column='id_dedicacion')
+    nombres_completos = models.CharField(max_length=200, db_column='nombres_completos')
+    unidad_organica = models.CharField(max_length=100, null=True, blank=True, db_column='unidad_organica')
+    correo_institucional = models.EmailField(max_length=100, null=True, blank=True, unique=True, db_column='correo_institucional')
+    numero_celular = models.CharField(max_length=15, null=True, blank=True, db_column='numero_celular')
+    tipo_sangre = models.CharField(max_length=5, null=True, blank=True, db_column='tipo_sangre')
+    docente_activo = models.BooleanField(default=True, db_column='docente_activo')
+    fecha_creacion_registro = models.DateTimeField(auto_now_add=True, db_column='fecha_creacion_registro')
 
     class Meta:
         managed = False

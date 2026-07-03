@@ -4,10 +4,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from .forms import LoginForm, UsuarioCreateForm, UsuarioEditForm
+from django.db import ProgrammingError, OperationalError
+from .forms import LoginForm, UsuarioCreateForm, UsuarioEditForm, DocenteFcaccForm
 from .models import (
     Docente, Carrera, Periodo, DocenteTransaccional, Titulo, Publicacion, Curso, CursoDocente,
-    CatalogoCarrera, CatalogoPeriodoAcademico, DocenteFcacc, DocenteTituloAcademico,
+    CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoTipoDocente, CatalogoModalidadContratacion,
+    CatalogoDedicacionHoraria, DocenteFcacc, DocenteTituloAcademico,
     DocentePublicacionAcademica, DocenteCursoCapacitacion, DocenteAsignacionCarreraPeriodo,
     CurriculoAsignatura, PlanificacionAsignacionDocente, PlanificacionMatrizF4,
     SeguridadUsuario, AuditoriaRegistroCambios, Limitacion,
@@ -65,7 +67,6 @@ def login_view(request):
 
 @login_required
 def dashboard_view(request):
-    from django.db import ProgrammingError, OperationalError
     usuario = request.user
     context = {'active_section': 'dashboard', 'db_ready': False}
 
@@ -97,6 +98,47 @@ def dashboard_view(request):
     if docente:
         context['docente'] = docente
 
+    docente_fcacc = None
+    fcacc_error = None
+    try:
+        if usuario.cedula:
+            docente_fcacc = DocenteFcacc.objects.filter(cedula_docente=usuario.cedula).first()
+            if not docente_fcacc:
+                local_docente = Docente.objects.filter(cedula=usuario.cedula).first()
+                if local_docente:
+                    tipo_docente = CatalogoTipoDocente.objects.order_by('id_tipo_docente').first()
+                    modalidad = CatalogoModalidadContratacion.objects.order_by('id_modalidad').first()
+                    dedicacion = CatalogoDedicacionHoraria.objects.order_by('id_dedicacion').first()
+                    if tipo_docente and modalidad and dedicacion:
+                        docente_fcacc, _ = DocenteFcacc.objects.get_or_create(
+                            cedula_docente=usuario.cedula,
+                            defaults={
+                                'id_tipo_docente': tipo_docente,
+                                'id_modalidad': modalidad,
+                                'id_dedicacion': dedicacion,
+                                'nombres_completos': local_docente.apellidos_nombres or f'Usuario {usuario.cedula}',
+                                'correo_institucional': local_docente.correo or None,
+                                'numero_celular': local_docente.telefono or None,
+                            },
+                        )
+    except (ProgrammingError, OperationalError) as exc:
+        docente_fcacc = None
+        fcacc_error = 'No se pudo leer la información FCACC de la base de datos.'
+
+    context['docente_fcacc'] = docente_fcacc
+    context['fcacc_error'] = fcacc_error
+    if docente_fcacc:
+        try:
+            context['mis_asignaciones'] = PlanificacionAsignacionDocente.objects.filter(id_docente=docente_fcacc).select_related('id_asignatura', 'id_periodo')[:5]
+            context['mis_publicaciones'] = DocentePublicacionAcademica.objects.filter(id_docente=docente_fcacc).order_by('-id_publicacion')[:5]
+        except (ProgrammingError, OperationalError):
+            context['mis_asignaciones'] = []
+            context['mis_publicaciones'] = []
+            context['fcacc_error'] = 'No se pudo cargar la información relacionada del docente.'
+    else:
+        context['mis_asignaciones'] = []
+        context['mis_publicaciones'] = []
+
     return render(request, 'core/dashboard.html', context)
 
 
@@ -104,6 +146,59 @@ def dashboard_view(request):
 def logout_view(request):
     logout(request)
     return redirect('core:login')
+
+
+@login_required
+@funcionario_readonly
+def mi_docente_view(request):
+    usuario = request.user
+    docente_fcacc = None
+    fcacc_error = None
+    try:
+        if usuario.cedula:
+            docente_fcacc = DocenteFcacc.objects.filter(cedula_docente=usuario.cedula).first()
+            if not docente_fcacc:
+                local_docente = Docente.objects.filter(cedula=usuario.cedula).first()
+                if local_docente:
+                    tipo_docente = CatalogoTipoDocente.objects.order_by('id_tipo_docente').first()
+                    modalidad = CatalogoModalidadContratacion.objects.order_by('id_modalidad').first()
+                    dedicacion = CatalogoDedicacionHoraria.objects.order_by('id_dedicacion').first()
+                    if tipo_docente and modalidad and dedicacion:
+                        docente_fcacc, _ = DocenteFcacc.objects.get_or_create(
+                            cedula_docente=usuario.cedula,
+                            defaults={
+                                'id_tipo_docente': tipo_docente,
+                                'id_modalidad': modalidad,
+                                'id_dedicacion': dedicacion,
+                                'nombres_completos': local_docente.apellidos_nombres or f'Usuario {usuario.cedula}',
+                                'correo_institucional': local_docente.correo or None,
+                                'numero_celular': local_docente.telefono or None,
+                            },
+                        )
+    except (ProgrammingError, OperationalError):
+        docente_fcacc = None
+        fcacc_error = 'No se pudo leer la información FCACC de la base de datos.'
+
+    local_docente = Docente.objects.filter(cedula=usuario.cedula).first()
+    if request.method == 'POST':
+        try:
+            form = DocenteFcaccForm(request.POST, instance=docente_fcacc, user=usuario, local_docente=local_docente)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Datos del docente actualizados correctamente.')
+                return redirect('core:mi_docente')
+        except (ProgrammingError, OperationalError):
+            messages.error(request, 'No se pudo guardar la información porque la tabla FCACC no está disponible.')
+            form = DocenteFcaccForm(request.POST, user=usuario, local_docente=local_docente)
+    else:
+        form = DocenteFcaccForm(instance=docente_fcacc, user=usuario, local_docente=local_docente)
+
+    return render(request, 'core/mi_docente.html', {
+        'form': form,
+        'docente_fcacc': docente_fcacc,
+        'fcacc_error': fcacc_error,
+        'active_section': 'mi_docente',
+    })
 
 
 @login_required

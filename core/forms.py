@@ -1,7 +1,10 @@
 from django import forms
 from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
-from .models import Docente, Titulo, Publicacion, DocenteTransaccional, Pais, TipoPublicacion
+from .models import (
+    Docente, Titulo, Publicacion, DocenteTransaccional, Pais, TipoPublicacion, DocenteFcacc,
+    CatalogoTipoDocente, CatalogoModalidadContratacion, CatalogoDedicacionHoraria,
+)
 
 Usuario = get_user_model()
 
@@ -44,6 +47,47 @@ class DocentePerfilForm(forms.ModelForm):
                 'class': 'form-control', 'placeholder': 'correo@uleam.edu.ec'
             }),
         }
+
+
+class DocenteFcaccForm(forms.ModelForm):
+    class Meta:
+        model = DocenteFcacc
+        fields = ['nombres_completos', 'unidad_organica', 'correo_institucional', 'numero_celular', 'tipo_sangre', 'docente_activo']
+        widgets = {
+            'nombres_completos': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellidos y nombres'}),
+            'unidad_organica': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Unidad orgánica'}),
+            'correo_institucional': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'correo@uleam.edu.ec'}),
+            'numero_celular': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '0999999999', 'maxlength': '15'}),
+            'tipo_sangre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'O+', 'maxlength': '5'}),
+            'docente_activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        self.local_docente = kwargs.pop('local_docente', None)
+        super().__init__(*args, **kwargs)
+        for field_name in ['unidad_organica', 'correo_institucional', 'numero_celular', 'tipo_sangre']:
+            self.fields[field_name].required = False
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if not instance.pk:
+            instance.cedula_docente = self.user.cedula if self.user else instance.cedula_docente
+            if not instance.id_tipo_docente_id:
+                instance.id_tipo_docente = CatalogoTipoDocente.objects.order_by('id_tipo_docente').first()
+            if not instance.id_modalidad_id:
+                instance.id_modalidad = CatalogoModalidadContratacion.objects.order_by('id_modalidad').first()
+            if not instance.id_dedicacion_id:
+                instance.id_dedicacion = CatalogoDedicacionHoraria.objects.order_by('id_dedicacion').first()
+            if self.local_docente and not instance.nombres_completos:
+                instance.nombres_completos = self.local_docente.apellidos_nombres or f'Usuario {self.user.cedula}'
+            if self.local_docente and not instance.correo_institucional:
+                instance.correo_institucional = self.local_docente.correo
+            if self.local_docente and not instance.numero_celular:
+                instance.numero_celular = self.local_docente.telefono
+        if commit:
+            instance.save()
+        return instance
 
 
 class TituloForm(forms.ModelForm):

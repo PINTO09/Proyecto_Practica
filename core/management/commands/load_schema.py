@@ -3,6 +3,113 @@ from django.core.management.base import BaseCommand
 from django.db import connection
 
 
+def split_sql_statements(sql):
+    statements = []
+    current = []
+    i = 0
+    in_single_quote = False
+    in_line_comment = False
+    in_block_comment = False
+    dollar_tag = None
+
+    while i < len(sql):
+        ch = sql[i]
+        nxt = sql[i + 1] if i + 1 < len(sql) else ''
+
+        if dollar_tag is not None:
+            if sql.startswith(dollar_tag, i):
+                current.append(dollar_tag)
+                dollar_tag = None
+                i += len(dollar_tag)
+            else:
+                current.append(ch)
+                i += 1
+            continue
+
+        if in_line_comment:
+            current.append(ch)
+            if ch == '\n':
+                in_line_comment = False
+            i += 1
+            continue
+
+        if in_block_comment:
+            current.append(ch)
+            if ch == '*' and nxt == '/':
+                current.append(nxt)
+                i += 2
+                in_block_comment = False
+            else:
+                i += 1
+            continue
+
+        if in_single_quote:
+            current.append(ch)
+            if ch == "'" and nxt == "'":
+                current.append(nxt)
+                i += 2
+            elif ch == "'":
+                in_single_quote = False
+                i += 1
+            else:
+                i += 1
+            continue
+
+        if ch == '-' and nxt == '-':
+            current.append(ch)
+            current.append(nxt)
+            in_line_comment = True
+            i += 2
+            continue
+
+        if ch == '/' and nxt == '*':
+            current.append(ch)
+            current.append(nxt)
+            in_block_comment = True
+            i += 2
+            continue
+
+        if ch == "'":
+            current.append(ch)
+            in_single_quote = True
+            i += 1
+            continue
+
+        if ch == '$':
+            if nxt == '$':
+                current.append('$$')
+                dollar_tag = '$$'
+                i += 2
+                continue
+            j = i + 1
+            if j < len(sql) and (sql[j].isalpha() or sql[j] == '_'):
+                while j < len(sql) and (sql[j].isalnum() or sql[j] == '_'):
+                    j += 1
+                if j < len(sql) and sql[j] == '$':
+                    tag = sql[i:j + 1]
+                    current.append(tag)
+                    dollar_tag = tag
+                    i = j + 1
+                    continue
+
+        if ch == ';':
+            statement = ''.join(current).strip()
+            if statement and statement != ';':
+                statements.append(statement)
+            current = []
+            i += 1
+            continue
+
+        current.append(ch)
+        i += 1
+
+    tail = ''.join(current).strip()
+    if tail and tail != ';':
+        statements.append(tail)
+
+    return statements
+
+
 class Command(BaseCommand):
     help = 'Carga el esquema SQL de la base de datos FCACC'
 
@@ -25,19 +132,7 @@ class Command(BaseCommand):
         with open(file_path, 'r', encoding='utf-8') as f:
             sql = f.read()
 
-        statements = []
-        current = []
-        for line in sql.split('\n'):
-            stripped = line.strip()
-            if stripped.upper().startswith('--') or stripped.startswith('--'):
-                continue
-            current.append(line)
-            if stripped.endswith(';') and not stripped.startswith('--'):
-                statements.append('\n'.join(current))
-                current = []
-
-        if current:
-            statements.append('\n'.join(current))
+        statements = split_sql_statements(sql)
 
         success = 0
         errors = 0

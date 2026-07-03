@@ -15,6 +15,11 @@
     </a>
 </div>
 <div class="nav-item">
+    <a class="nav-link" href="{% url 'core:mi_docente' %}">
+        <i class="fas fa-id-card"></i> Mi Docente
+    </a>
+</div>
+<div class="nav-item">
     <a class="nav-link" href="{% url 'core:mis_titulos' %}">
         <i class="fas fa-award"></i> Mis Títulos
     </a>
@@ -239,6 +244,50 @@
         </div>
     </div>
 </div>
+
+{% if docente_fcacc or mis_asignaciones or mis_publicaciones %}
+<div class="row mt-4 g-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-semibold"><i class="fas fa-user-check me-2 text-primary"></i>Mi información docente</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Cédula</dt>
+                    <dd class="col-sm-7">{{ docente_fcacc.cedula_docente|default:request.user.cedula }}</dd>
+                    <dt class="col-sm-5">Nombres</dt>
+                    <dd class="col-sm-7">{{ docente_fcacc.nombres_completos|default:'Sin registro' }}</dd>
+                    <dt class="col-sm-5">Correo</dt>
+                    <dd class="col-sm-7">{{ docente_fcacc.correo_institucional|default:'Sin registro' }}</dd>
+                    <dt class="col-sm-5">Celular</dt>
+                    <dd class="col-sm-7">{{ docente_fcacc.numero_celular|default:'Sin registro' }}</dd>
+                    <dt class="col-sm-5">Estado</dt>
+                    <dd class="col-sm-7">{% if docente_fcacc.docente_activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-semibold"><i class="fas fa-book me-2 text-primary"></i>Mis publicaciones recientes</h5>
+            </div>
+            <div class="card-body">
+                {% if mis_publicaciones %}
+                <ul class="mb-0 ps-3">
+                    {% for pub in mis_publicaciones %}
+                    <li class="mb-2">{{ pub.nombre_publicacion }}{% if pub.fecha_publicacion %} <span class="text-muted small">({{ pub.fecha_publicacion }})</span>{% endif %}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted mb-0">Todavía no hay publicaciones registradas para este docente.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% if db_ready and ultimos_docentes_fcacc %}
 <div class="row mt-4">
