@@ -3,18 +3,7 @@
 
 {% block title %}Mis Títulos{% endblock %}
 
-{% block sidebar_menu %}
-<div class="nav-item"><a class="nav-link" href="{% url 'core:dashboard' %}"><i class="fas fa-home"></i> Inicio</a></div>
-<div class="nav-item"><a class="nav-link" href="{% url 'core:mi_perfil' %}"><i class="fas fa-user-circle"></i> Mi Perfil</a></div>
-<div class="nav-item"><a class="nav-link active" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i> Mis Títulos</a></div>
-<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i> Mis Publicaciones</a></div>
-<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_cursos' %}"><i class="fas fa-chalkboard"></i> Mis Cursos</a></div>
-<div class="nav-item"><a class="nav-link" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i> Documentos</a></div>
-{% if request.user.is_superuser or request.user.groups.all.0.name == 'Administrador' or request.user.groups.all.0.name == 'Autoridad' %}
-<div class="nav-item mt-3"><a class="nav-link" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users-cog"></i> Usuarios</a></div>
-<div class="nav-item"><a class="nav-link" href="{% url 'admin:index' %}"><i class="fas fa-cog"></i> Admin</a></div>
-{% endif %}
-{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' with active_section='titulos' %}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">

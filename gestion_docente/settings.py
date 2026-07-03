@@ -5,8 +5,21 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me')
-DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+
+# DEBUG puede venir de una variable de entorno no booleana.
+# Si no es un valor válido, asumimos modo producción seguro.
+def parse_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {'true', '1', 'yes', 'on'}:
+        return True
+    if text in {'false', '0', 'no', 'off', ''}:
+        return False
+    return default
+
+DEBUG = parse_bool(config('DEBUG', default='True'))
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
 
 INSTALLED_APPS = [
     'django.contrib.admin',

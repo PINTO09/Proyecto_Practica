@@ -112,8 +112,7 @@
             padding: 1rem 1.25rem;
             border-top: 1px solid var(--sidebar-border);
         }
-        .sidebar-footer button,
-        .sidebar-footer .logout-link {
+        .sidebar-footer button {
             width: 100%;
             text-align: left;
             background: none;
@@ -125,10 +124,8 @@
             align-items: center;
             gap: 0.75rem;
             transition: color 0.2s;
-            text-decoration: none;
         }
-        .sidebar-footer button:hover,
-        .sidebar-footer .logout-link:hover {
+        .sidebar-footer button:hover {
             color: var(--sidebar-text-hover);
         }
         .main-content {
@@ -240,7 +237,7 @@
             <h5 class="mb-0">
                 <i class="fas fa-graduation-cap me-2"></i>ULEAM
             </h5>
-            <small>Sistema de Gestión</small>
+            <small>Sistema de GestiÃ³n</small>
         </div>
 
         <nav class="sidebar-nav">
@@ -252,9 +249,11 @@
                 <i class="fas fa-moon" id="themeIcon"></i>
                 <span id="themeLabel">Modo Oscuro</span>
             </button>
-            <a class="logout-link" href="{% url 'core:logout' %}">
-                <i class="fas fa-sign-out-alt"></i>
-                Cerrar Sesión
+            <a href="{% url 'core:logout' %}" style="text-decoration:none;">
+                <button type="button">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar SesiÃ³n
+                </button>
             </a>
         </div>
     </aside>
@@ -279,7 +278,7 @@
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <a class="dropdown-item text-danger" href="{% url 'core:logout' %}">
-                            <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+                            <i class="fas fa-sign-out-alt me-2"></i>Cerrar SesiÃ³n
                         </a>
                     </li>
                 </ul>
