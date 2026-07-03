@@ -19,6 +19,9 @@ urlpatterns = [
     path('documentos/crear/', views.subir_documento_view, name='subir_documento'),
     path('cursos/', views.mis_cursos_view, name='mis_cursos'),
     path('usuarios/', views.usuarios_list_view, name='usuarios_list'),
+    path('usuarios/autoridad/', views.usuarios_por_rol_view, {'rol': 'Autoridad'}, name='usuarios_autoridad'),
+    path('usuarios/coordinador/', views.usuarios_por_rol_view, {'rol': 'Coordinador'}, name='usuarios_coordinador'),
+    path('usuarios/funcionario/', views.usuarios_por_rol_view, {'rol': 'Funcionario'}, name='usuarios_funcionario'),
     path('usuarios/crear/', views.usuario_crear_view, name='usuario_crear'),
     path('usuarios/<int:usuario_id>/editar/', views.usuario_editar_view, name='usuario_editar'),
 

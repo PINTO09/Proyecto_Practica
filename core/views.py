@@ -339,19 +339,30 @@ def subir_documento_view(request):
 
 
 def _require_admin(user):
-    if not (user.is_superuser or user.groups.filter(name__in=[ADMIN, AUTORIDAD]).exists()):
+    if not (user.is_superuser or user.groups.filter(name__in=[ADMIN, AUTORIDAD, COORDINADOR]).exists()):
         raise PermissionDenied
     return True
 
 
 @login_required
 def usuarios_list_view(request):
+    return usuarios_por_rol_view(request, rol=None)
+
+
+@login_required
+def usuarios_por_rol_view(request, rol=None):
     if not _require_admin(request.user):
         return
     usuarios = Usuario.objects.all().order_by('-date_joined')
+    title = 'Usuarios del Sistema'
+    if rol:
+        usuarios = usuarios.filter(groups__name=rol)
+        title = f'Usuarios - {rol}'
     return render(request, 'core/usuarios_list.html', {
         'usuarios': usuarios,
         'active_section': 'usuarios',
+        'title': title,
+        'role_name': rol,
     })
 
 
