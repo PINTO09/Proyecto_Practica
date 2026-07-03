@@ -253,10 +253,10 @@ class CursoDocente(models.Model):
 # =============================================================================
 
 class CatalogoCarrera(models.Model):
-    id_carrera = models.AutoField(primary_key=True, db_column='ID_CARRERA')
-    codigo_carrera = models.CharField(max_length=20, unique=True, db_column='CODIGO_CARRERA')
-    nombre_carrera = models.CharField(max_length=120, db_column='NOMBRE_CARRERA')
-    carrera_activa = models.BooleanField(default=True, db_column='CARRERA_ACTIVA')
+    id_carrera = models.AutoField(primary_key=True, db_column='id_carrera')
+    codigo_carrera = models.CharField(max_length=20, unique=True, db_column='codigo_carrera')
+    nombre_carrera = models.CharField(max_length=120, db_column='nombre_carrera')
+    carrera_activa = models.BooleanField(default=True, db_column='carrera_activa')
 
     class Meta:
         managed = False
@@ -269,9 +269,9 @@ class CatalogoCarrera(models.Model):
 
 
 class CatalogoModalidadContratacion(models.Model):
-    id_modalidad = models.AutoField(primary_key=True, db_column='ID_MODALIDAD')
-    codigo_modalidad = models.CharField(max_length=15, unique=True, db_column='CODIGO_MODALIDAD')
-    nombre_modalidad = models.CharField(max_length=50, db_column='NOMBRE_MODALIDAD')
+    id_modalidad = models.AutoField(primary_key=True, db_column='id_modalidad')
+    codigo_modalidad = models.CharField(max_length=15, unique=True, db_column='codigo_modalidad')
+    nombre_modalidad = models.CharField(max_length=50, db_column='nombre_modalidad')
 
     class Meta:
         managed = False
@@ -284,9 +284,9 @@ class CatalogoModalidadContratacion(models.Model):
 
 
 class CatalogoDedicacionHoraria(models.Model):
-    id_dedicacion = models.AutoField(primary_key=True, db_column='ID_DEDICACION')
-    codigo_dedicacion = models.CharField(max_length=5, unique=True, db_column='CODIGO_DEDICACION')
-    nombre_dedicacion = models.CharField(max_length=30, db_column='NOMBRE_DEDICACION')
+    id_dedicacion = models.AutoField(primary_key=True, db_column='id_dedicacion')
+    codigo_dedicacion = models.CharField(max_length=5, unique=True, db_column='codigo_dedicacion')
+    nombre_dedicacion = models.CharField(max_length=30, db_column='nombre_dedicacion')
 
     class Meta:
         managed = False
@@ -299,9 +299,9 @@ class CatalogoDedicacionHoraria(models.Model):
 
 
 class CatalogoTipoDocente(models.Model):
-    id_tipo_docente = models.AutoField(primary_key=True, db_column='ID_TIPO_DOCENTE')
-    codigo_tipo_docente = models.CharField(max_length=15, unique=True, db_column='CODIGO_TIPO_DOCENTE')
-    nombre_tipo_docente = models.CharField(max_length=30, db_column='NOMBRE_TIPO_DOCENTE')
+    id_tipo_docente = models.AutoField(primary_key=True, db_column='id_tipo_docente')
+    codigo_tipo_docente = models.CharField(max_length=15, unique=True, db_column='codigo_tipo_docente')
+    nombre_tipo_docente = models.CharField(max_length=30, db_column='nombre_tipo_docente')
 
     class Meta:
         managed = False
@@ -314,9 +314,9 @@ class CatalogoTipoDocente(models.Model):
 
 
 class CatalogoTipoLicencia(models.Model):
-    id_licencia = models.AutoField(primary_key=True, db_column='ID_LICENCIA')
-    codigo_licencia = models.CharField(max_length=15, unique=True, db_column='CODIGO_LICENCIA')
-    nombre_licencia = models.CharField(max_length=50, db_column='NOMBRE_LICENCIA')
+    id_licencia = models.AutoField(primary_key=True, db_column='id_licencia')
+    codigo_licencia = models.CharField(max_length=15, unique=True, db_column='codigo_licencia')
+    nombre_licencia = models.CharField(max_length=50, db_column='nombre_licencia')
 
     class Meta:
         managed = False
@@ -329,10 +329,10 @@ class CatalogoTipoLicencia(models.Model):
 
 
 class CatalogoPais(models.Model):
-    id_pais = models.AutoField(primary_key=True, db_column='ID_PAIS')
-    codigo_iso_pais = models.CharField(max_length=2, unique=True, db_column='CODIGO_ISO_PAIS')
-    nombre_pais = models.CharField(max_length=100, db_column='NOMBRE_PAIS')
-    nombre_nacionalidad = models.CharField(max_length=100, db_column='NOMBRE_NACIONALIDAD')
+    id_pais = models.AutoField(primary_key=True, db_column='id_pais')
+    codigo_iso_pais = models.CharField(max_length=2, unique=True, db_column='codigo_iso_pais')
+    nombre_pais = models.CharField(max_length=100, db_column='nombre_pais')
+    nombre_nacionalidad = models.CharField(max_length=100, db_column='nombre_nacionalidad')
 
     class Meta:
         managed = False
@@ -345,9 +345,9 @@ class CatalogoPais(models.Model):
 
 
 class CatalogoTituloPosgrado(models.Model):
-    id_posgrado = models.AutoField(primary_key=True, db_column='ID_POSGRADO')
-    codigo_posgrado = models.CharField(max_length=20, unique=True, db_column='CODIGO_POSGRADO')
-    nombre_titulo_posgrado = models.CharField(max_length=200, db_column='NOMBRE_TITULO_POSGRADO')
+    id_posgrado = models.AutoField(primary_key=True, db_column='id_posgrado')
+    codigo_posgrado = models.CharField(max_length=20, unique=True, db_column='codigo_posgrado')
+    nombre_titulo_posgrado = models.CharField(max_length=200, db_column='nombre_titulo_posgrado')
 
     class Meta:
         managed = False
@@ -360,9 +360,9 @@ class CatalogoTituloPosgrado(models.Model):
 
 
 class CatalogoCampoConocimiento(models.Model):
-    id_campo = models.AutoField(primary_key=True, db_column='ID_CAMPO')
-    codigo_campo = models.CharField(max_length=20, unique=True, db_column='CODIGO_CAMPO')
-    nombre_campo_conocimiento = models.CharField(max_length=100, db_column='NOMBRE_CAMPO_CONOCIMIENTO')
+    id_campo = models.AutoField(primary_key=True, db_column='id_campo')
+    codigo_campo = models.CharField(max_length=20, unique=True, db_column='codigo_campo')
+    nombre_campo_conocimiento = models.CharField(max_length=100, db_column='nombre_campo_conocimiento')
 
     class Meta:
         managed = False
@@ -375,10 +375,10 @@ class CatalogoCampoConocimiento(models.Model):
 
 
 class CatalogoGradoAfinidad(models.Model):
-    id_grado_afinidad = models.AutoField(primary_key=True, db_column='ID_GRADO_AFINIDAD')
-    codigo_grado_afinidad = models.CharField(max_length=10, unique=True, db_column='CODIGO_GRADO_AFINIDAD')
-    nombre_grado_afinidad = models.CharField(max_length=50, db_column='NOMBRE_GRADO_AFINIDAD')
-    nivel_prioridad = models.SmallIntegerField(db_column='NIVEL_PRIORIDAD')
+    id_grado_afinidad = models.AutoField(primary_key=True, db_column='id_grado_afinidad')
+    codigo_grado_afinidad = models.CharField(max_length=10, unique=True, db_column='codigo_grado_afinidad')
+    nombre_grado_afinidad = models.CharField(max_length=50, db_column='nombre_grado_afinidad')
+    nivel_prioridad = models.SmallIntegerField(db_column='nivel_prioridad')
 
     class Meta:
         managed = False
@@ -391,9 +391,9 @@ class CatalogoGradoAfinidad(models.Model):
 
 
 class CatalogoTipoPublicacion(models.Model):
-    id_tipo_publicacion = models.AutoField(primary_key=True, db_column='ID_TIPO_PUBLICACION')
-    codigo_tipo_publicacion = models.CharField(max_length=15, unique=True, db_column='CODIGO_TIPO_PUBLICACION')
-    nombre_tipo_publicacion = models.CharField(max_length=50, db_column='NOMBRE_TIPO_PUBLICACION')
+    id_tipo_publicacion = models.AutoField(primary_key=True, db_column='id_tipo_publicacion')
+    codigo_tipo_publicacion = models.CharField(max_length=15, unique=True, db_column='codigo_tipo_publicacion')
+    nombre_tipo_publicacion = models.CharField(max_length=50, db_column='nombre_tipo_publicacion')
 
     class Meta:
         managed = False
@@ -406,9 +406,9 @@ class CatalogoTipoPublicacion(models.Model):
 
 
 class CatalogoTipoCursoCapacitacion(models.Model):
-    id_tipo_curso = models.AutoField(primary_key=True, db_column='ID_TIPO_CURSO')
-    codigo_tipo_curso = models.CharField(max_length=15, unique=True, db_column='CODIGO_TIPO_CURSO')
-    nombre_tipo_curso = models.CharField(max_length=50, db_column='NOMBRE_TIPO_CURSO')
+    id_tipo_curso = models.AutoField(primary_key=True, db_column='id_tipo_curso')
+    codigo_tipo_curso = models.CharField(max_length=15, unique=True, db_column='codigo_tipo_curso')
+    nombre_tipo_curso = models.CharField(max_length=50, db_column='nombre_tipo_curso')
 
     class Meta:
         managed = False
@@ -421,12 +421,12 @@ class CatalogoTipoCursoCapacitacion(models.Model):
 
 
 class CatalogoPeriodoAcademico(models.Model):
-    id_periodo = models.AutoField(primary_key=True, db_column='ID_PERIODO')
-    codigo_periodo = models.CharField(max_length=10, unique=True, db_column='CODIGO_PERIODO')
-    nombre_periodo = models.CharField(max_length=20, db_column='NOMBRE_PERIODO')
-    periodo_activo = models.BooleanField(default=False, db_column='PERIODO_ACTIVO')
-    fecha_inicio_periodo = models.DateField(null=True, blank=True, db_column='FECHA_INICIO_PERIODO')
-    fecha_fin_periodo = models.DateField(null=True, blank=True, db_column='FECHA_FIN_PERIODO')
+    id_periodo = models.AutoField(primary_key=True, db_column='id_periodo')
+    codigo_periodo = models.CharField(max_length=10, unique=True, db_column='codigo_periodo')
+    nombre_periodo = models.CharField(max_length=20, db_column='nombre_periodo')
+    periodo_activo = models.BooleanField(default=False, db_column='periodo_activo')
+    fecha_inicio_periodo = models.DateField(null=True, blank=True, db_column='fecha_inicio_periodo')
+    fecha_fin_periodo = models.DateField(null=True, blank=True, db_column='fecha_fin_periodo')
 
     class Meta:
         managed = False
@@ -439,9 +439,9 @@ class CatalogoPeriodoAcademico(models.Model):
 
 
 class RelacionCarreraPeriodo(models.Model):
-    id_carrera_periodo = models.AutoField(primary_key=True, db_column='ID_CARRERA_PERIODO')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='ID_CARRERA')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='ID_PERIODO')
+    id_carrera_periodo = models.AutoField(primary_key=True, db_column='id_carrera_periodo')
+    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
+    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
 
     class Meta:
         managed = False
@@ -483,16 +483,16 @@ class DocenteFcacc(models.Model):
 
 
 class DocenteTituloAcademico(models.Model):
-    id_titulo = models.BigAutoField(primary_key=True, db_column='ID_TITULO')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='ID_DOCENTE')
-    id_pais = models.ForeignKey(CatalogoPais, on_delete=models.RESTRICT, db_column='ID_PAIS')
-    id_posgrado = models.ForeignKey(CatalogoTituloPosgrado, on_delete=models.SET_NULL, null=True, blank=True, db_column='ID_POSGRADO')
-    nombre_titulo = models.CharField(max_length=200, db_column='NOMBRE_TITULO')
-    nivel_titulo = models.SmallIntegerField(db_column='NIVEL_TITULO')
-    fecha_obtencion_titulo = models.DateField(null=True, blank=True, db_column='FECHA_OBTENCION_TITULO')
-    numero_registro_titulo = models.CharField(max_length=50, null=True, blank=True, db_column='NUMERO_REGISTRO_TITULO')
-    numero_registro_senescyt = models.CharField(max_length=50, null=True, blank=True, unique=True, db_column='NUMERO_REGISTRO_SENESCYT')
-    fecha_registro_senescyt = models.DateField(null=True, blank=True, db_column='FECHA_REGISTRO_SENESCYT')
+    id_titulo = models.BigAutoField(primary_key=True, db_column='id_titulo')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='id_docente')
+    id_pais = models.ForeignKey(CatalogoPais, on_delete=models.RESTRICT, db_column='id_pais')
+    id_posgrado = models.ForeignKey(CatalogoTituloPosgrado, on_delete=models.SET_NULL, null=True, blank=True, db_column='id_posgrado')
+    nombre_titulo = models.CharField(max_length=200, db_column='nombre_titulo')
+    nivel_titulo = models.SmallIntegerField(db_column='nivel_titulo')
+    fecha_obtencion_titulo = models.DateField(null=True, blank=True, db_column='fecha_obtencion_titulo')
+    numero_registro_titulo = models.CharField(max_length=50, null=True, blank=True, db_column='numero_registro_titulo')
+    numero_registro_senescyt = models.CharField(max_length=50, null=True, blank=True, unique=True, db_column='numero_registro_senescyt')
+    fecha_registro_senescyt = models.DateField(null=True, blank=True, db_column='fecha_registro_senescyt')
 
     class Meta:
         managed = False
@@ -505,9 +505,9 @@ class DocenteTituloAcademico(models.Model):
 
 
 class DocenteCampoAfinidad(models.Model):
-    id_docente_campo = models.BigAutoField(primary_key=True, db_column='ID_DOCENTE_CAMPO')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='ID_DOCENTE')
-    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='ID_CAMPO')
+    id_docente_campo = models.BigAutoField(primary_key=True, db_column='id_docente_campo')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='id_docente')
+    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='id_campo')
 
     class Meta:
         managed = False
@@ -521,13 +521,13 @@ class DocenteCampoAfinidad(models.Model):
 
 
 class DocenteAsignacionCarreraPeriodo(models.Model):
-    id_asignacion_carrera_periodo = models.BigAutoField(primary_key=True, db_column='ID_ASIGNACION_CARRERA_PERIODO')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='ID_DOCENTE')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='ID_CARRERA')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='ID_PERIODO')
-    id_licencia = models.ForeignKey(CatalogoTipoLicencia, on_delete=models.RESTRICT, db_column='ID_LICENCIA')
-    horas_otras_unidades_academicas = models.IntegerField(default=0, db_column='HORAS_OTRAS_UNIDADES_ACADEMICAS')
-    observacion_periodo = models.TextField(null=True, blank=True, db_column='OBSERVACION_PERIODO')
+    id_asignacion_carrera_periodo = models.BigAutoField(primary_key=True, db_column='id_asignacion_carrera_periodo')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='id_docente')
+    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
+    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
+    id_licencia = models.ForeignKey(CatalogoTipoLicencia, on_delete=models.RESTRICT, db_column='id_licencia')
+    horas_otras_unidades_academicas = models.IntegerField(default=0, db_column='horas_otras_unidades_academicas')
+    observacion_periodo = models.TextField(null=True, blank=True, db_column='observacion_periodo')
 
     class Meta:
         managed = False
@@ -541,12 +541,12 @@ class DocenteAsignacionCarreraPeriodo(models.Model):
 
 
 class DocenteCursoCapacitacion(models.Model):
-    id_curso = models.AutoField(primary_key=True, db_column='ID_CURSO')
-    id_tipo_curso = models.ForeignKey(CatalogoTipoCursoCapacitacion, on_delete=models.RESTRICT, db_column='ID_TIPO_CURSO')
-    nombre_curso_capacitacion = models.CharField(max_length=200, db_column='NOMBRE_CURSO_CAPACITACION')
-    fecha_inicio_curso = models.DateField(null=True, blank=True, db_column='FECHA_INICIO_CURSO')
-    fecha_fin_curso = models.DateField(null=True, blank=True, db_column='FECHA_FIN_CURSO')
-    horas_totales_curso = models.SmallIntegerField(default=0, db_column='HORAS_TOTALES_CURSO')
+    id_curso = models.AutoField(primary_key=True, db_column='id_curso')
+    id_tipo_curso = models.ForeignKey(CatalogoTipoCursoCapacitacion, on_delete=models.RESTRICT, db_column='id_tipo_curso')
+    nombre_curso_capacitacion = models.CharField(max_length=200, db_column='nombre_curso_capacitacion')
+    fecha_inicio_curso = models.DateField(null=True, blank=True, db_column='fecha_inicio_curso')
+    fecha_fin_curso = models.DateField(null=True, blank=True, db_column='fecha_fin_curso')
+    horas_totales_curso = models.SmallIntegerField(default=0, db_column='horas_totales_curso')
 
     class Meta:
         managed = False
@@ -559,10 +559,10 @@ class DocenteCursoCapacitacion(models.Model):
 
 
 class DocenteParticipacionCurso(models.Model):
-    id_participacion = models.BigAutoField(primary_key=True, db_column='ID_PARTICIPACION')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='ID_DOCENTE')
-    id_curso = models.ForeignKey(DocenteCursoCapacitacion, on_delete=models.RESTRICT, db_column='ID_CURSO')
-    fecha_participacion = models.DateField(db_column='FECHA_PARTICIPACION')
+    id_participacion = models.BigAutoField(primary_key=True, db_column='id_participacion')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='id_docente')
+    id_curso = models.ForeignKey(DocenteCursoCapacitacion, on_delete=models.RESTRICT, db_column='id_curso')
+    fecha_participacion = models.DateField(db_column='fecha_participacion')
 
     class Meta:
         managed = False
@@ -576,12 +576,12 @@ class DocenteParticipacionCurso(models.Model):
 
 
 class DocentePublicacionAcademica(models.Model):
-    id_publicacion = models.BigAutoField(primary_key=True, db_column='ID_PUBLICACION')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='ID_DOCENTE')
-    id_tipo_publicacion = models.ForeignKey(CatalogoTipoPublicacion, on_delete=models.RESTRICT, db_column='ID_TIPO_PUBLICACION')
-    nombre_publicacion = models.CharField(max_length=200, db_column='NOMBRE_PUBLICACION')
-    fecha_publicacion = models.DateField(null=True, blank=True, db_column='FECHA_PUBLICACION')
-    detalle_publicacion = models.TextField(null=True, blank=True, db_column='DETALLE_PUBLICACION')
+    id_publicacion = models.BigAutoField(primary_key=True, db_column='id_publicacion')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.CASCADE, db_column='id_docente')
+    id_tipo_publicacion = models.ForeignKey(CatalogoTipoPublicacion, on_delete=models.RESTRICT, db_column='id_tipo_publicacion')
+    nombre_publicacion = models.CharField(max_length=200, db_column='nombre_publicacion')
+    fecha_publicacion = models.DateField(null=True, blank=True, db_column='fecha_publicacion')
+    detalle_publicacion = models.TextField(null=True, blank=True, db_column='detalle_publicacion')
 
     class Meta:
         managed = False
@@ -598,11 +598,11 @@ class DocentePublicacionAcademica(models.Model):
 # =============================================================================
 
 class SeguridadRol(models.Model):
-    id_rol = models.AutoField(primary_key=True, db_column='ID_ROL')
-    codigo_rol = models.CharField(max_length=15, unique=True, db_column='CODIGO_ROL')
-    nombre_rol = models.CharField(max_length=50, db_column='NOMBRE_ROL')
-    descripcion_rol = models.CharField(max_length=200, null=True, blank=True, db_column='DESCRIPCION_ROL')
-    rol_activo = models.BooleanField(default=True, db_column='ROL_ACTIVO')
+    id_rol = models.AutoField(primary_key=True, db_column='id_rol')
+    codigo_rol = models.CharField(max_length=15, unique=True, db_column='codigo_rol')
+    nombre_rol = models.CharField(max_length=50, db_column='nombre_rol')
+    descripcion_rol = models.CharField(max_length=200, null=True, blank=True, db_column='descripcion_rol')
+    rol_activo = models.BooleanField(default=True, db_column='rol_activo')
 
     class Meta:
         managed = False
@@ -615,13 +615,13 @@ class SeguridadRol(models.Model):
 
 
 class SeguridadUsuario(models.Model):
-    id_usuario = models.AutoField(primary_key=True, db_column='ID_USUARIO')
-    id_docente = models.OneToOneField(DocenteFcacc, on_delete=models.SET_NULL, null=True, blank=True, db_column='ID_DOCENTE')
-    nombre_usuario = models.CharField(max_length=100, unique=True, db_column='NOMBRE_USUARIO')
-    contrasena_hash = models.CharField(max_length=255, db_column='CONTRASENA_HASH')
-    usuario_activo = models.BooleanField(default=True, db_column='USUARIO_ACTIVO')
-    fecha_ultimo_acceso = models.DateTimeField(null=True, blank=True, db_column='FECHA_ULTIMO_ACCESO')
-    fecha_creacion_usuario = models.DateTimeField(auto_now_add=True, db_column='FECHA_CREACION_USUARIO')
+    id_usuario = models.AutoField(primary_key=True, db_column='id_usuario')
+    id_docente = models.OneToOneField(DocenteFcacc, on_delete=models.SET_NULL, null=True, blank=True, db_column='id_docente')
+    nombre_usuario = models.CharField(max_length=100, unique=True, db_column='nombre_usuario')
+    contrasena_hash = models.CharField(max_length=255, db_column='contrasena_hash')
+    usuario_activo = models.BooleanField(default=True, db_column='usuario_activo')
+    fecha_ultimo_acceso = models.DateTimeField(null=True, blank=True, db_column='fecha_ultimo_acceso')
+    fecha_creacion_usuario = models.DateTimeField(auto_now_add=True, db_column='fecha_creacion_usuario')
 
     class Meta:
         managed = False
@@ -634,11 +634,11 @@ class SeguridadUsuario(models.Model):
 
 
 class SeguridadUsuarioRol(models.Model):
-    id_usuario_rol = models.BigAutoField(primary_key=True, db_column='ID_USUARIO_ROL')
-    id_usuario = models.ForeignKey(SeguridadUsuario, on_delete=models.CASCADE, db_column='ID_USUARIO')
-    id_rol = models.ForeignKey(SeguridadRol, on_delete=models.RESTRICT, db_column='ID_ROL')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='ID_CARRERA')
-    fecha_asignacion_rol = models.DateField(db_column='FECHA_ASIGNACION_ROL')
+    id_usuario_rol = models.BigAutoField(primary_key=True, db_column='id_usuario_rol')
+    id_usuario = models.ForeignKey(SeguridadUsuario, on_delete=models.CASCADE, db_column='id_usuario')
+    id_rol = models.ForeignKey(SeguridadRol, on_delete=models.RESTRICT, db_column='id_rol')
+    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
+    fecha_asignacion_rol = models.DateField(db_column='fecha_asignacion_rol')
 
     class Meta:
         managed = False
@@ -656,12 +656,12 @@ class SeguridadUsuarioRol(models.Model):
 # =============================================================================
 
 class CurriculoAsignatura(models.Model):
-    id_asignatura = models.AutoField(primary_key=True, db_column='ID_ASIGNATURA')
-    codigo_asignatura = models.CharField(max_length=20, unique=True, db_column='CODIGO_ASIGNATURA')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='ID_CARRERA')
-    nombre_asignatura = models.CharField(max_length=200, db_column='NOMBRE_ASIGNATURA')
-    horas_semanales_asignatura = models.SmallIntegerField(default=0, db_column='HORAS_SEMANALES_ASIGNATURA')
-    nivel_semestre = models.SmallIntegerField(db_column='NIVEL_SEMESTRE')
+    id_asignatura = models.AutoField(primary_key=True, db_column='id_asignatura')
+    codigo_asignatura = models.CharField(max_length=20, unique=True, db_column='codigo_asignatura')
+    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
+    nombre_asignatura = models.CharField(max_length=200, db_column='nombre_asignatura')
+    horas_semanales_asignatura = models.SmallIntegerField(default=0, db_column='horas_semanales_asignatura')
+    nivel_semestre = models.SmallIntegerField(db_column='nivel_semestre')
 
     class Meta:
         managed = False
@@ -674,9 +674,9 @@ class CurriculoAsignatura(models.Model):
 
 
 class CurriculoAsignaturaCampo(models.Model):
-    id_asignatura_campo = models.AutoField(primary_key=True, db_column='ID_ASIGNATURA_CAMPO')
-    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.CASCADE, db_column='ID_ASIGNATURA')
-    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='ID_CAMPO')
+    id_asignatura_campo = models.AutoField(primary_key=True, db_column='id_asignatura_campo')
+    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.CASCADE, db_column='id_asignatura')
+    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='id_campo')
 
     class Meta:
         managed = False
@@ -690,9 +690,9 @@ class CurriculoAsignaturaCampo(models.Model):
 
 
 class RelacionPosgradoCampo(models.Model):
-    id_posgrado_campo = models.AutoField(primary_key=True, db_column='ID_POSGRADO_CAMPO')
-    id_posgrado = models.ForeignKey(CatalogoTituloPosgrado, on_delete=models.CASCADE, db_column='ID_POSGRADO')
-    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='ID_CAMPO')
+    id_posgrado_campo = models.AutoField(primary_key=True, db_column='id_posgrado_campo')
+    id_posgrado = models.ForeignKey(CatalogoTituloPosgrado, on_delete=models.CASCADE, db_column='id_posgrado')
+    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='id_campo')
 
     class Meta:
         managed = False
@@ -710,12 +710,12 @@ class RelacionPosgradoCampo(models.Model):
 # =============================================================================
 
 class PlanificacionDemandaAcademica(models.Model):
-    id_demanda = models.BigAutoField(primary_key=True, db_column='ID_DEMANDA')
-    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.RESTRICT, db_column='ID_ASIGNATURA')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='ID_CARRERA')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='ID_PERIODO')
-    proyeccion_estudiantes = models.IntegerField(default=0, db_column='PROYECCION_ESTUDIANTES')
-    numero_paralelos = models.SmallIntegerField(default=1, db_column='NUMERO_PARALELOS')
+    id_demanda = models.BigAutoField(primary_key=True, db_column='id_demanda')
+    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.RESTRICT, db_column='id_asignatura')
+    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
+    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
+    proyeccion_estudiantes = models.IntegerField(default=0, db_column='proyeccion_estudiantes')
+    numero_paralelos = models.SmallIntegerField(default=1, db_column='numero_paralelos')
 
     class Meta:
         managed = False
@@ -729,17 +729,17 @@ class PlanificacionDemandaAcademica(models.Model):
 
 
 class PlanificacionAsignacionDocente(models.Model):
-    id_asignacion = models.BigAutoField(primary_key=True, db_column='ID_ASIGNACION')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='ID_DOCENTE')
-    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.RESTRICT, db_column='ID_ASIGNATURA')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='ID_CARRERA')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='ID_PERIODO')
-    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='ID_CAMPO')
-    nivel_semestre_asignado = models.SmallIntegerField(db_column='NIVEL_SEMESTRE_ASIGNADO')
-    paralelo_asignado = models.CharField(max_length=3, db_column='PARALELO_ASIGNADO')
-    horas_clase = models.SmallIntegerField(default=0, db_column='HORAS_CLASE')
-    horas_complementarias = models.SmallIntegerField(default=0, db_column='HORAS_COMPLEMENTARIAS')
-    comision_servicio = models.CharField(max_length=100, null=True, blank=True, db_column='COMISION_SERVICIO')
+    id_asignacion = models.BigAutoField(primary_key=True, db_column='id_asignacion')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='id_docente')
+    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.RESTRICT, db_column='id_asignatura')
+    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
+    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
+    id_campo = models.ForeignKey(CatalogoCampoConocimiento, on_delete=models.RESTRICT, db_column='id_campo')
+    nivel_semestre_asignado = models.SmallIntegerField(db_column='nivel_semestre_asignado')
+    paralelo_asignado = models.CharField(max_length=3, db_column='paralelo_asignado')
+    horas_clase = models.SmallIntegerField(default=0, db_column='horas_clase')
+    horas_complementarias = models.SmallIntegerField(default=0, db_column='horas_complementarias')
+    comision_servicio = models.CharField(max_length=100, null=True, blank=True, db_column='comision_servicio')
 
     class Meta:
         managed = False
@@ -752,12 +752,12 @@ class PlanificacionAsignacionDocente(models.Model):
 
 
 class PlanificacionRepartoHoras(models.Model):
-    id_reparto = models.BigAutoField(primary_key=True, db_column='ID_REPARTO')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='ID_DOCENTE')
-    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.RESTRICT, db_column='ID_ASIGNATURA')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='ID_PERIODO')
-    nivel_paralelo = models.CharField(max_length=5, db_column='NIVEL_PARALELO')
-    horas_presenciales_asignadas = models.SmallIntegerField(default=0, db_column='HORAS_PRESENCIALES_ASIGNADAS')
+    id_reparto = models.BigAutoField(primary_key=True, db_column='id_reparto')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='id_docente')
+    id_asignatura = models.ForeignKey(CurriculoAsignatura, on_delete=models.RESTRICT, db_column='id_asignatura')
+    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
+    nivel_paralelo = models.CharField(max_length=5, db_column='nivel_paralelo')
+    horas_presenciales_asignadas = models.SmallIntegerField(default=0, db_column='horas_presenciales_asignadas')
 
     class Meta:
         managed = False
@@ -771,17 +771,17 @@ class PlanificacionRepartoHoras(models.Model):
 
 
 class PlanificacionMatrizF4(models.Model):
-    id_registro_f4 = models.BigAutoField(primary_key=True, db_column='ID_REGISTRO_F4')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='ID_DOCENTE')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='ID_CARRERA')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='ID_PERIODO')
-    id_grado_afinidad = models.ForeignKey(CatalogoGradoAfinidad, on_delete=models.RESTRICT, db_column='ID_GRADO_AFINIDAD')
-    tipo_actividad = models.CharField(max_length=100, db_column='TIPO_ACTIVIDAD')
-    nombre_asignatura_actividad = models.CharField(max_length=200, null=True, blank=True, db_column='NOMBRE_ASIGNATURA_ACTIVIDAD')
-    nivel_semestre_actividad = models.CharField(max_length=20, null=True, blank=True, db_column='NIVEL_SEMESTRE_ACTIVIDAD')
-    horas_actividad = models.SmallIntegerField(default=0, db_column='HORAS_ACTIVIDAD')
-    numero_paralelos_actividad = models.SmallIntegerField(default=1, db_column='NUMERO_PARALELOS_ACTIVIDAD')
-    observaciones = models.TextField(null=True, blank=True, db_column='OBSERVACIONES')
+    id_registro_f4 = models.BigAutoField(primary_key=True, db_column='id_registro_f4')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='id_docente')
+    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
+    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
+    id_grado_afinidad = models.ForeignKey(CatalogoGradoAfinidad, on_delete=models.RESTRICT, db_column='id_grado_afinidad')
+    tipo_actividad = models.CharField(max_length=100, db_column='tipo_actividad')
+    nombre_asignatura_actividad = models.CharField(max_length=200, null=True, blank=True, db_column='nombre_asignatura_actividad')
+    nivel_semestre_actividad = models.CharField(max_length=20, null=True, blank=True, db_column='nivel_semestre_actividad')
+    horas_actividad = models.SmallIntegerField(default=0, db_column='horas_actividad')
+    numero_paralelos_actividad = models.SmallIntegerField(default=1, db_column='numero_paralelos_actividad')
+    observaciones = models.TextField(null=True, blank=True, db_column='observaciones')
 
     class Meta:
         managed = False
@@ -794,11 +794,11 @@ class PlanificacionMatrizF4(models.Model):
 
 
 class PlanificacionAulaHorario(models.Model):
-    id_horario = models.AutoField(primary_key=True, db_column='ID_HORARIO')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='ID_PERIODO')
-    nombre_aula = models.CharField(max_length=50, db_column='NOMBRE_AULA')
-    turno_horario = models.CharField(max_length=10, db_column='TURNO_HORARIO')
-    nivel_asignado = models.CharField(max_length=10, null=True, blank=True, db_column='NIVEL_ASIGNADO')
+    id_horario = models.AutoField(primary_key=True, db_column='id_horario')
+    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
+    nombre_aula = models.CharField(max_length=50, db_column='nombre_aula')
+    turno_horario = models.CharField(max_length=10, db_column='turno_horario')
+    nivel_asignado = models.CharField(max_length=10, null=True, blank=True, db_column='nivel_asignado')
 
     class Meta:
         managed = False
@@ -816,15 +816,15 @@ class PlanificacionAulaHorario(models.Model):
 # =============================================================================
 
 class AuditoriaRegistroCambios(models.Model):
-    id_registro_auditoria = models.BigAutoField(primary_key=True, db_column='ID_REGISTRO_AUDITORIA')
-    id_usuario = models.ForeignKey(SeguridadUsuario, on_delete=models.SET_NULL, null=True, blank=True, db_column='ID_USUARIO')
-    nombre_tabla_afectada = models.CharField(max_length=60, db_column='NOMBRE_TABLA_AFECTADA')
-    id_registro_afectado = models.BigIntegerField(db_column='ID_REGISTRO_AFECTADO')
-    tipo_accion = models.CharField(max_length=10, db_column='TIPO_ACCION')
-    valor_anterior = models.JSONField(null=True, blank=True, db_column='VALOR_ANTERIOR')
-    valor_nuevo = models.JSONField(null=True, blank=True, db_column='VALOR_NUEVO')
-    fecha_hora_cambio = models.DateTimeField(auto_now_add=True, db_column='FECHA_HORA_CAMBIO')
-    direccion_ip_origen = models.CharField(max_length=45, null=True, blank=True, db_column='DIRECCION_IP_ORIGEN')
+    id_registro_auditoria = models.BigAutoField(primary_key=True, db_column='id_registro_auditoria')
+    id_usuario = models.ForeignKey(SeguridadUsuario, on_delete=models.SET_NULL, null=True, blank=True, db_column='id_usuario')
+    nombre_tabla_afectada = models.CharField(max_length=60, db_column='nombre_tabla_afectada')
+    id_registro_afectado = models.BigIntegerField(db_column='id_registro_afectado')
+    tipo_accion = models.CharField(max_length=10, db_column='tipo_accion')
+    valor_anterior = models.JSONField(null=True, blank=True, db_column='valor_anterior')
+    valor_nuevo = models.JSONField(null=True, blank=True, db_column='valor_nuevo')
+    fecha_hora_cambio = models.DateTimeField(auto_now_add=True, db_column='fecha_hora_cambio')
+    direccion_ip_origen = models.CharField(max_length=45, null=True, blank=True, db_column='direccion_ip_origen')
 
     class Meta:
         managed = False
@@ -841,11 +841,11 @@ class AuditoriaRegistroCambios(models.Model):
 # =============================================================================
 
 class Limitacion(models.Model):
-    id_limitacion = models.AutoField(primary_key=True, db_column='ID_LIMITACION')
-    codigo_limitacion = models.CharField(max_length=15, unique=True, db_column='CODIGO_LIMITACION')
-    nombre_limitacion = models.CharField(max_length=150, db_column='NOMBRE_LIMITACION')
-    hora_minima = models.IntegerField(db_column='HORA_MINIMA')
-    hora_maxima = models.IntegerField(db_column='HORA_MAXIMA')
+    id_limitacion = models.AutoField(primary_key=True, db_column='id_limitacion')
+    codigo_limitacion = models.CharField(max_length=15, unique=True, db_column='codigo_limitacion')
+    nombre_limitacion = models.CharField(max_length=150, db_column='nombre_limitacion')
+    hora_minima = models.IntegerField(db_column='hora_minima')
+    hora_maxima = models.IntegerField(db_column='hora_maxima')
 
     class Meta:
         managed = False
@@ -858,11 +858,11 @@ class Limitacion(models.Model):
 
 
 class HistorialLimitacion(models.Model):
-    id_historial = models.BigAutoField(primary_key=True, db_column='ID_HISTORIAL')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='ID_DOCENTE')
-    id_limitacion = models.ForeignKey(Limitacion, on_delete=models.RESTRICT, db_column='ID_LIMITACION')
-    fecha_inicio_vigencia = models.DateField(db_column='FECHA_INICIO_VIGENCIA')
-    fecha_fin_vigencia = models.DateField(db_column='FECHA_FIN_VIGENCIA')
+    id_historial = models.BigAutoField(primary_key=True, db_column='id_historial')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='id_docente')
+    id_limitacion = models.ForeignKey(Limitacion, on_delete=models.RESTRICT, db_column='id_limitacion')
+    fecha_inicio_vigencia = models.DateField(db_column='fecha_inicio_vigencia')
+    fecha_fin_vigencia = models.DateField(db_column='fecha_fin_vigencia')
 
     class Meta:
         managed = False
@@ -875,8 +875,8 @@ class HistorialLimitacion(models.Model):
 
 
 class Cabecera(models.Model):
-    id_cabecera = models.AutoField(primary_key=True, db_column='ID_CABECERA')
-    descripcion_periodo = models.CharField(max_length=100, db_column='DESCRIPCION_PERIODO')
+    id_cabecera = models.AutoField(primary_key=True, db_column='id_cabecera')
+    descripcion_periodo = models.CharField(max_length=100, db_column='descripcion_periodo')
 
     class Meta:
         managed = False
@@ -889,10 +889,10 @@ class Cabecera(models.Model):
 
 
 class Cuerpo(models.Model):
-    id_cuerpo = models.BigAutoField(primary_key=True, db_column='ID_CUERPO')
-    id_cabecera = models.ForeignKey(Cabecera, on_delete=models.CASCADE, db_column='ID_CABECERA')
-    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='ID_DOCENTE')
-    horas = models.IntegerField(db_column='HORAS')
+    id_cuerpo = models.BigAutoField(primary_key=True, db_column='id_cuerpo')
+    id_cabecera = models.ForeignKey(Cabecera, on_delete=models.CASCADE, db_column='id_cabecera')
+    id_docente = models.ForeignKey(DocenteFcacc, on_delete=models.RESTRICT, db_column='id_docente')
+    horas = models.IntegerField(db_column='horas')
 
     class Meta:
         managed = False

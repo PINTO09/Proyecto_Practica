@@ -73,7 +73,8 @@ def api_list(request, model_name):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 10))
 
-        qs = model.objects.all()
+        pk_name = model._meta.pk.name if model._meta.pk else 'id'
+        qs = model.objects.all().order_by(pk_name)
         if search:
             q = Q()
             for f in _get_searchable_fields(model):

@@ -1,205 +1,276 @@
 {% load static %}
 <!DOCTYPE html>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SISTEMA DE GESTIÓN DOCENTE — ULEAM FCACC
+     Layout Principal (Base Template)
+     ═══════════════════════════════════════════════════════════════════════════
+     Propósito:
+       - Define la estructura HTML global del dashboard.
+       - Incluye sidebar, topbar, área de contenido y footer del sidebar.
+       - Los templates hijos (via | extends |) solo proveen:
+             | block sidebar_menu |  → Links del usuario.
+             | block title |         → Título de la pestaña.
+             | block content |       → Contenido del módulo.
+             | block extra_css |     → Estilos adicionales.
+             | block extra_js |      → Scripts adicionales.
+     ═══════════════════════════════════════════════════════════════════════ -->
+
 <html lang="es" data-bs-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dashboard - ULEAM{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
-    {% block extra_css %}{% endblock %}
-    <style>
-        :root {
-            --sidebar-width: 260px;
-            --body-bg: #f0f2f5;
-            --sidebar-bg: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-            --sidebar-text: rgba(255,255,255,0.6);
-            --sidebar-text-hover: #fff;
-            --sidebar-border: rgba(255,255,255,0.08);
-            --topbar-bg: #fff;
-            --topbar-color: #495057;
-            --topbar-hover-bg: #f0f2f5;
-            --card-bg: #fff;
-            --text-color: #212529;
-            --text-muted: #6c757d;
-        }
-        [data-bs-theme="dark"] {
-            --body-bg: #0f0f1a;
-            --sidebar-bg: linear-gradient(180deg, #0a0a14 0%, #0d0d1f 100%);
-            --topbar-bg: #1a1a2e;
-            --topbar-color: #e0e0e0;
-            --topbar-hover-bg: #2a2a3e;
-            --card-bg: #1a1a2e;
-            --text-color: #e0e0e0;
-            --text-muted: #a0a0b0;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--body-bg);
-            color: var(--text-color);
-        }
-        .wrapper { display: flex; min-height: 100vh; }
-        .sidebar {
-            width: var(--sidebar-width);
-            background: var(--sidebar-bg);
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            top: 0; left: 0; bottom: 0;
-            z-index: 1030;
-            transition: transform 0.3s ease;
-        }
-        .sidebar-brand {
-            padding: 1.25rem 1.25rem;
-            border-bottom: 1px solid var(--sidebar-border);
-        }
-        .sidebar-brand h5 { color: #fff; font-weight: 700; letter-spacing: 0.5px; }
-        .sidebar-brand small { color: var(--sidebar-text); font-size: 0.75rem; }
-        .sidebar-nav { flex: 1; overflow-y: auto; padding: 0.75rem 0; }
-        .sidebar-nav .nav-item { padding: 0 0.75rem; }
-        .sidebar-nav .nav-link {
-            color: var(--sidebar-text);
-            padding: 0.65rem 1rem;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-            text-decoration: none;
-        }
-        .sidebar-nav .nav-link:hover,
-        .sidebar-nav .nav-link.active {
-            color: var(--sidebar-text-hover);
-            background: rgba(255,255,255,0.1);
-        }
-        .sidebar-nav .nav-link i { width: 20px; text-align: center; font-size: 1.05rem; }
-        .sidebar-footer {
-            padding: 1rem 1.25rem;
-            border-top: 1px solid var(--sidebar-border);
-        }
-        .sidebar-footer button, .sidebar-footer a {
-            width: 100%; text-align: left; background: none; border: none;
-            color: var(--sidebar-text); padding: 0.5rem 0; font-size: 0.85rem;
-            display: flex; align-items: center; gap: 0.75rem;
-            text-decoration: none; transition: color 0.2s;
-        }
-        .sidebar-footer button:hover, .sidebar-footer a:hover { color: var(--sidebar-text-hover); }
-        .main-content {
-            flex: 1; margin-left: var(--sidebar-width);
-            display: flex; flex-direction: column; min-height: 100vh;
-        }
-        .topbar {
-            background: var(--topbar-bg);
-            padding: 0.6rem 1.5rem;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-            display: flex; align-items: center; justify-content: flex-end;
-            position: sticky; top: 0; z-index: 1020;
-        }
-        .topbar .btn-collapse {
-            background: none; border: none; font-size: 1.25rem;
-            color: var(--topbar-color); padding: 0.25rem 0.5rem;
-            border-radius: 6px; cursor: pointer; margin-right: auto;
-        }
-        .topbar .btn-collapse:hover { background: var(--topbar-hover-bg); }
-        .topbar-user .avatar {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            color: #fff; display: flex; align-items: center; justify-content: center;
-            font-size: 0.9rem; font-weight: 600;
-        }
-        .content-area { flex: 1; padding: 1.5rem; background: var(--body-bg); }
-        .card { background: var(--card-bg) !important; border-radius: 12px; }
-        .card-header { background: var(--card-bg) !important; border-radius: 12px 12px 0 0 !important; }
-        .table { color: var(--text-color); }
-        .table-light { background: var(--text-color) === '#e0e0e0' ? '#2a2a3e' : '#f8f9fa' !important; }
-        .table > :not(caption) > * > * { background: var(--card-bg); color: var(--text-color); }
-        .table-hover tbody tr:hover { background: rgba(0,0,0,0.02); }
-        @media (max-width: 767.98px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.show { transform: translateX(0); }
-            .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1025; }
-            .sidebar-overlay.show { display: block; }
-            .main-content { margin-left: 0; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <!-- Viewport responsivo para mobile-first -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dashboard · ULEAM{% endblock %}</title>
+
+  <!-- Bootstrap 5.3 (CSS) + FontAwesome 6 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Estilos globales del sistema (tokens, animaciones, layout) -->
+  <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
-<div class="sidebar-overlay" id="sidebarOverlay"></div>
-<div class="wrapper">
+
+  <!-- ─── OVERLAY RESPONSIVE ────────────────────────────────────────────
+       Capa oscura que se superpone al contenido cuando el sidebar está
+       abierto en móviles. Al hacer clic se cierra el sidebar.
+       Punto de cambio: Si cambias el id del sidebar, actualiza también
+       el selector en el JS al final de este archivo. -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ─── WRAPPER PRINCIPAL ─────────────────────────────────────────────
+       Contenedor flex que mantiene sidebar + main-content uno al lado
+       del otro en desktop, y apilados en mobile. -->
+  <div class="wrapper">
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SIDEBAR — Panel de navegación lateral fijo.
+         ═══════════════════════════════════════════════════════════════════
+         Contiene:
+           - Branding (logo + nombre del sistema)
+           - Menú de usuario (sidebar_menu block, definido por cada hijo)
+           - Separador
+           - Enlaces a los 7 módulos del sistema (M1–M7)
+           - Footer con toggle de tema oscuro y botón de cerrar sesión
+         ═══════════════════════════════════════════════════════════════ -->
     <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
-            <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>ULEAM</h5>
-            <small>Sistema de Gestión</small>
+      <!-- Branding -->
+      <div class="sidebar-brand">
+        <h5><i class="fas fa-graduation-cap"></i>ULEAM</h5>
+        <small>Sistema de Gestión Docente</small>
+      </div>
+
+      <!-- Navegación principal -->
+      <nav class="sidebar-nav">
+        {# Los templates hijos inyectan aquí sus enlaces específicos #}
+        {% block sidebar_menu %}{% endblock %}
+
+        <hr class="sidebar-divider">
+
+        {# ─── M1 · Catálogos ─────────────────────────────────────── #}
+        <div class="nav-item">
+          <a class="nav-link{% if active_section == 'modulo_catalogos' %} active{% endif %}"
+             href="{% url 'core:modulo_catalogos' %}">
+            <i class="fas fa-database"></i> M1 · Catálogos
+          </a>
         </div>
-        <nav class="sidebar-nav">
-            {% block sidebar_menu %}{% endblock %}
-            <hr class="mx-3 my-2" style="border-color:var(--sidebar-border);">
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_catalogos' %} active{% endif %}" href="{% url 'core:modulo_catalogos' %}"><i class="fas fa-database"></i> M1 · Catálogos</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_docentes' %} active{% endif %}" href="{% url 'core:modulo_docentes' %}"><i class="fas fa-chalkboard-teacher"></i> M2 · Docentes</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-shield-alt"></i> M3 · Seguridad</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_curriculo' %} active{% endif %}" href="{% url 'core:modulo_curriculo' %}"><i class="fas fa-book-open"></i> M4 · Currículo</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_planificacion' %} active{% endif %}" href="{% url 'core:modulo_planificacion' %}"><i class="fas fa-calendar-check"></i> M5 · Planificación</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_auditoria' %} active{% endif %}" href="{% url 'core:modulo_auditoria' %}"><i class="fas fa-history"></i> M6 · Auditoría</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_restricciones' %} active{% endif %}" href="{% url 'core:modulo_restricciones' %}"><i class="fas fa-exclamation-triangle"></i> M7 · Restricciones</a></div>
-        </nav>
-        <div class="sidebar-footer">
-            <button id="themeToggle" type="button">
-                <i class="fas fa-moon" id="themeIcon"></i>
-                <span id="themeLabel">Modo Oscuro</span>
-            </button>
-            <a href="{% url 'core:logout' %}"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a>
+
+        {# ─── M2 · Docentes ──────────────────────────────────────── #}
+        <div class="nav-item">
+          <a class="nav-link{% if active_section == 'modulo_docentes' %} active{% endif %}"
+             href="{% url 'core:modulo_docentes' %}">
+            <i class="fas fa-chalkboard-teacher"></i> M2 · Docentes
+          </a>
         </div>
+
+        {# ─── M3 · Seguridad ───────────────────────────────────── #}
+        <div class="nav-item">
+          <a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}"
+             href="{% url 'core:modulo_seguridad' %}">
+            <i class="fas fa-shield-alt"></i> M3 · Seguridad
+          </a>
+        </div>
+
+        {# ─── M4 · Currículo ────────────────────────────────────── #}
+        <div class="nav-item">
+          <a class="nav-link{% if active_section == 'modulo_curriculo' %} active{% endif %}"
+             href="{% url 'core:modulo_curriculo' %}">
+            <i class="fas fa-book-open"></i> M4 · Currículo
+          </a>
+        </div>
+
+        {# ─── M5 · Planificación ────────────────────────────────── #}
+        <div class="nav-item">
+          <a class="nav-link{% if active_section == 'modulo_planificacion' %} active{% endif %}"
+             href="{% url 'core:modulo_planificacion' %}">
+            <i class="fas fa-calendar-check"></i> M5 · Planificación
+          </a>
+        </div>
+
+        {# ─── M6 · Auditoría ───────────────────────────────────── #}
+        <div class="nav-item">
+          <a class="nav-link{% if active_section == 'modulo_auditoria' %} active{% endif %}"
+             href="{% url 'core:modulo_auditoria' %}">
+            <i class="fas fa-history"></i> M6 · Auditoría
+          </a>
+        </div>
+
+        {# ─── M7 · Restricciones ───────────────────────────────── #}
+        <div class="nav-item">
+          <a class="nav-link{% if active_section == 'modulo_restricciones' %} active{% endif %}"
+             href="{% url 'core:modulo_restricciones' %}">
+            <i class="fas fa-exclamation-triangle"></i> M7 · Restricciones
+          </a>
+        </div>
+      </nav>
+
+      <!-- Footer del sidebar: Tema oscuro + Cerrar sesión -->
+      <div class="sidebar-footer">
+        <button id="themeToggle" type="button">
+          <i class="fas fa-moon" id="themeIcon"></i>
+          <span id="themeLabel">Modo Oscuro</span>
+        </button>
+        <a href="{% url 'core:logout' %}">
+          <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+        </a>
+      </div>
     </aside>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         MAIN CONTENT — Área derecha (o única en mobile).
+         ═══════════════════════════════════════════════════════════════════
+         Incluye:
+           - Topbar sticky con hamburguesa (mobile) y avatar del usuario.
+           - Content area con mensajes flash y el bloque content.
+         ═══════════════════════════════════════════════════════════════ -->
     <div class="main-content">
-        <header class="topbar">
-            <button class="btn-collapse d-md-none" id="sidebarToggle" type="button">
-                <i class="fas fa-bars"></i>
-            </button>
-            <div class="topbar-user dropdown">
-                <button class="btn btn-light btn-sm dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
-                    <span class="avatar">{{ request.user.cedula|first|upper }}</span>
-                    <small>{{ request.user.cedula }}</small>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                    <li><a class="dropdown-item" href="{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}"><i class="fas fa-user me-2"></i>Mi Perfil</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión</a></li>
-                </ul>
-            </div>
-        </header>
-        <main class="content-area">
-            {% if messages %}
-                {% for msg in messages %}
-                    <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2" role="alert">
-                        <i class="fas fa-check-circle me-1"></i>{{ msg }}
-                        <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-            {% block content %}{% endblock %}
-        </main>
-    </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    document.getElementById('sidebarToggle')?.addEventListener('click', function(){
-        document.getElementById('sidebar').classList.toggle('show');
-        document.getElementById('sidebarOverlay').classList.toggle('show');
-    });
-    document.getElementById('sidebarOverlay')?.addEventListener('click', function(){
-        document.getElementById('sidebar').classList.remove('show');
-        document.getElementById('sidebarOverlay').classList.remove('show');
-    });
-    const t=document.getElementById('themeToggle'),h=document.documentElement,i=document.getElementById('themeIcon'),l=document.getElementById('themeLabel');
-    if(localStorage.getItem('theme')==='dark'){h.setAttribute('data-bs-theme','dark');i.className='fas fa-sun';l.textContent='Modo Claro';}
-    t?.addEventListener('click',function(){
-        const n=h.getAttribute('data-bs-theme')==='dark'?'light':'dark';
-        h.setAttribute('data-bs-theme',n);localStorage.setItem('theme',n);
-        i.className=n==='dark'?'fas fa-sun':'fas fa-moon';l.textContent=n==='dark'?'Modo Claro':'Modo Oscuro';
-    });
-</script>
-{% block extra_js %}{% endblock %}
+
+      <!-- Topbar -->
+      <header class="topbar">
+        {# Botón hamburguesa visible solo en mobile (<768px) #}
+        <button class="btn-collapse d-md-none" id="sidebarToggle" type="button"
+                aria-label="Abrir menú lateral">
+          <i class="fas fa-bars"></i>
+        </button>
+
+        {# Avatar + dropdown del usuario autenticado #}
+        <div class="topbar-user dropdown">
+          <button class="btn btn-light btn-sm dropdown-toggle d-flex align-items-center gap-2"
+                  data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="avatar">{{ request.user.cedula|first|upper }}</span>
+            <small class="d-none d-sm-inline">{{ request.user.cedula }}</small>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li>
+              <a class="dropdown-item" href="{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}">
+                <i class="fas fa-user me-2"></i>Mi Perfil
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item text-danger" href="{% url 'core:logout' %}">
+                <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+              </a>
+            </li>
+          </ul>
+        </div>
+      </header>
+
+      <!-- Contenido dinámico -->
+      <main class="content-area">
+        {# Mensajes flash (Django messages framework) #}
+        {% if messages %}
+          <div class="messages-container mb-3">
+            {% for msg in messages %}
+              <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2 animate-fade-in"
+                   role="alert">
+                <i class="fas fa-check-circle me-1"></i>{{ msg }}
+                <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {# Cada template hijo inyecta aquí su contenido principal #}
+        {% block content %}{% endblock %}
+      </main>
+
+    </div><!-- /.main-content -->
+  </div><!-- /.wrapper -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SCRIPTS (Bootstrap JS + Lógica del Layout)
+       ═══════════════════════════════════════════════════════════════════════
+       Se cargan al final del <body> para no bloquear la renderización. -->
+
+  <!-- Bootstrap 5.3 bundle (incluye Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Scripts del layout base: sidebar toggle y theme switcher -->
+  <script>
+    (function() {
+      'use strict';
+
+      /* ─── Sidebar toggle (mobile) ─────────────────────────────────────
+         Abre/cierra el sidebar y el overlay oscuro en pantallas pequeñas.
+         Punto de cambio: los IDs #sidebar y #sidebarOverlay deben coincidir
+         con los del HTML arriba. */
+      const sidebar      = document.getElementById('sidebar');
+      const overlay      = document.getElementById('sidebarOverlay');
+      const toggleBtn    = document.getElementById('sidebarToggle');
+
+      if (toggleBtn && sidebar && overlay) {
+        toggleBtn.addEventListener('click', function() {
+          sidebar.classList.toggle('show');
+          overlay.classList.toggle('show');
+        });
+
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('show');
+          overlay.classList.remove('show');
+        });
+      }
+
+      /* ─── Theme Switcher (oscuro / claro) ────────────────────────────
+         Persiste la preferencia en localStorage y actualiza el
+         atributo data-bs-theme del <html> y los íconos/labels.
+         Punto de cambio: si cambias la estructura del toggle button,
+         actualiza los selectores #themeToggle, #themeIcon, #themeLabel. */
+      const themeToggle = document.getElementById('themeToggle');
+      const htmlEl      = document.documentElement;
+      const themeIcon   = document.getElementById('themeIcon');
+      const themeLabel  = document.getElementById('themeLabel');
+
+      // Recuperar preferencia guardada al cargar la página
+      if (localStorage.getItem('theme') === 'dark') {
+        htmlEl.setAttribute('data-bs-theme', 'dark');
+        if (themeIcon)  themeIcon.className  = 'fas fa-sun';
+        if (themeLabel) themeLabel.textContent = 'Modo Claro';
+      }
+
+      // Alternar tema al hacer clic
+      if (themeToggle) {
+        themeToggle.addEventListener('click', function() {
+          const isDark = htmlEl.getAttribute('data-bs-theme') === 'dark';
+          const newTheme = isDark ? 'light' : 'dark';
+
+          htmlEl.setAttribute('data-bs-theme', newTheme);
+          localStorage.setItem('theme', newTheme);
+
+          if (themeIcon) {
+            themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+          }
+          if (themeLabel) {
+            themeLabel.textContent = newTheme === 'dark' ? 'Modo Claro' : 'Modo Oscuro';
+          }
+        });
+      }
+    })();
+  </script>
+
+  {# Bloque para scripts adicionales de cada módulo (ej. CRUD SPA) #}
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
