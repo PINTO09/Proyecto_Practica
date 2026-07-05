@@ -2,7 +2,10 @@ from django import forms
 from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 from .models import (
-    Docente, Titulo, Publicacion, DocenteTransaccional, Pais, TipoPublicacion, DocenteFcacc,
+    Docente, Titulo, Publicacion, DocenteTransaccional, Pais, TipoPublicacion,
+)
+from docentes.models import DocenteFcacc
+from catalogos.models import (
     CatalogoTipoDocente, CatalogoModalidadContratacion, CatalogoDedicacionHoraria,
 )
 

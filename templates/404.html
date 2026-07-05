@@ -1,0 +1,19 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Página no encontrada{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+  <div class="col-md-6 text-center py-5">
+    <div class="mb-4">
+      <i class="fas fa-map-signs text-warning" style="font-size:5rem;"></i>
+    </div>
+    <h1 class="display-4 fw-bold text-secondary">404</h1>
+    <p class="lead text-muted mb-4">La página que buscas no existe o fue movida.</p>
+    <a href="{% url 'core:dashboard' %}" class="btn btn-primary btn-lg px-4">
+      <i class="fas fa-home me-2"></i>Volver al inicio
+    </a>
+  </div>
+</div>
+{% endblock %}

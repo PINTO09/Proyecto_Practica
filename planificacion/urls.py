@@ -1,0 +1,32 @@
+from django.urls import path
+from . import views
+
+app_name = 'planificacion'
+
+urlpatterns = [
+    path('demanda/', views.PlanificacionDemandaAcademicaListView.as_view(), name='planificaciondemandaacademica_list'),
+    path('demanda/crear/', views.PlanificacionDemandaAcademicaCreateView.as_view(), name='planificaciondemandaacademica_create'),
+    path('demanda/<int:pk>/editar/', views.PlanificacionDemandaAcademicaUpdateView.as_view(), name='planificaciondemandaacademica_update'),
+    path('demanda/<int:pk>/eliminar/', views.PlanificacionDemandaAcademicaDeleteView.as_view(), name='planificaciondemandaacademica_delete'),
+    path('asignaciones/', views.PlanificacionAsignacionDocenteListView.as_view(), name='planificacionasignaciondocente_list'),
+    path('asignaciones/crear/', views.PlanificacionAsignacionDocenteCreateView.as_view(), name='planificacionasignaciondocente_create'),
+    path('asignaciones/<int:pk>/editar/', views.PlanificacionAsignacionDocenteUpdateView.as_view(), name='planificacionasignaciondocente_update'),
+    path('asignaciones/<int:pk>/eliminar/', views.PlanificacionAsignacionDocenteDeleteView.as_view(), name='planificacionasignaciondocente_delete'),
+    path('reparto/', views.PlanificacionRepartoHorasListView.as_view(), name='planificacionrepartohoras_list'),
+    path('reparto/crear/', views.PlanificacionRepartoHorasCreateView.as_view(), name='planificacionrepartohoras_create'),
+    path('reparto/<int:pk>/editar/', views.PlanificacionRepartoHorasUpdateView.as_view(), name='planificacionrepartohoras_update'),
+    path('reparto/<int:pk>/eliminar/', views.PlanificacionRepartoHorasDeleteView.as_view(), name='planificacionrepartohoras_delete'),
+    path('matriz-f4/', views.PlanificacionMatrizF4ListView.as_view(), name='planificacionmatrizf4_list'),
+    path('matriz-f4/crear/', views.PlanificacionMatrizF4CreateView.as_view(), name='planificacionmatrizf4_create'),
+    path('matriz-f4/<int:pk>/editar/', views.PlanificacionMatrizF4UpdateView.as_view(), name='planificacionmatrizf4_update'),
+    path('matriz-f4/<int:pk>/eliminar/', views.PlanificacionMatrizF4DeleteView.as_view(), name='planificacionmatrizf4_delete'),
+    path('aulas/', views.PlanificacionAulaHorarioListView.as_view(), name='planificacionaulahorario_list'),
+    path('aulas/crear/', views.PlanificacionAulaHorarioCreateView.as_view(), name='planificacionaulahorario_create'),
+    path('aulas/<int:pk>/editar/', views.PlanificacionAulaHorarioUpdateView.as_view(), name='planificacionaulahorario_update'),
+    path('aulas/<int:pk>/eliminar/', views.PlanificacionAulaHorarioDeleteView.as_view(), name='planificacionaulahorario_delete'),
+
+    path('horas-docentes/', views.reporte_horas_docentes, name='reporte_horas_docentes'),
+    path('asignacion-inteligente/', views.asignacion_inteligente, name='asignacion_inteligente'),
+    path('api/asignatura-info/', views.api_asignatura_info, name='api_asignatura_info'),
+    path('api/recommendations/', views.api_recommendations, name='api_recommendations'),
+]

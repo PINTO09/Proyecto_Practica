@@ -1,0 +1,16 @@
+from django.urls import path
+from . import views
+
+app_name = 'reportes'
+
+urlpatterns = [
+    path('carga-docente/', views.reporte_carga_docente, name='reporte_carga_docente'),
+    path('resumen-horas/', views.reporte_resumen_horas, name='reporte_resumen_horas'),
+    path('malla-curricular/', views.reporte_malla_curricular, name='reporte_malla_curricular'),
+    path('docentes-formacion/', views.reporte_docentes_formacion, name='reporte_docentes_formacion'),
+    path('docentes-campos/', views.reporte_docentes_campos, name='reporte_docentes_campos'),
+    path('exportar/carga-docente/', views.export_carga_docente_excel, name='export_carga_docente'),
+    path('exportar/malla/', views.export_malla_excel, name='export_malla'),
+    path('exportar/resumen-horas/', views.export_resumen_horas_excel, name='export_resumen_horas'),
+
+]

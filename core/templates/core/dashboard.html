@@ -14,268 +14,141 @@
 {% endif %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h4 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-primary"></i>Panel de Control Docente</h4>
-        <p class="text-muted mb-0 mt-1">¡Bienvenido, <strong>{{ docente.apellidos_nombres|default:request.user.cedula }}</strong>!</p>
-    </div>
-    <span class="text-muted small"><i class="far fa-calendar-alt me-1"></i>{% now "d/m/Y" %}</span>
+  <div>
+    <h4 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-primary"></i>Panel de Control</h4>
+    <p class="text-muted mb-0 mt-1">¡Bienvenido, <strong>{{ request.user.get_full_name|default:request.user.cedula }}</strong>!</p>
+  </div>
+  <span class="text-muted small"><i class="far fa-calendar-alt me-1"></i>{% now "d/m/Y" %}</span>
 </div>
 
-<div class="row g-4">
-    {% if periodo_activo %}
-    <div class="col-12">
-        <div class="alert alert-success py-2 mb-0"><i class="fas fa-check-circle me-1"></i>Período activo: <strong>{{ periodo_activo.nombre_periodo }}</strong></div>
-    </div>
-    {% endif %}
-
-    <!-- M1 · Catálogos -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Carreras</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_carreras_fcacc|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(13,110,253,0.1);"><i class="fas fa-university fs-3 text-primary"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Períodos</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_periodos_fcacc|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(255,193,7,0.1);"><i class="fas fa-calendar-alt fs-3 text-warning"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- M2 · Docentes -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Docentes</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_docentes_fcacc|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(13,110,253,0.1);"><i class="fas fa-users fs-3 text-primary"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Títulos</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_titulos|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(111,66,193,0.1);"><i class="fas fa-award fs-3 text-purple" style="color:#6f42c1;"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Publicaciones</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_publicaciones_fcacc|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(13,202,240,0.1);"><i class="fas fa-book fs-3 text-info"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Capacitaciones</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_cursos_capacitacion|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(25,135,84,0.1);"><i class="fas fa-chalkboard fs-3 text-success"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- M3 · Seguridad -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Usuarios</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_usuarios_sistema|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(220,53,69,0.1);"><i class="fas fa-users-cog fs-3 text-danger"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- M4 · Currículo -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Asignaturas</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_asignaturas|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(13,110,253,0.1);"><i class="fas fa-list-alt fs-3 text-primary"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- M5 · Planificación -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Asignaciones</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_asignaciones_docentes|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(255,193,7,0.1);"><i class="fas fa-tasks fs-3 text-warning"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Matriz F4</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_matriz_f4|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(111,66,193,0.1);"><i class="fas fa-table fs-3 text-purple" style="color:#6f42c1;"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- M6 + M7 -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Auditoría</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_auditoria|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(108,117,125,0.1);"><i class="fas fa-history fs-3 text-secondary"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-1">Limitaciones</p>
-                        <h2 class="fw-bold mb-0 display-5">{{ total_limitaciones|default:"0" }}</h2>
-                    </div>
-                    <div class="rounded-3 p-3" style="background:rgba(220,53,69,0.1);"><i class="fas fa-ban fs-3 text-danger"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{% if docente_fcacc or mis_asignaciones or mis_publicaciones %}
-<div class="row mt-4 g-4">
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0 fw-semibold"><i class="fas fa-user-check me-2 text-primary"></i>Mi información docente</h5>
-            </div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-5">Cédula</dt>
-                    <dd class="col-sm-7">{{ docente_fcacc.cedula_docente|default:request.user.cedula }}</dd>
-                    <dt class="col-sm-5">Nombres</dt>
-                    <dd class="col-sm-7">{{ docente_fcacc.nombres_completos|default:'Sin registro' }}</dd>
-                    <dt class="col-sm-5">Correo</dt>
-                    <dd class="col-sm-7">{{ docente_fcacc.correo_institucional|default:'Sin registro' }}</dd>
-                    <dt class="col-sm-5">Celular</dt>
-                    <dd class="col-sm-7">{{ docente_fcacc.numero_celular|default:'Sin registro' }}</dd>
-                    <dt class="col-sm-5">Estado</dt>
-                    <dd class="col-sm-7">{% if docente_fcacc.docente_activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</dd>
-                </dl>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0 fw-semibold"><i class="fas fa-book me-2 text-primary"></i>Mis publicaciones recientes</h5>
-            </div>
-            <div class="card-body">
-                {% if mis_publicaciones %}
-                <ul class="mb-0 ps-3">
-                    {% for pub in mis_publicaciones %}
-                    <li class="mb-2">{{ pub.nombre_publicacion }}{% if pub.fecha_publicacion %} <span class="text-muted small">({{ pub.fecha_publicacion }})</span>{% endif %}</li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted mb-0">Todavía no hay publicaciones registradas para este docente.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
+{% if periodo_activo %}
+<div class="alert alert-success py-2 mb-4">
+  <i class="fas fa-check-circle me-1"></i>Período activo: <strong>{{ periodo_activo.nombre_periodo }}</strong>
 </div>
 {% endif %}
 
-{% if db_ready and ultimos_docentes_fcacc %}
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0 fw-semibold"><i class="fas fa-clock me-2 text-primary"></i>Últimos Docentes</h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">Cédula</th>
-                                <th>Nombres</th>
-                                <th>Tipo</th>
-                                <th>Modalidad</th>
-                                <th class="pe-3">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for d in ultimos_docentes_fcacc %}
-                            <tr>
-                                <td class="ps-3 fw-medium">{{ d.cedula_docente }}</td>
-                                <td>{{ d.nombres_completos }}</td>
-                                <td>{{ d.id_tipo_docente }}</td>
-                                <td>{{ d.id_modalidad }}</td>
-                                <td class="pe-3">{% if d.docente_activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-3 col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #0d6efd;">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle p-3" style="background:rgba(13,110,253,0.1);"><i class="fas fa-university fs-4 text-primary"></i></div>
+        <div>
+          <p class="text-muted small text-uppercase fw-semibold mb-0">Carreras</p>
+          <h3 class="fw-bold mb-0">{{ total_carreras_fcacc|default:"0" }}</h3>
         </div>
+      </div>
     </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #0d6efd;">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle p-3" style="background:rgba(13,110,253,0.1);"><i class="fas fa-users fs-4 text-primary"></i></div>
+        <div>
+          <p class="text-muted small text-uppercase fw-semibold mb-0">Docentes</p>
+          <h3 class="fw-bold mb-0">{{ total_docentes_fcacc|default:"0" }}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #ffc107;">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle p-3" style="background:rgba(255,193,7,0.1);"><i class="fas fa-tasks fs-4 text-warning"></i></div>
+        <div>
+          <p class="text-muted small text-uppercase fw-semibold mb-0">Asignaciones</p>
+          <h3 class="fw-bold mb-0">{{ total_asignaciones_docentes|default:"0" }}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #198754;">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle p-3" style="background:rgba(25,135,84,0.1);"><i class="fas fa-calendar-alt fs-4 text-success"></i></div>
+        <div>
+          <p class="text-muted small text-uppercase fw-semibold mb-0">Períodos</p>
+          <h3 class="fw-bold mb-0">{{ total_periodos_fcacc|default:"0" }}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for mod in modulos_acceso %}
+  <div class="col-xl-3 col-lg-4 col-md-6">
+    <a href="{{ mod.url }}" class="text-decoration-none">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center py-4">
+          <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width:56px;height:56px;background:{{ mod.bg_color }};">
+            <i class="fas {{ mod.icono }} fs-4" style="color:{{ mod.color }};"></i>
+          </div>
+          <h6 class="fw-bold mb-1 text-dark">{{ mod.nombre }}</h6>
+          <p class="text-muted small mb-0">{{ mod.modelos_count }} modelos</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+{% if docente_fcacc or ultimos_docentes_fcacc %}
+<div class="row mt-4 g-4">
+  {% if docente_fcacc %}
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-semibold"><i class="fas fa-user-check me-2 text-primary"></i>Mi información</h5>
+        <span class="badge {% if docente_fcacc.docente_activo %}bg-success{% else %}bg-danger{% endif %}">{{ docente_fcacc.docente_activo|yesno:"Activo,Inactivo" }}</span>
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-4">Cédula</dt>
+          <dd class="col-sm-8">{{ docente_fcacc.cedula_docente|default:request.user.cedula }}</dd>
+          <dt class="col-sm-4">Nombres</dt>
+          <dd class="col-sm-8">{{ docente_fcacc.nombres_completos|default:'Sin registro' }}</dd>
+          <dt class="col-sm-4">Correo</dt>
+          <dd class="col-sm-8">{{ docente_fcacc.correo_institucional|default:'Sin registro' }}</dd>
+          <dt class="col-sm-4">Celular</dt>
+          <dd class="col-sm-8">{{ docente_fcacc.numero_celular|default:'Sin registro' }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if ultimos_docentes_fcacc %}
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-semibold"><i class="fas fa-clock me-2 text-primary"></i>Últimos docentes</h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Cédula</th>
+                <th>Nombres</th>
+                <th>Tipo</th>
+                <th class="pe-3">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in ultimos_docentes_fcacc %}
+              <tr>
+                <td class="ps-3 fw-medium">{{ d.cedula_docente }}</td>
+                <td>{{ d.nombres_completos }}</td>
+                <td>{{ d.id_tipo_docente|default:"—" }}</td>
+                <td class="pe-3">{% if d.docente_activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}

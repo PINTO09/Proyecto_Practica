@@ -1,12 +1,16 @@
 from django import template
-from core.models import (
-    Carrera, CatalogoPeriodoAcademico,
+from catalogos.models import CatalogoPeriodoAcademico
+from docentes.models import (
     DocenteFcacc, DocenteTituloAcademico,
     DocentePublicacionAcademica, DocenteCursoCapacitacion,
-    Usuario, CurriculoAsignatura,
-    PlanificacionAsignacionDocente, PlanificacionMatrizF4,
-    AuditoriaRegistroCambios, Limitacion,
 )
+from curriculo.models import CurriculoAsignatura
+from planificacion.models import (
+    PlanificacionAsignacionDocente, PlanificacionMatrizF4,
+)
+from auditoria.models import AuditoriaRegistroCambios
+from restricciones.models import Limitacion
+from core.models import Carrera, Usuario
 
 register = template.Library()
 

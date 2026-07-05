@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -5,16 +6,30 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import ProgrammingError, OperationalError
+from django.urls import reverse
+from django.apps import apps
+
 from .forms import LoginForm, UsuarioCreateForm, UsuarioEditForm, DocenteFcaccForm
 from .models import (
-    Docente, Carrera, Periodo, DocenteTransaccional, Titulo, Publicacion, Curso, CursoDocente,
-    CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoTipoDocente, CatalogoModalidadContratacion,
-    CatalogoDedicacionHoraria, DocenteFcacc, DocenteTituloAcademico,
-    DocentePublicacionAcademica, DocenteCursoCapacitacion, DocenteAsignacionCarreraPeriodo,
-    CurriculoAsignatura, PlanificacionAsignacionDocente, PlanificacionMatrizF4,
-    SeguridadUsuario, AuditoriaRegistroCambios, Limitacion,
+    Docente, DocenteTransaccional, Titulo, Publicacion, Curso,
 )
-from .decorators import (
+from catalogos.models import (
+    CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoTipoDocente,
+    CatalogoModalidadContratacion, CatalogoDedicacionHoraria,
+)
+from docentes.models import (
+    DocenteFcacc, DocenteTituloAcademico,
+    DocentePublicacionAcademica, DocenteCursoCapacitacion,
+    DocenteAsignacionCarreraPeriodo,
+)
+from curriculo.models import CurriculoAsignatura
+from planificacion.models import (
+    PlanificacionAsignacionDocente, PlanificacionMatrizF4,
+)
+from seguridad.models import SeguridadUsuario
+from auditoria.models import AuditoriaRegistroCambios
+from restricciones.models import Limitacion
+from accounts.decorators import (
     role_required, ROLES_ADMIN, ROLES_ADMIN_AUTORIDAD,
     ROLES_ADMIN_AUTORIDAD_COORDINADOR, ROLES_ESCRITURA,
     ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE,
@@ -42,19 +57,12 @@ def login_view(request):
             user = authenticate(request, cedula=cedula, password=password)
             if user is not None:
                 login(request, user)
-                # Estudiante → app de estudiantes (placeholder)
                 if user.groups.filter(name=ESTUDIANTE).exists():
-                    try:
-                        from django.urls import reverse
-                        return redirect('estudiantes:dashboard')
-                    except Exception:
-                        return redirect('core:dashboard')
-                # Superuser o roles docentes → core
+                    return redirect('core:dashboard')
                 if user.is_superuser or user.groups.filter(
                     name__in=[ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO]
                 ).exists():
                     return redirect('core:dashboard')
-                # Sin grupo valido
                 logout(request)
                 form.add_error(None, 'No tienes un rol asignado. Contacta al administrador.')
             else:
@@ -93,6 +101,29 @@ def dashboard_view(request):
             return {}
 
     context.update(db_stats())
+
+    modulos_acceso = []
+    slug_modulos = [
+        ('catalogos', 'Catálogos', 'fa-database', '#0d6efd', 'rgba(13,110,253,0.1)'),
+        ('docentes', 'Docentes', 'fa-chalkboard-teacher', '#0d6efd', 'rgba(13,110,253,0.1)'),
+        ('seguridad', 'Seguridad', 'fa-shield-alt', '#dc3545', 'rgba(220,53,69,0.1)'),
+        ('curriculo', 'Currículo', 'fa-book-open', '#6f42c1', 'rgba(111,66,193,0.1)'),
+        ('planificacion', 'Planificación', 'fa-calendar-check', '#ffc107', 'rgba(255,193,7,0.1)'),
+        ('auditoria', 'Auditoría', 'fa-history', '#6c757d', 'rgba(108,117,125,0.1)'),
+        ('restricciones', 'Restricciones', 'fa-exclamation-triangle', '#dc3545', 'rgba(220,53,69,0.1)'),
+    ]
+    for slug, nombre, icono, color, bg_color in slug_modulos:
+        info = MODULOS.get(slug)
+        if info:
+            modulos_acceso.append({
+                'nombre': nombre,
+                'icono': icono,
+                'color': color,
+                'bg_color': bg_color,
+                'url': reverse('core:modulo_' + slug),
+                'modelos_count': len(info['modelos']),
+            })
+    context['modulos_acceso'] = modulos_acceso
 
     docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if docente:
@@ -423,7 +454,6 @@ def usuario_editar_view(request, usuario_id):
 
 # ─── Módulos CRUD ───────────────────────────────────────────────────────────
 
-from django.urls import reverse
 from django.db import ProgrammingError, OperationalError
 
 MODULOS = {
@@ -444,6 +474,7 @@ MODULOS = {
             ('Tipo Curso Capacitación', 'CatalogoTipoCursoCapacitacion'),
             ('Períodos Académicos', 'CatalogoPeriodoAcademico'),
             ('Relación Carrera-Período', 'RelacionCarreraPeriodo'),
+            ('Límites Horarios', 'LimiteHorario'),
         ],
     },
     'docentes': {
@@ -509,8 +540,14 @@ MODULOS = {
 
 
 def _obtener_modelo(name):
-    import core.models as m
-    return getattr(m, name, None)
+    for app_config in apps.get_app_configs():
+        try:
+            model = app_config.get_model(name)
+            if model is not None:
+                return model
+        except LookupError:
+            continue
+    return None
 
 
 def _stats_modelo(model_class):
@@ -520,15 +557,14 @@ def _stats_modelo(model_class):
         return '—'
 
 
-def _build_admin_url(model_name, action='changelist'):
-    return reverse(f'admin:core_{model_name.lower()}_{action}')
-
-
-def _module_slug_for_model(model_name):
-    for slug, info in MODULOS.items():
-        if any(class_name == model_name for _, class_name in info['modelos']):
-            return slug
-    return None
+def _build_crud_url(model_name, action='list'):
+    for app_config in apps.get_app_configs():
+        try:
+            app_config.get_model(model_name)
+            return reverse(f'{app_config.label}:{model_name.lower()}_{action}')
+        except LookupError:
+            continue
+    return '#'
 
 
 @login_required
@@ -537,19 +573,19 @@ def modulo_view(request, slug):
     if not info:
         return redirect('core:dashboard')
 
-    from django.contrib.admin import site
     modelos_con_stats = []
     for label, class_name in info['modelos']:
         cls = _obtener_modelo(class_name)
         if cls is None:
             continue
+        list_url = _build_crud_url(class_name, 'list')
         modelos_con_stats.append({
             'label': label,
             'class_name': class_name,
             'count': _stats_modelo(cls),
-            'list_url': _build_admin_url(class_name, 'changelist'),
-            'add_url': _build_admin_url(class_name, 'add'),
-            'crud_url': reverse('core:crud_spa', args=[class_name]),
+            'list_url': list_url if list_url != '#' else '#',
+            'add_url': _build_crud_url(class_name, 'create'),
+            'crud_url': list_url if list_url != '#' else '#',
         })
 
     context = {
@@ -561,17 +597,31 @@ def modulo_view(request, slug):
     return render(request, 'core/modulo.html', context)
 
 
+# ——— API: Información genérica de modelo (para auto-fill) ——
+
 @login_required
-def crud_spa_view(request, model_name):
-    modelo_cls = _obtener_modelo(model_name)
-    if modelo_cls is None:
-        return redirect('core:dashboard')
-    modulo_slug = _module_slug_for_model(model_name)
-    context = {
-        'active_section': f'modulo_{modulo_slug}' if modulo_slug else 'dashboard',
-        'modulo_slug': modulo_slug,
-        'model_name': model_name,
-        'model_verbose_plural': getattr(modelo_cls._meta, 'verbose_name_plural', model_name),
-        'model_verbose': getattr(modelo_cls._meta, 'verbose_name', model_name),
-    }
-    return render(request, 'core/crud_spa.html', context)
+def api_modelo_info(request):
+    app_label = request.GET.get('app')
+    model_name = request.GET.get('model')
+    pk = request.GET.get('pk')
+    if not all([app_label, model_name, pk]):
+        return JsonResponse({'error': 'app, model y pk requeridos'}, status=400)
+    try:
+        Model = apps.get_model(app_label, model_name)
+        obj = Model.objects.get(pk=pk)
+    except (LookupError, Model.DoesNotExist):
+        return JsonResponse({'error': 'no encontrado'}, status=404)
+
+    data = {'pk': obj.pk, '__str__': str(obj)}
+    for f in Model._meta.get_fields():
+        if f.concrete and not f.auto_created and f.name != Model._meta.pk.name:
+            val = getattr(obj, f.name, None)
+            if f.is_relation:
+                data[f.name] = str(val) if val else ''
+                data[f.name + '_id'] = val.pk if val else None
+            elif hasattr(val, 'isoformat'):
+                data[f.name] = val.isoformat() if val else None
+            else:
+                data[f.name] = val
+    return JsonResponse(data)
+

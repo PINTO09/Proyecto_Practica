@@ -1,0 +1,164 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Horas por Docente - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="fas fa-clock me-2 text-primary"></i>Horas por Docente</h4>
+    <p class="text-muted mb-0 mt-1">Monitoreo de carga horaria de docentes activos</p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Total docentes</p>
+      <h3 class="fw-bold mb-0 text-primary">{{ total_docentes }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Sobrecargados (≥100%)</p>
+      <h3 class="fw-bold mb-0 text-danger">{{ sobrecargados }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">En alerta (80-99%)</p>
+      <h3 class="fw-bold mb-0 text-warning">{{ en_alerta }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Disponibles (&lt;80%)</p>
+      <h3 class="fw-bold mb-0 text-success">{{ disponibles }}</h3>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Buscar docente o cédula...">
+      </div>
+      <div class="col-md-3">
+        <select id="statusFilter" class="form-select form-select-sm">
+          <option value="">Todos los estados</option>
+          <option value="success">Disponible (&lt;80%)</option>
+          <option value="warning">Alerta (80-99%)</option>
+          <option value="danger">Sobrecargado (≥100%)</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select id="sortSelect" class="form-select form-select-sm">
+          <option value="nombre">Ordenar por nombre</option>
+          <option value="horas-desc">Más horas primero</option>
+          <option value="horas-asc">Menos horas primero</option>
+          <option value="pct-desc">Mayor % uso primero</option>
+          <option value="dedicacion">Por dedicación</option>
+        </select>
+      </div>
+      <div class="col-md-2 text-end">
+        <span class="text-muted small" id="resultCount">{{ rows|length }} docente(s)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="horasTable">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3 sortable" data-key="nombre">Docente</th>
+            <th class="sortable" data-key="cedula">Cédula</th>
+            <th class="sortable" data-key="dedicacion">Dedicación</th>
+            <th class="text-center sortable" data-key="horas-clase">Hrs Clase</th>
+            <th class="text-center sortable" data-key="horas-comp">Hrs Complementarias</th>
+            <th class="text-center sortable" data-key="total">Total</th>
+            <th class="text-center sortable" data-key="limite">Límite</th>
+            <th class="text-center pe-3 sortable" data-key="pct">Uso</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          {% for r in rows %}
+          <tr data-status="{{ r.status }}" data-nombre="{{ r.docente.nombres_completos|lower }}" data-cedula="{{ r.docente.cedula_docente }}" data-dedicacion="{{ r.docente.id_dedicacion.codigo_dedicacion|default:'' }}" data-horas="{{ r.total_horas }}" data-pct="{{ r.porcentaje }}">
+            <td class="ps-3 fw-semibold">{{ r.docente.nombres_completos }}</td>
+            <td>{{ r.docente.cedula_docente }}</td>
+            <td><span class="badge bg-secondary">{{ r.docente.id_dedicacion.codigo_dedicacion }}</span></td>
+            <td class="text-center">{{ r.horas_clase }}</td>
+            <td class="text-center">{{ r.horas_complementarias }}</td>
+            <td class="text-center fw-bold">{{ r.total_horas }}</td>
+            <td class="text-center">{{ r.max_horas }}</td>
+            <td class="text-center pe-3">
+              <div class="d-flex align-items-center gap-2 justify-content-end">
+                <div class="progress flex-grow-1" style="max-width:100px;height:8px;">
+                  <div class="progress-bar bg-{{ r.status }}" role="progressbar" style="width:{{ r.porcentaje }}%"></div>
+                </div>
+                <small class="text-{{ r.status }} fw-semibold" style="min-width:40px;">{{ r.porcentaje }}%</small>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center py-4 text-muted">No hay docentes activos</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const searchInput = document.getElementById('searchInput');
+  const statusFilter = document.getElementById('statusFilter');
+  const sortSelect = document.getElementById('sortSelect');
+  const tbody = document.getElementById('tableBody');
+  const resultCount = document.getElementById('resultCount');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+
+  function filterAndSort(){
+    const search = (searchInput.value || '').toLowerCase();
+    const status = statusFilter.value;
+    const sortKey = sortSelect.value;
+
+    const filtered = rows.filter(tr => {
+      if (status && tr.dataset.status !== status) return false;
+      if (search && !tr.dataset.nombre.includes(search) && !tr.dataset.cedula.includes(search)) return false;
+      return true;
+    });
+
+    if (sortKey === 'nombre') {
+      filtered.sort((a,b) => a.dataset.nombre.localeCompare(b.dataset.nombre));
+    } else if (sortKey === 'horas-desc') {
+      filtered.sort((a,b) => (parseFloat(b.dataset.horas)||0) - (parseFloat(a.dataset.horas)||0));
+    } else if (sortKey === 'horas-asc') {
+      filtered.sort((a,b) => (parseFloat(a.dataset.horas)||0) - (parseFloat(b.dataset.horas)||0));
+    } else if (sortKey === 'pct-desc') {
+      filtered.sort((a,b) => (parseFloat(b.dataset.pct)||0) - (parseFloat(a.dataset.pct)||0));
+    } else if (sortKey === 'dedicacion') {
+      filtered.sort((a,b) => a.dataset.dedicacion.localeCompare(b.dataset.dedicacion));
+    }
+
+    tbody.innerHTML = '';
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Sin resultados</td></tr>';
+    } else {
+      filtered.forEach(tr => tbody.appendChild(tr));
+    }
+    resultCount.textContent = filtered.length + ' docente(s)';
+  }
+
+  searchInput.addEventListener('input', filterAndSort);
+  statusFilter.addEventListener('change', filterAndSort);
+  sortSelect.addEventListener('change', filterAndSort);
+})();
+</script>
+{% endblock %}
