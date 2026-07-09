@@ -13,7 +13,27 @@
           <i class="fas fa-plus-circle me-2 text-primary"></i>Nueva Asignación Docente
         </h5>
 
-        <form method="post">
+        {% if existing_assignment %}
+        <div class="alert alert-warning d-flex align-items-center gap-2" role="alert" id="existingAlert">
+          <i class="fas fa-exclamation-triangle fs-5"></i>
+          <div>
+            <strong>Asignatura ya tiene docente(s).</strong>
+            Actualmente asignada a <strong>{{ existing_assignment.docente_label }}</strong>.
+            Si guarda con otro docente, se reemplazar&aacute; la asignaci&oacute;n actual.
+          </div>
+        </div>
+        {% endif %}
+
+        <div id="existingAssignmentWarning" class="alert alert-warning d-none align-items-center gap-2" role="alert">
+          <i class="fas fa-exclamation-triangle fs-5"></i>
+          <div>
+            <strong>Asignatura ya tiene docente.</strong>
+            Actualmente asignada a <strong id="existingTeacherName"></strong>.
+            Si guarda con otro docente, se reemplazar&aacute; la asignaci&oacute;n actual.
+          </div>
+        </div>
+
+        <form method="post" id="assignmentForm">
           {% csrf_token %}
           {% for field in form %}
           <div class="mb-3">
@@ -28,7 +48,7 @@
           </div>
           {% endfor %}
           <div class="d-flex gap-2 mt-4 pt-3 border-top">
-            <button type="submit" class="btn btn-primary px-4"><i class="fas fa-check me-1"></i>Guardar</button>
+            <button type="submit" class="btn btn-primary px-4" id="submitBtn"><i class="fas fa-check me-1"></i>Guardar</button>
             <a href="{% url list_url %}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Cancelar</a>
           </div>
         </form>
@@ -55,7 +75,7 @@
           </div>
           <div class="text-end">
             <span class="badge bg-{% if r.status == 'excelente' %}success{% elif r.status == 'bueno' %}warning{% else %}secondary{% endif %} me-2">{{ r.score }}pts</span>
-            <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="{{ r.id }}">
+            <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="{{ r.id }}" data-teacher-name="{{ r.docente.nombres_completos }}">
               <i class="fas fa-user-plus"></i>
             </button>
           </div>
@@ -79,6 +99,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const panel = document.getElementById('recommendationsPanel');
   const recList = document.getElementById('recommendationsList');
   const subjInfo = document.getElementById('selectedSubjectInfo');
+  const existingWarning = document.getElementById('existingAssignmentWarning');
+  const existingTeacherName = document.getElementById('existingTeacherName');
+  const assignmentForm = document.getElementById('assignmentForm');
+  var currentExistingId = null;
+  var currentExistingLabel = '';
 
   if (!subjectSelect) return;
 
@@ -94,6 +119,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (horasInput) horasInput.value = data.horas_clase;
         if (campoSelect && data.id_campo) campoSelect.value = data.id_campo;
         if (subjInfo) subjInfo.textContent = data.carrera_nombre + ' — Nivel ' + data.nivel_semestre_asignado;
+
+        if (data.existing_assignment) {
+          currentExistingId = data.existing_assignment.id_docente;
+          currentExistingLabel = data.existing_assignment.docente_label || data.existing_assignment.docente_nombre;
+          existingTeacherName.textContent = currentExistingLabel;
+          existingWarning.classList.remove('d-none');
+          existingWarning.classList.add('d-flex');
+        } else {
+          currentExistingId = null;
+          currentExistingLabel = '';
+          existingWarning.classList.add('d-none');
+          existingWarning.classList.remove('d-flex');
+        }
       })
       .catch(() => {});
 
@@ -118,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
   <div class="text-end">
     <span class="badge bg-${statusClass} me-2">${r.score}pts <small>(${r.available}h disp.)</small></span>
-    <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}">
+    <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}" data-teacher-name="${r.nombre}">
       <i class="fas fa-user-plus"></i>
     </button>
   </div>
@@ -139,11 +177,30 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSubject(subjId);
   });
 
+  assignmentForm.addEventListener('submit', function(e) {
+    if (currentExistingId) {
+      const docenteSelect = document.getElementById('id_id_docente');
+      const newDocenteId = docenteSelect ? docenteSelect.value : null;
+      if (newDocenteId && newDocenteId !== String(currentExistingId)) {
+        if (!confirm(currentExistingLabel + ' ya tiene esta asignatura.\n\u00bfDesea cambiar de docente?')) {
+          e.preventDefault();
+        }
+      }
+    }
+  });
+
   function attachSelectListeners() {
     document.querySelectorAll('.select-teacher').forEach(btn => {
       btn.addEventListener('click', function() {
         const docenteSelect = document.getElementById('id_id_docente');
-        if (docenteSelect) docenteSelect.value = this.dataset.teacherId;
+        if (docenteSelect) {
+          docenteSelect.value = this.dataset.teacherId;
+          if (currentExistingId && this.dataset.teacherId !== String(currentExistingId)) {
+            if (!confirm(currentExistingLabel + ' ya tiene esta asignatura.\n\u00bfDesea cambiar a ' + this.dataset.teacherName + '?')) {
+              docenteSelect.value = currentExistingId;
+            }
+          }
+        }
       });
     });
   }

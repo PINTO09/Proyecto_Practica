@@ -14,10 +14,10 @@
 
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-body">
-    <form method="get" class="row g-3 align-items-end">
+    <form method="get" class="row g-3 align-items-end" id="filterForm">
       <div class="col-auto">
         <label class="form-label small fw-semibold">Carrera</label>
-        <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+        <select name="carrera" class="form-select form-select-sm" id="filterCarrera" onchange="this.form.querySelector('[name=asignatura]').value='';this.form.submit()">
           <option value="">Todas las carreras</option>
           {% for c in carreras %}
           <option value="{{ c.id_carrera }}" {% if carrera_id == c.id_carrera %}selected{% endif %}>{{ c.nombre_carrera }}</option>
@@ -26,10 +26,10 @@
       </div>
       <div class="col-auto">
         <label class="form-label small fw-semibold">Asignatura</label>
-        <select name="asignatura" class="form-select form-select-sm" onchange="this.form.submit()">
+        <select name="asignatura" class="form-select form-select-sm" id="filterAsignatura" onchange="this.form.submit()">
           <option value="">Todas las asignaturas</option>
           {% for s in all_subjects %}
-          <option value="{{ s.id_asignatura }}" {% if subject_id == s.id_asignatura %}selected{% endif %}>{{ s.nombre_asignatura }}</option>
+          <option value="{{ s.id_asignatura }}"{% if subject_id == s.id_asignatura %}selected{% endif %}>{{ s.nombre_asignatura }}</option>
           {% endfor %}
         </select>
       </div>
@@ -60,7 +60,14 @@
           {{ sd.asignatura.id_carrera.nombre_carrera }} · Nivel {{ sd.asignatura.nivel_semestre }} · {{ sd.asignatura.horas_semanales_asignatura }}h/sem
         </small>
       </div>
-      <span class="badge bg-secondary">{{ sd.req_campos|length }} campo(s)</span>
+      <div class="d-flex align-items-center gap-2">
+        {% if sd.existing_assignment %}
+        <span class="badge bg-warning text-dark" title="Docente(s) actual(es)">
+          <i class="fas fa-user-check me-1"></i>{{ sd.existing_assignment.docente_label }}
+        </span>
+        {% endif %}
+        <span class="badge bg-secondary">{{ sd.recomendados|length }} recomendado(s)</span>
+      </div>
     </div>
   </div>
 
@@ -80,7 +87,7 @@
       </thead>
       <tbody>
         {% for r in sd.recomendados %}
-        <tr>
+        <tr class="{% if not r.reasons %}table-warning{% endif %}">
           <td class="ps-3 fw-semibold">{{ r.docente.nombres_completos }}</td>
           <td><span class="badge bg-secondary">{{ r.docente.id_dedicacion.codigo_dedicacion }}</span></td>
           <td class="text-center">
@@ -113,10 +120,24 @@
             {% endif %}
           </td>
           <td class="text-center pe-3">
-            <a href="{% url 'planificacion:planificacionasignaciondocente_create' %}?docente={{ r.id }}&asignatura={{ sd.asignatura.id_asignatura }}&carrera={{ sd.asignatura.id_carrera_id }}&nivel={{ sd.asignatura.nivel_semestre }}&horas={{ sd.asignatura.horas_semanales_asignatura }}"
-               class="btn btn-sm btn-primary">
+            {% if sd.existing_assignment %}
+            <button class="btn btn-sm btn-secondary" disabled title="Ya tiene docente asignado">
+              <i class="fas fa-lock me-1"></i>Asignado
+            </button>
+            {% else %}
+            <button type="button" class="btn btn-sm btn-primary btn-asignar"
+              data-docente="{{ r.id }}"
+              data-docente-nombre="{{ r.docente.nombres_completos }}"
+              data-asignatura="{{ sd.asignatura.id_asignatura }}"
+              data-asignatura-nombre="{{ sd.asignatura.nombre_asignatura }}"
+              data-carrera="{{ sd.asignatura.id_carrera_id }}"
+              data-nivel="{{ sd.asignatura.nivel_semestre }}"
+              data-horas="{{ sd.asignatura.horas_semanales_asignatura }}"
+              data-campo=""
+              data-sin-afinidad="{% if not r.reasons %}true{% else %}false{% endif %}">
               <i class="fas fa-user-plus me-1"></i>Asignar
-            </a>
+            </button>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -150,4 +171,188 @@
   </ul>
 </nav>
 {% endif %}
+
+<!-- Modal Asignación -->
+<div class="modal fade" id="asignacionModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:12px;">
+      <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#3f4644,#5b6461);border-radius:12px 12px 0 0;">
+        <div class="d-flex align-items-center gap-3 py-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:rgba(255,255,255,0.18);">
+            <i class="fas fa-user-plus text-white fs-5"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold text-white mb-0">Asignar Docente</h5>
+            <small class="text-white-50" id="modalSubtitle">Complete los datos de la asignación</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 pt-4 pb-2">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-chalkboard-teacher me-1 text-primary" style="width:16px;"></i>Docente</label>
+            <select class="form-select form-select-sm border-0 bg-light" id="modalIdDocente" style="border-radius:8px;">
+              {% for sd in subjects_data %}
+                {% for r in sd.recomendados %}
+                <option value="{{ r.id }}">{{ r.docente.nombres_completos }}</option>
+                {% endfor %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-book me-1 text-primary" style="width:16px;"></i>Asignatura</label>
+            <input type="text" class="form-control form-control-sm border-0 bg-light" id="modalAsignaturaNombre" readonly style="border-radius:8px;">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-university me-1 text-primary" style="width:16px;"></i>Carrera</label>
+            <select class="form-select form-select-sm border-0 bg-light" id="modalIdCarrera" style="border-radius:8px;"></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-layer-group me-1 text-primary" style="width:16px;"></i>Nivel</label>
+            <input type="number" class="form-control form-control-sm border-0 bg-light" id="modalNivel" readonly style="border-radius:8px;">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-users me-1 text-primary" style="width:16px;"></i>Paralelo</label>
+            <input type="text" class="form-control form-control-sm border-0 bg-light" id="modalParalelo" value="A" style="border-radius:8px;">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-tags me-1 text-primary" style="width:16px;"></i>Campo Conocimiento</label>
+            <select class="form-select form-select-sm border-0 bg-light" id="modalIdCampo" style="border-radius:8px;">
+              {% for c in campos %}
+              <option value="{{ c.id_campo }}">{{ c.codigo_campo }} — {{ c.nombre_campo_conocimiento|truncatechars:40 }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-clock me-1 text-primary" style="width:16px;"></i>Horas Clase</label>
+            <input type="number" class="form-control form-control-sm border-0 bg-light" id="modalHorasClase" readonly style="border-radius:8px;">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold text-secondary mb-1"><i class="fas fa-clock me-1 text-warning" style="width:16px;"></i>Hrs Complementarias</label>
+            <input type="number" class="form-control form-control-sm border-0 bg-light" id="modalHorasComplementarias" value="0" style="border-radius:8px;">
+          </div>
+        </div>
+        <div class="mt-3 p-3 rounded-3" id="modalAfinidadBox" style="background:#f8f9fa;border-left:4px solid #0d6efd;">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="modalSinAfinidad" disabled>
+            <label class="form-check-label small" for="modalSinAfinidad">
+              Sin afinidad de campo — las horas se marcarán como <strong>complementarias</strong>
+            </label>
+          </div>
+        </div>
+        <div id="modalError" class="alert alert-danger d-none mt-3 py-2 small"></div>
+      </div>
+      <div class="modal-footer border-0 px-4 pb-4 pt-2">
+        <button type="button" class="btn btn-sm px-3" data-bs-dismiss="modal" style="border-radius:8px;border:1px solid #dee2e6;color:#6c757d;">
+          <i class="fas fa-times me-1"></i>Cancelar
+        </button>
+        <button type="button" class="btn btn-sm px-4 text-white" id="modalGuardarBtn" style="border-radius:8px;background:linear-gradient(135deg,#3f4644,#5b6461);">
+          <i class="fas fa-check me-1"></i>Guardar Asignación
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = new bootstrap.Modal(document.getElementById('asignacionModal'));
+  let currentData = {};
+
+  // Load carreras into modal dropdown once
+  const carreraSelect = document.querySelector('select[name="carrera"]');
+  const modalCarrera = document.getElementById('modalIdCarrera');
+  if (carreraSelect) {
+    Array.from(carreraSelect.options).forEach(opt => {
+      if (opt.value) {
+        const clone = document.createElement('option');
+        clone.value = opt.value;
+        clone.textContent = opt.textContent;
+        modalCarrera.appendChild(clone);
+      }
+    });
+  }
+
+  document.querySelectorAll('.btn-asignar').forEach(btn => {
+    btn.addEventListener('click', function() {
+      currentData = {
+        docente: this.dataset.docente,
+        docenteNombre: this.dataset.docenteNombre,
+        asignatura: this.dataset.asignatura,
+        asignaturaNombre: this.dataset.asignaturaNombre,
+        carrera: this.dataset.carrera,
+        nivel: this.dataset.nivel,
+        horas: this.dataset.horas,
+        campo: this.dataset.campo,
+        sinAfinidad: this.dataset.sinAfinidad === 'true',
+      };
+
+      document.getElementById('modalAsignaturaNombre').value = currentData.asignaturaNombre;
+      document.getElementById('modalNivel').value = currentData.nivel;
+      document.getElementById('modalHorasClase').value = currentData.horas;
+      document.getElementById('modalHorasComplementarias').value = currentData.sinAfinidad ? currentData.horas : 0;
+      document.getElementById('modalSinAfinidad').checked = currentData.sinAfinidad;
+
+      // Pre-select docente in dropdown
+      const docenteSelect = document.getElementById('modalIdDocente');
+      if (docenteSelect) {
+        const opt = docenteSelect.querySelector(`option[value="${currentData.docente}"]`);
+        if (opt) opt.selected = true;
+      }
+
+      // Pre-select carrera
+      if (modalCarrera) modalCarrera.value = currentData.carrera;
+
+      document.getElementById('modalError').classList.add('d-none');
+      modal.show();
+    });
+  });
+
+  document.getElementById('modalGuardarBtn').addEventListener('click', function() {
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+    const errorDiv = document.getElementById('modalError');
+
+    const campoSelect = document.getElementById('modalIdCampo');
+    const payload = {
+      id_docente: parseInt(document.getElementById('modalIdDocente').value),
+      id_asignatura: parseInt(currentData.asignatura),
+      id_carrera: parseInt(document.getElementById('modalIdCarrera').value || currentData.carrera),
+      id_campo: parseInt(campoSelect ? campoSelect.value : currentData.campo) || null,
+      nivel_semestre_asignado: parseInt(document.getElementById('modalNivel').value),
+      paralelo_asignado: document.getElementById('modalParalelo').value || 'A',
+      horas_clase: parseInt(document.getElementById('modalHorasClase').value) || 0,
+      horas_complementarias: parseInt(document.getElementById('modalHorasComplementarias').value) || 0,
+    };
+
+    fetch('{% url "planificacion:api_crear_asignacion" %}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+      body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        modal.hide();
+        location.reload();
+      } else {
+        errorDiv.textContent = data.error || 'Error al crear la asignaci\u00f3n.';
+        errorDiv.classList.remove('d-none');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Guardar Asignación';
+      }
+    })
+    .catch(() => {
+      errorDiv.textContent = 'Error de conexi\u00f3n. Intente nuevamente.';
+      errorDiv.classList.remove('d-none');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check me-1"></i>Guardar Asignación';
+    });
+  });
+});
+</script>
 {% endblock %}

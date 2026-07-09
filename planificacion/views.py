@@ -1,8 +1,10 @@
-﻿from django.http import JsonResponse
+﻿import json
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.db.models import Sum, Q, Prefetch
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 from .models import PlanificacionDemandaAcademica, PlanificacionAsignacionDocente, PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario
 from docentes.models import DocenteFcacc, DocenteCampoAfinidad
@@ -96,6 +98,11 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
                 recommendations = _compute_teacher_scores(subj)
                 ctx['teacher_recommendations'] = recommendations[:10]
                 ctx['selected_subject'] = subj
+                from catalogos.models import CatalogoPeriodoAcademico
+                periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
+                existing = _get_existing_assignment(subj.id_asignatura, getattr(periodo_activo, 'id_periodo', None))
+                if existing:
+                    ctx['existing_assignment'] = existing
             except CurriculoAsignatura.DoesNotExist:
                 pass
         return ctx
@@ -214,6 +221,32 @@ def reporte_horas_docentes(request):
     return render(request, 'planificacion/reporte_horas_docentes.html', context)
 
 
+# ——— Helper: verificar si una asignatura ya tiene docente ————————
+
+def _get_existing_assignment(asignatura_id, periodo_id=None):
+    from catalogos.models import CatalogoPeriodoAcademico
+    if not periodo_id:
+        periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
+        if periodo_activo:
+            periodo_id = periodo_activo.id_periodo
+    if not periodo_id:
+        return None
+    asignaciones = PlanificacionAsignacionDocente.objects.select_related('id_docente').filter(
+        id_asignatura_id=asignatura_id, id_periodo_id=periodo_id
+    )
+    if not asignaciones.exists():
+        return None
+    docentes = list(set(
+        (a.id_docente_id, a.id_docente.nombres_completos) for a in asignaciones
+    ))
+    return {
+        'id_docente': docentes[0][0],
+        'docente_nombre': docentes[0][1],
+        'total_docentes': len(docentes),
+        'docente_label': docentes[0][1] if len(docentes) == 1 else f'{docentes[0][1]} (+{len(docentes)-1} m&aacute;s)',
+    }
+
+
 # ——— Scoring reutilizable: compatibilidad docente ↔ asignatura ————
 
 def _compute_teacher_scores(subject):
@@ -311,6 +344,7 @@ def _compute_teacher_scores(subject):
 @login_required
 def asignacion_inteligente(request):
     carrera_id = request.GET.get('carrera')
+    subject_id = request.GET.get('asignatura')
 
     from catalogos.models import CatalogoCarrera, CatalogoPeriodoAcademico
     carreras = CatalogoCarrera.objects.filter(carrera_activa=True)
@@ -319,8 +353,13 @@ def asignacion_inteligente(request):
     qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')
     if carrera_id:
         qs = qs.filter(id_carrera_id=carrera_id)
+    if subject_id:
+        qs = qs.filter(id_asignatura=subject_id)
 
-    all_subjects_for_select = list(qs.values('id_asignatura', 'nombre_asignatura'))
+    subj_qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nombre_asignatura')
+    if carrera_id:
+        subj_qs = subj_qs.filter(id_carrera_id=carrera_id)
+    all_subjects_for_select = list(subj_qs.values('id_asignatura', 'nombre_asignatura'))
 
     paginator = Paginator(qs, 10)
     page_number = request.GET.get('page')
@@ -329,16 +368,23 @@ def asignacion_inteligente(request):
     subjects_data = []
     for a in page_obj:
         recs = _compute_teacher_scores(a)
+        existing = _get_existing_assignment(a.id_asignatura, getattr(periodo_activo, 'id_periodo', None))
         subjects_data.append({
             'asignatura': a,
             'recomendados': recs[:5],
+            'existing_assignment': existing,
         })
+
+    from catalogos.models import CatalogoCampoConocimiento
+    campos = CatalogoCampoConocimiento.objects.values('id_campo', 'codigo_campo', 'nombre_campo_conocimiento').order_by('codigo_campo')
 
     context = {
         'active_section': 'asignacion_inteligente',
         'subjects_data': subjects_data,
         'carreras': carreras,
+        'campos': campos,
         'carrera_id': int(carrera_id) if carrera_id else None,
+        'subject_id': int(subject_id) if subject_id else None,
         'page_obj': page_obj,
         'paginator': paginator,
         'total_subjects': paginator.count,
@@ -358,6 +404,7 @@ def api_asignatura_info(request):
     try:
         subj = CurriculoAsignatura.objects.select_related('id_carrera').get(id_asignatura=asignatura_id)
         campo = CurriculoAsignaturaCampo.objects.filter(id_asignatura=subj).select_related('id_campo').first()
+        existing = _get_existing_assignment(subj.id_asignatura)
         data = {
             'id_asignatura': subj.id_asignatura,
             'id_carrera': subj.id_carrera_id,
@@ -366,6 +413,7 @@ def api_asignatura_info(request):
             'horas_clase': subj.horas_semanales_asignatura,
             'id_campo': campo.id_campo_id if campo else None,
             'campo_nombre': str(campo.id_campo) if campo else '',
+            'existing_assignment': existing,
         }
         return JsonResponse(data)
     except CurriculoAsignatura.DoesNotExist:
@@ -396,3 +444,85 @@ def api_recommendations(request):
         'status': r['status'],
     } for r in recs]
     return JsonResponse({'recomendados': data})
+
+
+@login_required
+def api_check_affinity(request):
+    asignatura_id = request.GET.get('asignatura')
+    docente_id = request.GET.get('docente')
+    if not asignatura_id or not docente_id:
+        return JsonResponse({'error': 'asignatura y docente requeridos'}, status=400)
+    subj_campos = set(CurriculoAsignaturaCampo.objects.filter(id_asignatura_id=asignatura_id).values_list('id_campo_id', flat=True))
+    doc_campos = set(DocenteCampoAfinidad.objects.filter(id_docente_id=docente_id).values_list('id_campo_id', flat=True))
+    has_affinity = bool(subj_campos & doc_campos)
+    return JsonResponse({'has_affinity': has_affinity})
+
+
+@login_required
+@csrf_exempt
+def api_crear_asignacion(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    docente_id = data.get('id_docente')
+    asignatura_id = data.get('id_asignatura')
+    carrera_id = data.get('id_carrera')
+    periodo_id = data.get('id_periodo')
+    campo_id = data.get('id_campo')
+    nivel = data.get('nivel_semestre_asignado')
+    paralelo = data.get('paralelo_asignado', 'A')
+    horas_clase = data.get('horas_clase', 0)
+    horas_comp = data.get('horas_complementarias', 0)
+
+    from catalogos.models import CatalogoPeriodoAcademico
+    if not periodo_id:
+        periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
+        periodo_id = periodo_activo.id_periodo if periodo_activo else None
+
+    if not campo_id:
+        campo_rel = CurriculoAsignaturaCampo.objects.filter(id_asignatura_id=asignatura_id).first()
+        if campo_rel:
+            campo_id = campo_rel.id_campo_id
+
+    if not campo_id:
+        return JsonResponse({'error': 'La asignatura no tiene un campo de conocimiento asociado. Seleccione uno manualmente.'}, status=400)
+
+    if not all([docente_id, asignatura_id, carrera_id, periodo_id]):
+        return JsonResponse({'error': 'Faltan campos obligatorios'}, status=400)
+
+    existing = list(PlanificacionAsignacionDocente.objects.filter(
+        id_asignatura_id=asignatura_id, id_periodo_id=periodo_id
+    ).select_related('id_docente'))
+    if existing:
+        return JsonResponse({
+            'error': 'Esta asignatura ya tiene un docente asignado en el per\u00edodo actual.',
+            'existing': [{'id': e.id_docente_id, 'nombre': e.id_docente.nombres_completos} for e in existing],
+        }, status=409)
+
+    from docentes.models import DocenteFcacc
+    asignacion = PlanificacionAsignacionDocente.objects.create(
+        id_docente_id=docente_id,
+        id_asignatura_id=asignatura_id,
+        id_carrera_id=carrera_id,
+        id_periodo_id=periodo_id,
+        id_campo_id=campo_id,
+        nivel_semestre_asignado=nivel or 0,
+        paralelo_asignado=paralelo or 'A',
+        horas_clase=horas_clase,
+        horas_complementarias=horas_comp,
+    )
+    from core.crud_base import _audit_log
+    try:
+        _audit_log(request, asignacion, 'INSERT')
+    except Exception:
+        pass
+
+    return JsonResponse({
+        'success': True,
+        'id_asignacion': asignacion.id_asignacion,
+        'message': 'Asignaci\u00f3n creada correctamente.',
+    })

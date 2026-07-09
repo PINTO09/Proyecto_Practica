@@ -29,4 +29,6 @@ urlpatterns = [
     path('asignacion-inteligente/', views.asignacion_inteligente, name='asignacion_inteligente'),
     path('api/asignatura-info/', views.api_asignatura_info, name='api_asignatura_info'),
     path('api/recommendations/', views.api_recommendations, name='api_recommendations'),
+    path('api/check-affinity/', views.api_check_affinity, name='api_check_affinity'),
+    path('api/crear-asignacion/', views.api_crear_asignacion, name='api_crear_asignacion'),
 ]
