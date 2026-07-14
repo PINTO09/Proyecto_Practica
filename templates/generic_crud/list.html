@@ -17,8 +17,9 @@
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body py-2">
     <form method="get" id="searchForm" class="row g-2 align-items-center">
-      <div class="col-md-5">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar..." value="{{ search_value }}" id="searchInput">
+      <div class="col-md-5 position-relative">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar..." value="{{ search_value }}" id="searchInput" aria-label="Buscar registros">
+        <div id="searchSpinner" class="spinner-border spinner-border-sm position-absolute end-0 top-50 translate-middle-y me-2 d-none" role="status"></div>
       </div>
       <div class="col-auto">
         <label class="small fw-semibold me-1 text-muted">Mostrar</label>
@@ -29,7 +30,7 @@
         </select>
       </div>
       <div class="col-auto">
-        <span class="text-muted small">{{ page_obj.paginator.count }} registro(s)</span>
+        <span class="text-muted small" id="recordCount">{{ page_obj.paginator.count }} registro(s)</span>
       </div>
     </form>
   </div>
@@ -52,23 +53,32 @@
             {% for f in fields %}
             <td class="ps-3">
               {% if f.is_relation %}
-                {{ obj|getattr:f.name }}
+                <span title="{{ obj|getattr:f.name }}">{{ obj|getattr:f.name|truncatechars:40 }}</span>
               {% elif f.name in bool_fields %}
                 {% if obj|getattr:f.name %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}
               {% elif f.name in date_fields %}
-                {{ obj|getattr:f.name|date:'d/m/Y'|default:'—' }}
+                <span title="{{ obj|getattr:f.name|date:'d/m/Y H:i'|default:'' }}">{{ obj|getattr:f.name|date:'d/m/Y'|default:'—' }}</span>
               {% else %}
-                {{ obj|getattr:f.name|default:'—'|truncatechars:50 }}
+                <span title="{{ obj|getattr:f.name|default:'' }}">{{ obj|getattr:f.name|default:'—'|truncatechars:50 }}</span>
               {% endif %}
             </td>
             {% endfor %}
-            <td class="pe-3 text-end">
-              <a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar"><i class="fas fa-pencil-alt"></i></a>
-              <a href="{% url delete_url pk=obj.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar"><i class="fas fa-trash-alt"></i></a>
+            <td class="pe-3 text-end text-nowrap">
+              <a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar {{ obj|truncatechars:30 }}" aria-label="Editar registro">
+                <i class="fas fa-pencil-alt"></i>
+              </a>
+              <a href="{% url delete_url pk=obj.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar {{ obj|truncatechars:30 }}" aria-label="Eliminar registro">
+                <i class="fas fa-trash-alt"></i>
+              </a>
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="{{ fields|length|add:1 }}" class="text-center py-4 text-muted">No hay registros</td></tr>
+          <tr>
+            <td colspan="{{ fields|length|add:1 }}" class="text-center py-4">
+              <div class="text-muted mb-2">No hay registros</div>
+              <a href="{% url create_url %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -78,17 +88,25 @@
 
 {% if is_paginated %}
 <nav class="mt-3">
-  <ul class="pagination pagination-sm justify-content-center mb-0">
-    {% if page_obj.has_previous %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
-    {% endif %}
-    {% for p in paginator.page_range %}
-    <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
-    {% endfor %}
-    {% if page_obj.has_next %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
-    {% endif %}
-  </ul>
+  <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+    <ul class="pagination pagination-sm mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
+      {% endif %}
+      {% for p in paginator.page_range %}
+      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
+      {% endif %}
+    </ul>
+    <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
+      <label class="small text-muted mb-0">Ir a:</label>
+      <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;" aria-label="Ir a página">
+      {% if search_value %}<input type="hidden" name="q" value="{{ search_value }}">{% endif %}
+      {% if cant %}<input type="hidden" name="cant" value="{{ cant }}">{% endif %}
+    </form>
+  </div>
 </nav>
 {% endif %}
 {% endblock %}
@@ -104,9 +122,12 @@ document.addEventListener('DOMContentLoaded', function() {
     searchInput.focus();
     searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
     let debounceTimer;
+    let currentValue = searchInput.value;
     searchInput.addEventListener('input', function() {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => searchForm.submit(), 150);
+      if (this.value === currentValue) return;
+      currentValue = this.value;
+      debounceTimer = setTimeout(() => searchForm.submit(), 350);
     });
   }
   if (cantSelect) {

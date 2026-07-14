@@ -391,7 +391,11 @@
             {% if messages %}
                 {% for msg in messages %}
                     <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2" role="alert">
-                        <i class="fas fa-check-circle me-1"></i>{{ msg }}
+                        {% if msg.tags == 'success' %}<i class="fas fa-check-circle me-1"></i>
+                        {% elif msg.tags == 'error' or msg.tags == 'danger' %}<i class="fas fa-exclamation-circle me-1"></i>
+                        {% elif msg.tags == 'warning' %}<i class="fas fa-exclamation-triangle me-1"></i>
+                        {% else %}<i class="fas fa-info-circle me-1"></i>
+                        {% endif %}{{ msg }}
                         <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}

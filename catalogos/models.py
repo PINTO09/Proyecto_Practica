@@ -205,7 +205,7 @@ class RelacionCarreraPeriodo(models.Model):
 
 class LimiteHorario(models.Model):
     id_limite = models.AutoField(primary_key=True)
-    id_dedicacion = models.ForeignKey(CatalogoDedicacionHoraria, on_delete=models.CASCADE, db_column='id_dedicacion')
+    id_modalidad = models.ForeignKey(CatalogoModalidadContratacion, on_delete=models.CASCADE, db_column='id_modalidad')
     horas_maximas = models.PositiveSmallIntegerField('Horas máximas de clase')
     horas_complementarias_maximas = models.PositiveSmallIntegerField('Horas complementarias máximas', default=0)
     activo = models.BooleanField(default=True)
@@ -215,7 +215,7 @@ class LimiteHorario(models.Model):
         db_table = 'limite_horario'
         verbose_name = 'Límite Horario'
         verbose_name_plural = 'M1 · Catálogos · Límites Horarios'
-        unique_together = (('id_dedicacion',),)
+        unique_together = (('id_modalidad',),)
 
     def __str__(self):
-        return f'{self.id_dedicacion} — {self.horas_maximas}h'
+        return f'{self.id_modalidad} — {self.horas_maximas}h'

@@ -25,9 +25,9 @@
   <div>
     <div class="fw-semibold mb-1">Asignaciones con límites parciales</div>
     <div class="small">
-      Faltan límites por dedicación para validar toda la carga:
-      {% for dedicacion in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      Faltan límites por modalidad para validar toda la carga:
+      {% for modalidad in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
       {% endfor %}
     </div>
   </div>

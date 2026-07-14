@@ -23,9 +23,9 @@
   <div>
     <div class="fw-semibold mb-1">Consolidado con límites parciales</div>
     <div class="small">
-      El consolidado ya carga en la app web, pero faltan límites por dedicación para interpretar mejor los porcentajes:
-      {% for dedicacion in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      El consolidado ya carga en la app web, pero faltan límites por modalidad para interpretar mejor los porcentajes:
+      {% for modalidad in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
       {% endfor %}
     </div>
   </div>

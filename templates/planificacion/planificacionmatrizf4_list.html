@@ -25,8 +25,8 @@
     <div class="fw-semibold mb-1">Faltan límites horarios por configurar</div>
     <div class="small">
       La Matriz F4 suma a la carga docente total. Aún faltan:
-      {% for dedicacion in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      {% for modalidad in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
       {% endfor %}
     </div>
   </div>

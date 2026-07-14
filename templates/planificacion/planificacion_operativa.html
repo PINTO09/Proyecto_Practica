@@ -25,8 +25,8 @@
     <div class="fw-semibold mb-1">Configuración pendiente para la planificación web</div>
     <div class="small">
       La vista operativa ya funciona localmente, pero para validar carga y disponibilidad faltan límites en:
-      {% for dedicacion in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      {% for modalidad in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
       {% endfor %}
     </div>
   </div>

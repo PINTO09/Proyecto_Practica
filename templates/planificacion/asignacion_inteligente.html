@@ -24,8 +24,8 @@
     <div class="fw-semibold mb-1">Recomendaciones con l&iacute;mites incompletos</div>
     <div class="small">
       Los puntajes de disponibilidad mejoran cuando cada dedicaci&oacute;n tiene su l&iacute;mite horario configurado.
-      {% for dedicacion in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      {% for modalidad in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
       {% endfor %}
     </div>
   </div>

@@ -28,8 +28,8 @@
 <div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
   <div class="small">
     Antes de guardar conviene configurar los límites horarios faltantes:
-    {% for dedicacion in limit_config.missing_dedicaciones %}
-    <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+    {% for modalidad in limit_config.missing_dedicaciones %}
+    <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
     {% endfor %}
   </div>
   <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
@@ -65,8 +65,8 @@
           {% endfor %}
           </div>
           <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
-            <button type="submit" class="btn btn-primary px-4"><i class="fas fa-check me-1"></i>Guardar</button>
-            <a href="{% url list_url %}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Cancelar</a>
+            <button type="submit" class="btn btn-primary px-4" id="submitBtn"><i class="fas fa-check me-1"></i>Guardar</button>
+            <a href="{% url list_url %}" class="btn btn-outline-secondary" id="cancelBtn"><i class="fas fa-times me-1"></i>Cancelar</a>
           </div>
         </form>
       </div>
@@ -107,6 +107,25 @@ document.addEventListener('DOMContentLoaded', function() {
   const form = document.querySelector('form');
   if (!form) return;
 
+  let formDirty = false;
+  form.addEventListener('change', () => { formDirty = true; });
+  form.addEventListener('input', () => { formDirty = true; });
+
+  const cancelBtn = document.getElementById('cancelBtn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function(e) {
+      if (formDirty && !confirm('Hay cambios sin guardar. ¿Salir de todas formas?')) e.preventDefault();
+    });
+  }
+
+  const submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    form.addEventListener('submit', function() {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+    });
+  }
+
   const nombreFields = {};
   const codigoFields = {};
 
@@ -134,10 +153,12 @@ document.addEventListener('DOMContentLoaded', function() {
   Object.entries(nombreFields).forEach(([nombreName, nombreEl]) => {
     const codigoEl = codigoFields[nombreName];
     nombreEl.addEventListener('input', function() {
+      if (codigoEl.value) return;
       const generated = generateCode(this.value);
       if (generated) codigoEl.value = generated;
     });
     nombreEl.addEventListener('change', function() {
+      if (codigoEl.value) return;
       const generated = generateCode(this.value);
       if (generated) codigoEl.value = generated;
     });
@@ -154,7 +175,10 @@ document.addEventListener('DOMContentLoaded', function() {
       fetch('{% url "core:api_modelo_info" %}?app=' + rule.app + '&model=' + rule.model + '&pk=' + pk)
         .then(r => r.json())
         .then(data => {
-          if (data.error) return;
+          if (data.error) {
+            console.warn('Auto-fill error:', data.error);
+            return;
+          }
           Object.entries(rule.fields).forEach(([targetField, attr]) => {
             const target = document.getElementById('id_' + targetField);
             if (target) {
@@ -164,7 +188,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           });
         })
-        .catch(() => {});
+        .catch(() => {
+          console.warn('Error de conexión en auto-fill');
+        });
     });
   });
   {% endif %}

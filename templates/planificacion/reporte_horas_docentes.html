@@ -23,9 +23,9 @@
   <div>
     <div class="fw-semibold mb-1">Faltan límites horarios por configurar</div>
     <div class="small">
-      La lógica de carga docente usa límites por dedicación. Aún no tienen configuración:
-      {% for dedicacion in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      La lógica de carga docente usa límites por modalidad. Aún no tienen configuración:
+      {% for modalidad in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
       {% endfor %}
     </div>
   </div>

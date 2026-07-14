@@ -12,7 +12,7 @@ from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDel
 from .models import PlanificacionDemandaAcademica, PlanificacionAsignacionDocente, PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario
 from docentes.models import DocenteFcacc, DocenteCampoAfinidad
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo, RelacionPosgradoCampo
-from catalogos.models import CatalogoCampoConocimiento, CatalogoDedicacionHoraria, LimiteHorario
+from catalogos.models import CatalogoCampoConocimiento, CatalogoDedicacionHoraria, CatalogoModalidadContratacion, LimiteHorario
 import re
 import unicodedata
 import warnings
@@ -204,28 +204,28 @@ def _build_docente_workload_map(periodo_id=None, carrera_id=None):
 
 
 def _get_limite_horario_docente(docente):
-    if not docente or not docente.id_dedicacion_id:
+    if not docente or not docente.id_modalidad_id:
         return None
     return LimiteHorario.objects.filter(
-        id_dedicacion_id=docente.id_dedicacion_id,
+        id_modalidad_id=docente.id_modalidad_id,
         activo=True,
     ).first()
 
 
 def _build_limit_config_state():
-    dedicaciones = list(CatalogoDedicacionHoraria.objects.order_by('id_dedicacion'))
+    modalidades = list(CatalogoModalidadContratacion.objects.order_by('id_modalidad'))
     activos = list(
         LimiteHorario.objects.filter(activo=True)
-        .select_related('id_dedicacion')
-        .order_by('id_dedicacion_id')
+        .select_related('id_modalidad')
+        .order_by('id_modalidad_id')
     )
-    configured_ids = {item.id_dedicacion_id for item in activos}
-    missing = [d for d in dedicaciones if d.id_dedicacion not in configured_ids]
+    configured_ids = {item.id_modalidad_id for item in activos}
+    missing = [m for m in modalidades if m.id_modalidad not in configured_ids]
     return {
         'has_limits': bool(activos),
-        'all_configured': not missing and bool(dedicaciones),
+        'all_configured': not missing and bool(modalidades),
         'configured_count': len(activos),
-        'dedicacion_count': len(dedicaciones),
+        'modalidad_count': len(modalidades),
         'missing_dedicaciones': missing,
     }
 
@@ -646,12 +646,12 @@ class PlanificacionAsignacionDocenteListView(LenientPaginationMixin, CrudListVie
             filtered_ids = []
             workload_map = _build_docente_workload_map(periodo_id=periodo_id)
             limites = {
-                limite.id_dedicacion_id: limite
-                for limite in LimiteHorario.objects.filter(activo=True).select_related('id_dedicacion')
+                limite.id_modalidad_id: limite
+                for limite in LimiteHorario.objects.filter(activo=True).select_related('id_modalidad')
             }
             for asignacion in qs:
                 workload = workload_map.get(asignacion.id_docente_id, {'total_horas': 0})
-                limite = limites.get(asignacion.id_docente.id_dedicacion_id)
+                limite = limites.get(asignacion.id_docente.id_modalidad_id)
                 max_total = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
                 pct = round((workload['total_horas'] / max_total) * 100, 1) if max_total > 0 else 0
                 row_status = 'sobrecargado' if pct >= 100 else 'alerta' if pct >= 80 else 'balanceado'
@@ -675,8 +675,8 @@ class PlanificacionAsignacionDocenteListView(LenientPaginationMixin, CrudListVie
         rows = list(ctx['object_list'])
         workload_map = _build_docente_workload_map(periodo_id=periodo_id)
         limites = {
-            limite.id_dedicacion_id: limite
-            for limite in LimiteHorario.objects.filter(activo=True).select_related('id_dedicacion')
+            limite.id_modalidad_id: limite
+            for limite in LimiteHorario.objects.filter(activo=True).select_related('id_modalidad')
         }
 
         for row in rows:
@@ -689,7 +689,7 @@ class PlanificacionAsignacionDocenteListView(LenientPaginationMixin, CrudListVie
                 'horas_actividad': 0,
                 'total_horas': 0,
             })
-            row.limite = limites.get(row.id_docente.id_dedicacion_id)
+            row.limite = limites.get(row.id_docente.id_modalidad_id)
             row.max_total = ((row.limite.horas_maximas or 0) + (row.limite.horas_complementarias_maximas or 0)) if row.limite else 0
             row.available = max(0, row.max_total - row.workload['total_horas'])
             row.percentage = round((row.workload['total_horas'] / row.max_total) * 100, 1) if row.max_total > 0 else 0
@@ -1077,9 +1077,9 @@ class PlanificacionAulaHorarioDeleteView(CrudDeleteView):
 def reporte_horas_docentes(request):
     periodo_id = request.GET.get('periodo')
 
-    docentes = DocenteFcacc.objects.filter(docente_activo=True).select_related('id_dedicacion')
+    docentes = DocenteFcacc.objects.filter(docente_activo=True).select_related('id_modalidad')
     workload_map = _build_docente_workload_map(periodo_id=periodo_id)
-    limites = {l.id_dedicacion_id: l for l in LimiteHorario.objects.filter(activo=True).select_related('id_dedicacion')}
+    limites = {l.id_modalidad_id: l for l in LimiteHorario.objects.filter(activo=True).select_related('id_modalidad')}
 
     rows = []
     for d in docentes:
@@ -1096,7 +1096,7 @@ def reporte_horas_docentes(request):
         h_act = docente_workload['horas_actividad']
         h_total = docente_workload['total_horas']
 
-        limite = limites.get(d.id_dedicacion_id)
+        limite = limites.get(d.id_modalidad_id)
         max_horas = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
         pct = round((h_total / max_horas) * 100, 1) if max_horas > 0 else 0
 
@@ -1223,7 +1223,7 @@ def _compute_teacher_scores(subject, periodo_id=None):
 
     # Teacher current hours, including F4 activities for the selected period
     workload_map = _build_docente_workload_map(periodo_id=periodo_id)
-    limites = {l.id_dedicacion_id: l for l in LimiteHorario.objects.filter(activo=True)}
+    limites = {l.id_modalidad_id: l for l in LimiteHorario.objects.filter(activo=True)}
 
     results = []
     for d in docentes:
@@ -1251,7 +1251,7 @@ def _compute_teacher_scores(subject, periodo_id=None):
             reasons.append('Experiencia previa')
 
         # 4. Available hours (+10)
-        limite = limites.get(d.id_dedicacion_id)
+        limite = limites.get(d.id_modalidad_id)
         max_h = (limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0) if limite else 0
         docente_workload = workload_map.get(d.id_docente, {
             'horas_clase': 0,
@@ -1632,7 +1632,7 @@ def planificacion_consolidada_docentes(request):
         f4_qs = f4_qs.filter(id_carrera_id=carrera_id)
 
     workload_map = _build_docente_workload_map(periodo_id=periodo_id, carrera_id=carrera_id)
-    limites = {l.id_dedicacion_id: l for l in LimiteHorario.objects.filter(activo=True).select_related('id_dedicacion')}
+    limites = {l.id_modalidad_id: l for l in LimiteHorario.objects.filter(activo=True).select_related('id_modalidad')}
 
     assignments_by_doc = {}
     for assignment in assignments_qs:
@@ -1661,7 +1661,7 @@ def planificacion_consolidada_docentes(request):
             'horas_actividad': 0,
             'total_horas': 0,
         })
-        limite = limites.get(docente.id_dedicacion_id)
+        limite = limites.get(docente.id_modalidad_id)
         max_total = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
         available = max(0, max_total - workload['total_horas'])
         pct = round((workload['total_horas'] / max_total) * 100, 1) if max_total > 0 else 0

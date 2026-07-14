@@ -24,9 +24,9 @@
 <div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
   <div class="small">
     Antes de asignar desde la web conviene configurar los l&iacute;mites horarios faltantes:
-    {% for dedicacion in limit_config.missing_dedicaciones %}
-    <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
-    {% endfor %}
+      {% for modalidad in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
+      {% endfor %}
   </div>
   <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
 </div>
@@ -78,7 +78,7 @@
           </div>
           <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
             <button type="submit" class="btn btn-primary px-4" id="submitBtn"><i class="fas fa-check me-1"></i>Guardar</button>
-            <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Cancelar</a>
+            <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary" id="cancelBtn"><i class="fas fa-times me-1"></i>Cancelar</a>
           </div>
         </form>
       </div>
@@ -227,24 +227,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         panel.style.display = '';
         recList.innerHTML = '';
+        const fragment = document.createDocumentFragment();
         recs.forEach(r => {
           const statusClass = r.status === 'excelente' ? 'success' : (r.status === 'bueno' ? 'warning' : 'secondary');
-          const reasons = (r.reasons || []).map(reason => `<span class="badge bg-info bg-opacity-10 text-info" style="font-size:10px;">${reason}</span>`).join(' ');
-          recList.innerHTML += `
-<div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
-  <div>
-    <div class="fw-semibold small">${r.nombre}</div>
-    <div class="d-flex gap-1 mt-1 flex-wrap">${reasons}</div>
-    <div class="text-muted small mt-1">${r.used}h usadas / ${r.available}h disponibles</div>
-  </div>
-  <div class="text-end">
-    <span class="badge bg-${statusClass} me-2">${r.score}pts</span>
-    <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}" data-teacher-name="${r.nombre}">
-      <i class="fas fa-user-plus"></i>
-    </button>
-  </div>
+          const div = document.createElement('div');
+          div.className = 'list-group-item d-flex justify-content-between align-items-center py-2 px-3';
+          div.innerHTML = `
+<div>
+  <div class="fw-semibold small"></div>
+  <div class="d-flex gap-1 mt-1 flex-wrap"></div>
+  <div class="text-muted small mt-1"></div>
+</div>
+<div class="text-end">
+  <span class="badge bg-${statusClass} me-2"></span>
+  <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}" data-teacher-name="">
+    <i class="fas fa-user-plus"></i>
+  </button>
 </div>`;
+          div.querySelector('.fw-semibold').textContent = r.nombre;
+          const reasonWrap = div.querySelector('.d-flex.gap-1');
+          (r.reasons || []).forEach(reason => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-info bg-opacity-10 text-info';
+            badge.style.fontSize = '10px';
+            badge.textContent = reason;
+            reasonWrap.appendChild(badge);
+          });
+          div.querySelector('.text-muted').textContent = `${r.used}h usadas / ${r.available}h disponibles`;
+          div.querySelector('.badge').textContent = `${r.score}pts`;
+          div.querySelector('.select-teacher').dataset.teacherName = r.nombre;
+          fragment.appendChild(div);
         });
+        recList.appendChild(fragment);
         attachSelectListeners();
       })
       .catch(() => {});
@@ -252,6 +266,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let currentSubjectId = subjectSelect.value;
   if (currentSubjectId) loadSubject(currentSubjectId);
+
+  let formDirty = false;
+  assignmentForm?.addEventListener('change', () => { formDirty = true; });
+  assignmentForm?.addEventListener('input', () => { formDirty = true; });
+  document.getElementById('cancelBtn')?.addEventListener('click', function(e) {
+    if (formDirty && !confirm('Hay cambios sin guardar. ¿Salir de todas formas?')) e.preventDefault();
+  });
+
   subjectSelect.addEventListener('change', function() {
     if (!this.value || this.value === currentSubjectId) return;
     currentSubjectId = this.value;
@@ -262,6 +284,9 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   assignmentForm?.addEventListener('submit', function(e) {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
     if (!currentExistingId) return;
     const docenteSelect = document.getElementById('id_id_docente');
     const newDocenteId = docenteSelect ? docenteSelect.value : null;
