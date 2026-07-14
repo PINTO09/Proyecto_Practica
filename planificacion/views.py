@@ -1,4 +1,5 @@
-﻿from django.http import JsonResponse
+﻿import json
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
 from django.db.models import Sum, Q, Prefetch, F, IntegerField, ExpressionWrapper
@@ -6,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.views.decorators.csrf import csrf_exempt
 from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 from .models import PlanificacionDemandaAcademica, PlanificacionAsignacionDocente, PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario
 from docentes.models import DocenteFcacc, DocenteCampoAfinidad
@@ -819,6 +821,11 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
                 recommendations = _compute_teacher_scores(subj)
                 ctx['teacher_recommendations'] = recommendations[:10]
                 ctx['selected_subject'] = subj
+                from catalogos.models import CatalogoPeriodoAcademico
+                periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
+                existing = _get_existing_assignment(subj.id_asignatura, getattr(periodo_activo, 'id_periodo', None))
+                if existing:
+                    ctx['existing_assignment'] = existing
             except CurriculoAsignatura.DoesNotExist:
                 pass
         return ctx
@@ -1143,62 +1150,36 @@ def validacion_excel_planificacion(request):
 
 
 @login_required
-def validacion_excel_planificacion_legacy(request):
-    from catalogos.models import CatalogoPeriodoAcademico
-
-    periodos = CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo')
-    periodo_activo = periodos.filter(periodo_activo=True).first()
-    periodo_id = request.GET.get('periodo')
-
-    if not periodo_id and periodo_activo:
-        periodo_id = str(periodo_activo.id_periodo)
-
-    selected_periodo_id = int(periodo_id) if periodo_id and str(periodo_id).isdigit() else None
-    rows, summary = _build_excel_global_validation(periodo_id=selected_periodo_id)
-    paginator, page_obj, page_rows = _paginate_items(request, rows, 20)
-
-    context = {
-        'active_section': 'validacion_excel_planificacion',
-        'periodos': periodos,
-        'periodo_id': selected_periodo_id,
-        'rows': page_rows,
-        'page_obj': page_obj,
-        'paginator': paginator,
-        'is_paginated': page_obj.has_other_pages(),
-        'filter_querystring': _filter_querystring(request),
-        'summary': summary,
-        'limit_config': _build_limit_config_state(),
-    }
-    return render(request, 'planificacion/validacion_excel.html', context)
-
-
-@login_required
 def sincronizar_excel_planificacion(request):
-    if request.method != 'POST':
-        return redirect('planificacion:validacion_excel')
+    return redirect('planificacion:planificacion_operativa')
 
-    output = StringIO()
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', UserWarning)
-            warnings.filterwarnings(
-                'ignore',
-                message=r'DateTimeField DocenteFcacc\.fecha_creacion_registro received a naive datetime.*',
-                category=RuntimeWarning,
-            )
-            call_command(
-                'import_planificacion_excel',
-                sync_asignaciones=True,
-                stdout=output,
-            )
-    except CommandError as exc:
-        messages.error(request, f'No se pudo sincronizar el Excel: {exc}')
-    except Exception as exc:
-        messages.error(request, f'Ocurrio un error al sincronizar el Excel: {exc}')
-    else:
-        messages.success(request, 'Excel sincronizado correctamente. La validacion se actualizo con los datos locales.')
 
-    return redirect('planificacion:validacion_excel')
+def _get_existing_assignment(asignatura_id, periodo_id=None):
+    from catalogos.models import CatalogoPeriodoAcademico
+    if not periodo_id:
+        periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
+        if periodo_activo:
+            periodo_id = periodo_activo.id_periodo
+    if not periodo_id:
+        return None
+
+    asignaciones = PlanificacionAsignacionDocente.objects.select_related('id_docente').filter(
+        id_asignatura_id=asignatura_id,
+        id_periodo_id=periodo_id,
+    )
+    if not asignaciones.exists():
+        return None
+
+    docentes = sorted({
+        (asignacion.id_docente_id, asignacion.id_docente.nombres_completos)
+        for asignacion in asignaciones
+    }, key=lambda item: item[1])
+    return {
+        'id_docente': docentes[0][0],
+        'docente_nombre': docentes[0][1],
+        'total_docentes': len(docentes),
+        'docente_label': docentes[0][1] if len(docentes) == 1 else f'{docentes[0][1]} (+{len(docentes) - 1} mas)',
+    }
 
 
 # ——— Scoring reutilizable: compatibilidad docente ↔ asignatura ————
@@ -1322,10 +1303,13 @@ def asignacion_inteligente(request):
     qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')
     if carrera_id:
         qs = qs.filter(id_carrera_id=carrera_id)
-
-    all_subjects_for_select = list(qs.values('id_asignatura', 'nombre_asignatura'))
     if subject_id:
         qs = qs.filter(id_asignatura=subject_id)
+
+    subj_qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nombre_asignatura')
+    if carrera_id:
+        subj_qs = subj_qs.filter(id_carrera_id=carrera_id)
+    all_subjects_for_select = list(subj_qs.values('id_asignatura', 'nombre_asignatura'))
 
     paginator = Paginator(qs, 10)
     page_number = request.GET.get('page')
@@ -1335,17 +1319,23 @@ def asignacion_inteligente(request):
     for a in page_obj:
         req_campos = list(CurriculoAsignaturaCampo.objects.filter(id_asignatura=a).select_related('id_campo'))
         recs = _compute_teacher_scores(a, periodo_id=periodo_id)
+        existing = _get_existing_assignment(a.id_asignatura, periodo_id)
         subjects_data.append({
             'asignatura': a,
             'req_campos': req_campos,
             'recomendados': recs[:5],
+            'existing_assignment': existing,
         })
+
+    from catalogos.models import CatalogoCampoConocimiento
+    campos = CatalogoCampoConocimiento.objects.values('id_campo', 'codigo_campo', 'nombre_campo_conocimiento').order_by('codigo_campo')
 
     context = {
         'active_section': 'asignacion_inteligente',
         'subjects_data': subjects_data,
         'limit_config': _build_limit_config_state(),
         'carreras': carreras,
+        'campos': campos,
         'carrera_id': int(carrera_id) if carrera_id else None,
         'subject_id': int(subject_id) if subject_id else None,
         'periodo_id': int(periodo_id) if periodo_id else None,
@@ -1743,6 +1733,7 @@ def api_asignatura_info(request):
     try:
         subj = CurriculoAsignatura.objects.select_related('id_carrera').get(id_asignatura=asignatura_id)
         campo = CurriculoAsignaturaCampo.objects.filter(id_asignatura=subj).select_related('id_campo').first()
+        existing = _get_existing_assignment(subj.id_asignatura)
         data = {
             'id_asignatura': subj.id_asignatura,
             'id_carrera': subj.id_carrera_id,
@@ -1751,6 +1742,7 @@ def api_asignatura_info(request):
             'horas_clase': subj.horas_semanales_asignatura,
             'id_campo': campo.id_campo_id if campo else None,
             'campo_nombre': str(campo.id_campo) if campo else '',
+            'existing_assignment': existing,
         }
         return JsonResponse(data)
     except CurriculoAsignatura.DoesNotExist:
@@ -1787,18 +1779,15 @@ def api_recommendations(request):
     } for r in recs]
     return JsonResponse({'recomendados': data})
 
+
 @login_required
 def api_validar_horas_disponibles(request):
-    """
-    API complementaria para que tu interfaz web consulte las horas 
-    ocupadas y disponibles del docente de forma asíncrona.
-    """
     docente_id = request.GET.get('id_docente')
     periodo_id = request.GET.get('id_periodo')
-    
+
     if not docente_id or not periodo_id:
         return JsonResponse({'error': 'Parámetros insuficientes'}, status=400)
-        
+
     try:
         docente = DocenteFcacc.objects.select_related('id_dedicacion').get(id_docente=docente_id)
     except DocenteFcacc.DoesNotExist:
@@ -1824,4 +1813,106 @@ def api_validar_horas_disponibles(request):
         'limite_total': snapshot['max_total'],
         'limite_horas_clase': snapshot['max_clase'],
         'limite_horas_complementarias': snapshot['max_comp'],
+    })
+
+
+@login_required
+def api_check_affinity(request):
+    asignatura_id = request.GET.get('asignatura')
+    docente_id = request.GET.get('docente')
+    if not asignatura_id or not docente_id:
+        return JsonResponse({'error': 'asignatura y docente requeridos'}, status=400)
+    subj_campos = set(CurriculoAsignaturaCampo.objects.filter(id_asignatura_id=asignatura_id).values_list('id_campo_id', flat=True))
+    doc_campos = set(DocenteCampoAfinidad.objects.filter(id_docente_id=docente_id).values_list('id_campo_id', flat=True))
+    has_affinity = bool(subj_campos & doc_campos)
+    return JsonResponse({'has_affinity': has_affinity})
+
+
+@login_required
+@csrf_exempt
+def api_crear_asignacion(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    docente_id = data.get('id_docente')
+    asignatura_id = data.get('id_asignatura')
+    carrera_id = data.get('id_carrera')
+    periodo_id = data.get('id_periodo')
+    campo_id = data.get('id_campo')
+    nivel = data.get('nivel_semestre_asignado')
+    paralelo = data.get('paralelo_asignado', 'A')
+    horas_clase = data.get('horas_clase', 0)
+    horas_comp = data.get('horas_complementarias', 0)
+
+    from catalogos.models import CatalogoPeriodoAcademico
+    if not periodo_id:
+        periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
+        periodo_id = periodo_activo.id_periodo if periodo_activo else None
+
+    if not campo_id:
+        campo_rel = CurriculoAsignaturaCampo.objects.filter(id_asignatura_id=asignatura_id).first()
+        if campo_rel:
+            campo_id = campo_rel.id_campo_id
+
+    if not campo_id:
+        return JsonResponse({'error': 'La asignatura no tiene un campo de conocimiento asociado. Seleccione uno manualmente.'}, status=400)
+
+    if not all([docente_id, asignatura_id, carrera_id, periodo_id]):
+        return JsonResponse({'error': 'Faltan campos obligatorios'}, status=400)
+
+    try:
+        docente = DocenteFcacc.objects.select_related('id_dedicacion').get(id_docente=docente_id)
+    except DocenteFcacc.DoesNotExist:
+        return JsonResponse({'error': 'Docente no encontrado'}, status=404)
+
+    existing = list(PlanificacionAsignacionDocente.objects.filter(
+        id_asignatura_id=asignatura_id,
+        id_periodo_id=periodo_id,
+    ).select_related('id_docente'))
+    if existing:
+        return JsonResponse({
+            'error': 'Esta asignatura ya tiene un docente asignado en el período actual.',
+            'existing': [{'id': e.id_docente_id, 'nombre': e.id_docente.nombres_completos} for e in existing],
+        }, status=409)
+
+    snapshot = _build_asignacion_limit_snapshot(
+        docente=docente,
+        periodo=periodo_id,
+        horas_clase_nuevas=horas_clase,
+        horas_comp_nuevas=horas_comp,
+    )
+    if snapshot.get('error'):
+        return JsonResponse({'error': snapshot['error']}, status=400)
+    if snapshot['clase_total'] > snapshot['max_clase']:
+        return JsonResponse({'error': f'Se excede el límite de horas clase: {snapshot["clase_total"]}/{snapshot["max_clase"]}.'}, status=400)
+    if snapshot['comp_total'] > snapshot['max_comp']:
+        return JsonResponse({'error': f'Se excede el límite de horas complementarias: {snapshot["comp_total"]}/{snapshot["max_comp"]}.'}, status=400)
+    if snapshot['total_general'] > snapshot['max_total']:
+        return JsonResponse({'error': f'Se excede el límite total: {snapshot["total_general"]}/{snapshot["max_total"]}.'}, status=400)
+
+    asignacion = PlanificacionAsignacionDocente.objects.create(
+        id_docente_id=docente_id,
+        id_asignatura_id=asignatura_id,
+        id_carrera_id=carrera_id,
+        id_periodo_id=periodo_id,
+        id_campo_id=campo_id,
+        nivel_semestre_asignado=nivel or 0,
+        paralelo_asignado=paralelo or 'A',
+        horas_clase=horas_clase,
+        horas_complementarias=horas_comp,
+    )
+    try:
+        from core.crud_base import _audit_log
+        _audit_log(request, asignacion, 'INSERT')
+    except Exception:
+        pass
+
+    return JsonResponse({
+        'success': True,
+        'id_asignacion': asignacion.id_asignacion,
+        'message': 'Asignación creada correctamente.',
     })

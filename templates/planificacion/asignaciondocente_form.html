@@ -1,16 +1,16 @@
 {% extends 'core/base_dashboard.html' %}
 {% load static %}
 
-{% block title %}{{ form_title|default:'Asignación docente' }} - ULEAM{% endblock %}
+{% block title %}{{ form_title|default:'Asignaci&oacute;n docente' }} - ULEAM{% endblock %}
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h4 class="fw-bold mb-0">
-      <i class="fas {% if object %}fa-pen{% else %}fa-user-plus{% endif %} me-2 text-primary"></i>{{ form_title|default:'Asignación docente' }}
+      <i class="fas {% if object %}fa-pen{% else %}fa-user-plus{% endif %} me-2 text-primary"></i>{{ form_title|default:'Asignaci&oacute;n docente' }}
     </h4>
-    <p class="text-muted mb-0 mt-1">{{ form_subtitle|default:'Gestiona la asignación de docentes a paralelos.' }}</p>
+    <p class="text-muted mb-0 mt-1">{{ form_subtitle|default:'Gestiona la asignaci&oacute;n de docentes a paralelos.' }}</p>
   </div>
   <div class="d-flex gap-2">
     <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
@@ -23,7 +23,7 @@
 {% if limit_config.missing_dedicaciones %}
 <div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
   <div class="small">
-    Antes de asignar desde la web conviene configurar los límites horarios faltantes:
+    Antes de asignar desde la web conviene configurar los l&iacute;mites horarios faltantes:
     {% for dedicacion in limit_config.missing_dedicaciones %}
     <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
     {% endfor %}
@@ -36,10 +36,28 @@
   <div class="col-xl-8">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white py-3">
-        <h6 class="fw-bold mb-0"><i class="fas fa-clipboard-check me-2 text-primary"></i>Datos de la asignación</h6>
+        <h6 class="fw-bold mb-0"><i class="fas fa-clipboard-check me-2 text-primary"></i>Datos de la asignaci&oacute;n</h6>
       </div>
       <div class="card-body p-4">
-        <form method="post">
+        {% if existing_assignment %}
+        <div class="alert alert-warning d-flex align-items-center gap-2" role="alert" id="existingAlert">
+          <i class="fas fa-exclamation-triangle fs-5"></i>
+          <div>
+            <strong>Asignatura ya tiene docente.</strong>
+            Actualmente asignada a <strong>{{ existing_assignment.docente_label }}</strong>.
+          </div>
+        </div>
+        {% endif %}
+
+        <div id="existingAssignmentWarning" class="alert alert-warning d-none align-items-center gap-2" role="alert">
+          <i class="fas fa-exclamation-triangle fs-5"></i>
+          <div>
+            <strong>Asignatura ya tiene docente.</strong>
+            Actualmente asignada a <strong id="existingTeacherName"></strong>.
+          </div>
+        </div>
+
+        <form method="post" id="assignmentForm">
           {% csrf_token %}
           {% if form.non_field_errors %}
           <div class="alert alert-danger">{{ form.non_field_errors }}</div>
@@ -59,7 +77,7 @@
             {% endfor %}
           </div>
           <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
-            <button type="submit" class="btn btn-primary px-4"><i class="fas fa-check me-1"></i>Guardar</button>
+            <button type="submit" class="btn btn-primary px-4" id="submitBtn"><i class="fas fa-check me-1"></i>Guardar</button>
             <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Cancelar</a>
           </div>
         </form>
@@ -75,7 +93,7 @@
       </div>
       <div class="card-body">
         <div class="fw-semibold">{{ load_summary.docente.nombres_completos }}</div>
-        <div class="text-muted small mb-3">{{ load_summary.docente.id_dedicacion.codigo_dedicacion|default:'Sin dedicación' }}</div>
+        <div class="text-muted small mb-3">{{ load_summary.docente.id_dedicacion.codigo_dedicacion|default:'Sin dedicaci&oacute;n' }}</div>
         <div class="d-flex align-items-center gap-2 mb-2">
           <div class="progress flex-grow-1" style="height:8px;">
             <div class="progress-bar bg-{{ load_summary.badge }}" style="width:{{ load_summary.percentage }}%"></div>
@@ -109,9 +127,12 @@
             </div>
             <div class="text-muted small mt-1">{{ r.used }}h usadas / {{ r.available }}h disponibles</div>
           </div>
-          <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="{{ r.id }}">
-            <i class="fas fa-user-plus"></i>
-          </button>
+          <div class="text-end">
+            <span class="badge bg-{% if r.status == 'excelente' %}success{% elif r.status == 'bueno' %}warning{% else %}secondary{% endif %} me-2">{{ r.score }}pts</span>
+            <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="{{ r.id }}" data-teacher-name="{{ r.docente.nombres_completos }}">
+              <i class="fas fa-user-plus"></i>
+            </button>
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -132,6 +153,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const panel = document.getElementById('recommendationsPanel');
   const recList = document.getElementById('recommendationsList');
   const subjInfo = document.getElementById('selectedSubjectInfo');
+  const existingWarning = document.getElementById('existingAssignmentWarning');
+  const existingTeacherName = document.getElementById('existingTeacherName');
+  const assignmentForm = document.getElementById('assignmentForm');
+  let currentExistingId = null;
+  let currentExistingLabel = '';
 
   if (!subjectSelect) return;
 
@@ -139,13 +165,39 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.select-teacher').forEach(btn => {
       btn.addEventListener('click', function() {
         const docenteSelect = document.getElementById('id_id_docente');
-        if (docenteSelect) docenteSelect.value = this.dataset.teacherId;
+        if (!docenteSelect) return;
+        const selectedId = this.dataset.teacherId;
+        if (currentExistingId && selectedId !== String(currentExistingId)) {
+          const ok = confirm(currentExistingLabel + ' ya tiene esta asignatura. ¿Desea cambiar a ' + (this.dataset.teacherName || 'este docente') + '?');
+          if (!ok) return;
+        }
+        docenteSelect.value = selectedId;
       });
     });
   }
 
+  function updateExistingWarning(existing) {
+    if (!existingWarning || !existingTeacherName) return;
+    if (existing) {
+      currentExistingId = existing.id_docente;
+      currentExistingLabel = existing.docente_label || existing.docente_nombre;
+      existingTeacherName.textContent = currentExistingLabel;
+      existingWarning.classList.remove('d-none');
+      existingWarning.classList.add('d-flex');
+    } else {
+      currentExistingId = null;
+      currentExistingLabel = '';
+      existingWarning.classList.add('d-none');
+      existingWarning.classList.remove('d-flex');
+    }
+  }
+
   function loadSubject(subjId) {
-    if (!subjId) { if (panel) panel.style.display = 'none'; return; }
+    if (!subjId) {
+      if (panel) panel.style.display = 'none';
+      updateExistingWarning(null);
+      return;
+    }
 
     fetch('{% url "planificacion:api_asignatura_info" %}?id=' + subjId)
       .then(r => r.json())
@@ -156,6 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (horasInput) horasInput.value = data.horas_clase;
         if (campoSelect && data.id_campo) campoSelect.value = data.id_campo;
         if (subjInfo) subjInfo.textContent = data.carrera_nombre + ' - Nivel ' + data.nivel_semestre_asignado;
+        updateExistingWarning(data.existing_assignment || null);
       })
       .catch(() => {});
 
@@ -167,19 +220,29 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (!panel || !recList) return;
         const recs = data.recomendados || [];
-        if (recs.length === 0) { panel.style.display = 'none'; recList.innerHTML = ''; return; }
+        if (recs.length === 0) {
+          panel.style.display = 'none';
+          recList.innerHTML = '';
+          return;
+        }
         panel.style.display = '';
         recList.innerHTML = '';
         recs.forEach(r => {
+          const statusClass = r.status === 'excelente' ? 'success' : (r.status === 'bueno' ? 'warning' : 'secondary');
+          const reasons = (r.reasons || []).map(reason => `<span class="badge bg-info bg-opacity-10 text-info" style="font-size:10px;">${reason}</span>`).join(' ');
           recList.innerHTML += `
 <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
   <div>
     <div class="fw-semibold small">${r.nombre}</div>
-    <div class="text-muted small">${r.used}h usadas / ${r.available}h disponibles</div>
+    <div class="d-flex gap-1 mt-1 flex-wrap">${reasons}</div>
+    <div class="text-muted small mt-1">${r.used}h usadas / ${r.available}h disponibles</div>
   </div>
-  <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}">
-    <i class="fas fa-user-plus"></i>
-  </button>
+  <div class="text-end">
+    <span class="badge bg-${statusClass} me-2">${r.score}pts</span>
+    <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}" data-teacher-name="${r.nombre}">
+      <i class="fas fa-user-plus"></i>
+    </button>
+  </div>
 </div>`;
         });
         attachSelectListeners();
@@ -197,6 +260,17 @@ document.addEventListener('DOMContentLoaded', function() {
   periodoSelect?.addEventListener('change', function() {
     if (currentSubjectId) loadSubject(currentSubjectId);
   });
+
+  assignmentForm?.addEventListener('submit', function(e) {
+    if (!currentExistingId) return;
+    const docenteSelect = document.getElementById('id_id_docente');
+    const newDocenteId = docenteSelect ? docenteSelect.value : null;
+    if (newDocenteId && newDocenteId !== String(currentExistingId)) {
+      const ok = confirm(currentExistingLabel + ' ya tiene esta asignatura. ¿Desea cambiar de docente?');
+      if (!ok) e.preventDefault();
+    }
+  });
+
   attachSelectListeners();
 });
 </script>

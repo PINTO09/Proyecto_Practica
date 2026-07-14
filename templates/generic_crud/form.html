@@ -55,9 +55,7 @@
           <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'observaciones' %}col-12{% else %}col-md-6{% endif %}">
             <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">{{ field.label }}</label>
             {% if field.field.widget.input_type == 'checkbox' %}
-              <div class="form-check">
-                {{ field }}
-              </div>
+              <div class="form-check">{{ field }}</div>
             {% else %}
               {{ field }}
             {% endif %}
@@ -104,9 +102,48 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if autofill_rules_json %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('form');
+  if (!form) return;
+
+  const nombreFields = {};
+  const codigoFields = {};
+
+  document.querySelectorAll('input, select, textarea').forEach(el => {
+    const name = el.name;
+    if (name.startsWith('nombre_')) {
+      const suffix = name.replace('nombre_', '');
+      const codigoEl = document.getElementById('id_codigo_' + suffix) || document.getElementById('id_codigo');
+      if (codigoEl) {
+        nombreFields[name] = el;
+        codigoFields[name] = codigoEl;
+      }
+    }
+  });
+
+  function generateCode(text) {
+    if (!text) return '';
+    const raw = text.toUpperCase().replace(/[^a-zA-Z0-9ÁÉÍÓÚÑ\s]/g, '').trim();
+    const words = raw.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return '';
+    if (words.length === 1) return words[0].substring(0, 3);
+    return words.map(w => w[0]).join('');
+  }
+
+  Object.entries(nombreFields).forEach(([nombreName, nombreEl]) => {
+    const codigoEl = codigoFields[nombreName];
+    nombreEl.addEventListener('input', function() {
+      const generated = generateCode(this.value);
+      if (generated) codigoEl.value = generated;
+    });
+    nombreEl.addEventListener('change', function() {
+      const generated = generateCode(this.value);
+      if (generated) codigoEl.value = generated;
+    });
+  });
+
+  {% if autofill_rules_json %}
   const rules = {{ autofill_rules_json|safe }};
   Object.entries(rules).forEach(([sourceField, rule]) => {
     const el = document.getElementById('id_' + sourceField);
@@ -120,13 +157,17 @@ document.addEventListener('DOMContentLoaded', function() {
           if (data.error) return;
           Object.entries(rule.fields).forEach(([targetField, attr]) => {
             const target = document.getElementById('id_' + targetField);
-            if (target) target.value = data[attr] ?? '';
+            if (target) {
+              target.value = data[attr] ?? '';
+              const evt = new Event('input', { bubbles: true });
+              target.dispatchEvent(evt);
+            }
           });
         })
         .catch(() => {});
     });
   });
+  {% endif %}
 });
 </script>
-{% endif %}
 {% endblock %}

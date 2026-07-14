@@ -9,10 +9,32 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h4 class="fw-bold mb-0">{{ model_verbose_plural|default:model_name }}</h4>
-    <p class="text-muted mb-0 mt-1">{{ page_obj.paginator.count }} registro(s)</p>
   </div>
   <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo</a>
 </div>
+
+{% if search_fields %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" id="searchForm" class="row g-2 align-items-center">
+      <div class="col-md-5">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar..." value="{{ search_value }}" id="searchInput">
+      </div>
+      <div class="col-auto">
+        <label class="small fw-semibold me-1 text-muted">Mostrar</label>
+        <select name="cant" class="form-select form-select-sm d-inline-block w-auto" id="cantSelect">
+          <option value="10" {% if cant == 10 %}selected{% endif %}>10</option>
+          <option value="20" {% if cant == 20 %}selected{% endif %}>20</option>
+          <option value="50" {% if cant == 50 %}selected{% endif %}>50</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <span class="text-muted small">{{ page_obj.paginator.count }} registro(s)</span>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
@@ -58,15 +80,40 @@
 <nav class="mt-3">
   <ul class="pagination pagination-sm justify-content-center mb-0">
     {% if page_obj.has_previous %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
     {% endif %}
     {% for p in paginator.page_range %}
-    <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}">{{ p }}</a></li>
+    <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
     {% endfor %}
     {% if page_obj.has_next %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a></li>
+    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
     {% endif %}
   </ul>
 </nav>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const cantSelect = document.getElementById('cantSelect');
+  const searchForm = document.getElementById('searchForm');
+
+  if (searchInput) {
+    searchInput.focus();
+    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    let debounceTimer;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => searchForm.submit(), 150);
+    });
+  }
+  if (cantSelect) {
+    cantSelect.addEventListener('change', function() {
+      searchForm.submit();
+    });
+  }
+});
+</script>
 {% endblock %}
