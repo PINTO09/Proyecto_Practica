@@ -1,0 +1,187 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Consolidado por Docente - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="fas fa-clipboard-list me-2 text-primary"></i>Consolidado por Docente</h4>
+    <p class="text-muted mb-0 mt-1">Resumen final del periodo por docente, combinando asignaciones y actividades F4.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
+    <a href="{% url 'planificacion:reporte_horas_docentes' %}" class="btn btn-primary"><i class="fas fa-chart-bar me-1"></i>Reporte</a>
+  </div>
+</div>
+
+{% include 'planificacion/_planning_flow.html' %}
+
+{% if limit_config.missing_dedicaciones %}
+<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+  <div>
+    <div class="fw-semibold mb-1">Consolidado con límites parciales</div>
+    <div class="small">
+      El consolidado ya carga en la app web, pero faltan límites por dedicación para interpretar mejor los porcentajes:
+      {% for dedicacion in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Docentes visibles</p>
+      <h3 class="fw-bold mb-0 text-primary">{{ total_docentes }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Sobrecargados</p>
+      <h3 class="fw-bold mb-0 text-danger">{{ sobrecargados }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">En alerta</p>
+      <h3 class="fw-bold mb-0 text-warning">{{ en_alerta }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Sin carga</p>
+      <h3 class="fw-bold mb-0 text-secondary">{{ sin_carga }}</h3>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Periodo</label>
+        <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos los periodos</option>
+          {% for periodo in periodos %}
+          <option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>
+            {{ periodo.nombre_periodo }}{% if periodo.periodo_activo %} - Activo{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Carrera</label>
+        <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todas las carreras</option>
+          {% for carrera in carreras %}
+          <option value="{{ carrera.id_carrera }}" {% if carrera_id == carrera.id_carrera %}selected{% endif %}>{{ carrera.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Estado</label>
+        <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          <option value="sobrecargado" {% if estado == 'sobrecargado' %}selected{% endif %}>Sobrecargado</option>
+          <option value="alerta" {% if estado == 'alerta' %}selected{% endif %}>Alerta</option>
+          <option value="balanceado" {% if estado == 'balanceado' %}selected{% endif %}>Balanceado</option>
+          <option value="sin_carga" {% if estado == 'sin_carga' %}selected{% endif %}>Sin carga</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Buscar docente</label>
+        <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm" placeholder="Nombre o cédula">
+      </div>
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Docente</th>
+            <th>Dedicación</th>
+            <th class="text-center">Clase</th>
+            <th class="text-center">Comp.</th>
+            <th class="text-center">Invest.</th>
+            <th class="text-center">Actividad</th>
+            <th class="text-center">Total</th>
+            <th class="text-center">Límite</th>
+            <th class="text-center">Disponible</th>
+            <th>Asignaturas</th>
+            <th>F4</th>
+            <th class="text-end pe-3">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="ps-3">
+              <div class="fw-semibold">{{ row.docente.nombres_completos }}</div>
+              <div class="text-muted small">{{ row.docente.cedula_docente }}</div>
+            </td>
+            <td><span class="badge bg-secondary">{{ row.docente.id_dedicacion.codigo_dedicacion }}</span></td>
+            <td class="text-center">{{ row.workload.horas_clase }}</td>
+            <td class="text-center">{{ row.workload.horas_complementarias }}</td>
+            <td class="text-center">{{ row.workload.horas_investigacion }}</td>
+            <td class="text-center">{{ row.workload.horas_actividad }}</td>
+            <td class="text-center fw-bold">{{ row.workload.total_horas }}</td>
+            <td class="text-center">{{ row.max_total }}</td>
+            <td class="text-center">
+              <span class="badge {% if row.available > 0 %}bg-success{% else %}bg-danger{% endif %}">{{ row.available }}h</span>
+            </td>
+            <td style="min-width:260px;">
+              {% if row.assignments %}
+              <div class="d-flex flex-wrap gap-1">
+                {% for assignment in row.assignments %}
+                <span class="badge bg-primary-subtle text-primary">
+                  {{ assignment.id_asignatura.codigo_asignatura }} {{ assignment.paralelo_asignado }} - {{ assignment.horas_clase }}h
+                </span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <span class="text-muted small">Sin asignaturas</span>
+              {% endif %}
+            </td>
+            <td style="min-width:240px;">
+              {% if row.f4_activities %}
+              <div class="d-flex flex-wrap gap-1">
+                {% for activity in row.f4_activities %}
+                <span class="badge bg-warning-subtle text-dark">
+                  {{ activity.tipo_actividad }} - {{ activity.horas_actividad }}h
+                </span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <span class="text-muted small">Sin actividades F4</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              <div class="d-flex flex-column align-items-end gap-1">
+                <span class="badge bg-{{ row.badge }}">{{ row.status|title }}</span>
+                <small class="text-muted">{{ row.percentage }}%</small>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="12" class="text-center py-4 text-muted">No hay docentes para mostrar con esos filtros</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% include 'planificacion/_pagination.html' %}
+{% endblock %}

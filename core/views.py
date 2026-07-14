@@ -511,6 +511,13 @@ MODULOS = {
     'planificacion': {
         'nombre': 'Planificación',
         'icono': 'fa-calendar-check',
+        'acciones': [
+            ('Planificacion Operativa', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Asignar docentes por materia, paralelo y periodo.'),
+            ('Matriz F4', 'planificacion:planificacionmatrizf4_list', 'fa-layer-group', 'Revisar actividades, investigacion y otras horas docentes.'),
+            ('Consolidado Docente', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revisar carga total por docente, clases y actividades F4.'),
+            ('Horas por Docente', 'planificacion:reporte_horas_docentes', 'fa-chart-bar', 'Monitorear disponibilidad y limites horarios.'),
+            ('Asignacion Inteligente', 'planificacion:asignacion_inteligente', 'fa-robot', 'Explorar recomendaciones de docentes por afinidad y carga.'),
+        ],
         'modelos': [
             ('Demanda Académica', 'PlanificacionDemandaAcademica'),
             ('Asignación Docente', 'PlanificacionAsignacionDocente'),
@@ -588,11 +595,22 @@ def modulo_view(request, slug):
             'crud_url': list_url if list_url != '#' else '#',
         })
 
+    acciones = [
+        {
+            'label': label,
+            'url': reverse(url_name),
+            'icon': icon,
+            'description': description,
+        }
+        for label, url_name, icon, description in info.get('acciones', [])
+    ]
+
     context = {
         'active_section': f'modulo_{slug}',
         'modulo': info,
         'modulo_slug': slug,
         'modelos': modelos_con_stats,
+        'acciones': acciones,
     }
     return render(request, 'core/modulo.html', context)
 

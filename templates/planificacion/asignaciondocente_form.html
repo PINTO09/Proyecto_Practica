@@ -1,64 +1,117 @@
 {% extends 'core/base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Nueva Asignación Docente - ULEAM{% endblock %}
+{% block title %}{{ form_title|default:'Asignación docente' }} - ULEAM{% endblock %}
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
-<div class="row">
-  <div class="col-lg-7">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
-        <h5 class="fw-bold mb-4">
-          <i class="fas fa-plus-circle me-2 text-primary"></i>Nueva Asignación Docente
-        </h5>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="fas {% if object %}fa-pen{% else %}fa-user-plus{% endif %} me-2 text-primary"></i>{{ form_title|default:'Asignación docente' }}
+    </h4>
+    <p class="text-muted mb-0 mt-1">{{ form_subtitle|default:'Gestiona la asignación de docentes a paralelos.' }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
+    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-primary"><i class="fas fa-users me-1"></i>Asignaciones</a>
+  </div>
+</div>
 
+{% include 'planificacion/_planning_flow.html' %}
+
+{% if limit_config.missing_dedicaciones %}
+<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+  <div class="small">
+    Antes de asignar desde la web conviene configurar los límites horarios faltantes:
+    {% for dedicacion in limit_config.missing_dedicaciones %}
+    <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+    {% endfor %}
+  </div>
+  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0"><i class="fas fa-clipboard-check me-2 text-primary"></i>Datos de la asignación</h6>
+      </div>
+      <div class="card-body p-4">
         <form method="post">
           {% csrf_token %}
-          {% for field in form %}
-          <div class="mb-3">
-            <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">{{ field.label }}</label>
-            {% if field.field.widget.input_type == 'checkbox' %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <div class="row g-3">
+            {% for field in form %}
+            <div class="{% if field.name == 'comision_servicio' %}col-12{% else %}col-md-6{% endif %}">
+              <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">{{ field.label }}</label>
+              {% if field.field.widget.input_type == 'checkbox' %}
               <div class="form-check">{{ field }}</div>
-            {% else %}
+              {% else %}
               {{ field }}
-            {% endif %}
-            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+              {% endif %}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
-          <div class="d-flex gap-2 mt-4 pt-3 border-top">
+          <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
             <button type="submit" class="btn btn-primary px-4"><i class="fas fa-check me-1"></i>Guardar</button>
-            <a href="{% url list_url %}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Cancelar</a>
+            <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Cancelar</a>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <div class="col-lg-5" id="recommendationsPanel" style="{% if not teacher_recommendations %}display:none{% endif %}">
-    <div class="card border-0 shadow-sm">
+  <div class="col-xl-4">
+    {% if load_summary %}
+    <div class="card border-0 shadow-sm mb-4">
       <div class="card-header bg-white py-3">
-        <h6 class="fw-bold mb-0"><i class="fas fa-robot me-2 text-primary"></i>Docentes Recomendados</h6>
-        <small class="text-muted" id="selectedSubjectInfo">{% if selected_subject %}{{ selected_subject.codigo_asignatura }} — {{ selected_subject.nombre_asignatura }}{% endif %}</small>
+        <h6 class="fw-bold mb-0"><i class="fas fa-gauge-high me-2 text-primary"></i>Carga del docente</h6>
+      </div>
+      <div class="card-body">
+        <div class="fw-semibold">{{ load_summary.docente.nombres_completos }}</div>
+        <div class="text-muted small mb-3">{{ load_summary.docente.id_dedicacion.codigo_dedicacion|default:'Sin dedicación' }}</div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <div class="progress flex-grow-1" style="height:8px;">
+            <div class="progress-bar bg-{{ load_summary.badge }}" style="width:{{ load_summary.percentage }}%"></div>
+          </div>
+          <span class="badge bg-{{ load_summary.badge }}">{{ load_summary.percentage }}%</span>
+        </div>
+        <div class="row g-2 small">
+          <div class="col-6"><span class="text-muted">Clase</span><div class="fw-bold">{{ load_summary.workload.horas_clase }}h</div></div>
+          <div class="col-6"><span class="text-muted">Comp.</span><div class="fw-bold">{{ load_summary.workload.horas_complementarias }}h</div></div>
+          <div class="col-6"><span class="text-muted">F4</span><div class="fw-bold">{{ load_summary.workload.horas_investigacion|add:load_summary.workload.horas_actividad }}h</div></div>
+          <div class="col-6"><span class="text-muted">Disponible</span><div class="fw-bold">{{ load_summary.available }}h</div></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm" id="recommendationsPanel" style="{% if not teacher_recommendations %}display:none{% endif %}">
+      <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0"><i class="fas fa-robot me-2 text-primary"></i>Docentes recomendados</h6>
+        <small class="text-muted" id="selectedSubjectInfo">{% if selected_subject %}{{ selected_subject.codigo_asignatura }} - {{ selected_subject.nombre_asignatura }}{% endif %}</small>
       </div>
       <div class="list-group list-group-flush" id="recommendationsList">
         {% for r in teacher_recommendations %}
         <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
           <div>
             <div class="fw-semibold small">{{ r.docente.nombres_completos }}</div>
-            <div class="d-flex gap-1 mt-1">
+            <div class="d-flex gap-1 mt-1 flex-wrap">
               {% for reason in r.reasons %}
               <span class="badge bg-info bg-opacity-10 text-info" style="font-size:10px;">{{ reason|truncatechars:30 }}</span>
               {% endfor %}
             </div>
+            <div class="text-muted small mt-1">{{ r.used }}h usadas / {{ r.available }}h disponibles</div>
           </div>
-          <div class="text-end">
-            <span class="badge bg-{% if r.status == 'excelente' %}success{% elif r.status == 'bueno' %}warning{% else %}secondary{% endif %} me-2">{{ r.score }}pts</span>
-            <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="{{ r.id }}">
-              <i class="fas fa-user-plus"></i>
-            </button>
-          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="{{ r.id }}">
+            <i class="fas fa-user-plus"></i>
+          </button>
         </div>
         {% endfor %}
       </div>
@@ -82,8 +135,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (!subjectSelect) return;
 
+  function attachSelectListeners() {
+    document.querySelectorAll('.select-teacher').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const docenteSelect = document.getElementById('id_id_docente');
+        if (docenteSelect) docenteSelect.value = this.dataset.teacherId;
+      });
+    });
+  }
+
   function loadSubject(subjId) {
-    if (!subjId) { panel.style.display = 'none'; return; }
+    if (!subjId) { if (panel) panel.style.display = 'none'; return; }
 
     fetch('{% url "planificacion:api_asignatura_info" %}?id=' + subjId)
       .then(r => r.json())
@@ -93,11 +155,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (nivelInput) nivelInput.value = data.nivel_semestre_asignado;
         if (horasInput) horasInput.value = data.horas_clase;
         if (campoSelect && data.id_campo) campoSelect.value = data.id_campo;
-        if (subjInfo) subjInfo.textContent = data.carrera_nombre + ' — Nivel ' + data.nivel_semestre_asignado;
+        if (subjInfo) subjInfo.textContent = data.carrera_nombre + ' - Nivel ' + data.nivel_semestre_asignado;
       })
       .catch(() => {});
 
-    fetch('{% url "planificacion:api_recommendations" %}?asignatura=' + subjId)
+    const params = new URLSearchParams({ asignatura: subjId });
+    if (periodoSelect && periodoSelect.value) params.set('periodo', periodoSelect.value);
+
+    fetch('{% url "planificacion:api_recommendations" %}?' + params.toString())
       .then(r => r.json())
       .then(data => {
         if (!panel || !recList) return;
@@ -106,22 +171,15 @@ document.addEventListener('DOMContentLoaded', function() {
         panel.style.display = '';
         recList.innerHTML = '';
         recs.forEach(r => {
-          const statusClass = r.score >= 50 ? 'success' : (r.score >= 25 ? 'warning' : 'secondary');
-          const reasons = (r.reasons || []).join(', ');
           recList.innerHTML += `
 <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
   <div>
     <div class="fw-semibold small">${r.nombre}</div>
-    <div class="d-flex gap-1 mt-1">
-      <span class="badge bg-info bg-opacity-10 text-info" style="font-size:10px;">${reasons}</span>
-    </div>
+    <div class="text-muted small">${r.used}h usadas / ${r.available}h disponibles</div>
   </div>
-  <div class="text-end">
-    <span class="badge bg-${statusClass} me-2">${r.score}pts <small>(${r.available}h disp.)</small></span>
-    <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}">
-      <i class="fas fa-user-plus"></i>
-    </button>
-  </div>
+  <button type="button" class="btn btn-sm btn-outline-primary select-teacher" data-teacher-id="${r.id}">
+    <i class="fas fa-user-plus"></i>
+  </button>
 </div>`;
         });
         attachSelectListeners();
@@ -131,22 +189,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let currentSubjectId = subjectSelect.value;
   if (currentSubjectId) loadSubject(currentSubjectId);
-
   subjectSelect.addEventListener('change', function() {
-    const subjId = this.value;
-    if (!subjId || subjId === currentSubjectId) return;
-    currentSubjectId = subjId;
-    loadSubject(subjId);
+    if (!this.value || this.value === currentSubjectId) return;
+    currentSubjectId = this.value;
+    loadSubject(this.value);
   });
-
-  function attachSelectListeners() {
-    document.querySelectorAll('.select-teacher').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const docenteSelect = document.getElementById('id_id_docente');
-        if (docenteSelect) docenteSelect.value = this.dataset.teacherId;
-      });
-    });
-  }
+  periodoSelect?.addEventListener('change', function() {
+    if (currentSubjectId) loadSubject(currentSubjectId);
+  });
   attachSelectListeners();
 });
 </script>

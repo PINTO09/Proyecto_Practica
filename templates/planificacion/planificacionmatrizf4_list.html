@@ -1,0 +1,164 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Matriz F4 - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="fas fa-layer-group me-2 text-primary"></i>Matriz F4</h4>
+    <p class="text-muted mb-0 mt-1">Actividades, investigación y otras horas que completan la carga docente.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
+    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Consolidado</a>
+    <a href="{% url 'planificacion:planificacionmatrizf4_create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nueva F4</a>
+  </div>
+</div>
+
+{% include 'planificacion/_planning_flow.html' %}
+
+{% if limit_config.missing_dedicaciones %}
+<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+  <div>
+    <div class="fw-semibold mb-1">Faltan límites horarios por configurar</div>
+    <div class="small">
+      La Matriz F4 suma a la carga docente total. Aún faltan:
+      {% for dedicacion in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Registros F4</p>
+      <h3 class="fw-bold mb-0 text-primary">{{ total_registros }}</h3>
+    </div>
+  </div>
+  <div class="col-md-4 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Horas F4 consolidadas</p>
+      <h3 class="fw-bold mb-0 text-warning">{{ total_horas }}</h3>
+      {% if horas_duplicadas %}
+      <div class="text-muted small">Registros: {{ total_horas_registros }}h / duplicadas: {{ horas_duplicadas }}h</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-md-4 col-12">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Docentes con F4</p>
+      <h3 class="fw-bold mb-0 text-success">{{ docentes_con_f4 }}</h3>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Periodo</label>
+        <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for periodo in periodos %}
+          <option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>
+            {{ periodo.nombre_periodo }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Carrera</label>
+        <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todas</option>
+          {% for carrera in carreras %}
+          <option value="{{ carrera.id_carrera }}" {% if carrera_id == carrera.id_carrera %}selected{% endif %}>{{ carrera.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Docente</label>
+        <select name="docente" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for docente in docentes %}
+          <option value="{{ docente.id_docente }}" {% if docente_id == docente.id_docente %}selected{% endif %}>{{ docente.nombres_completos }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Tipo</label>
+        <select name="tipo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for item in tipos %}
+          <option value="{{ item }}" {% if tipo == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Buscar</label>
+        <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm" placeholder="Docente, actividad o tipo">
+      </div>
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Docente</th>
+            <th>Actividad</th>
+            <th>Carrera</th>
+            <th>Periodo</th>
+            <th class="text-center">Nivel</th>
+            <th class="text-center">Horas</th>
+            <th class="text-center">Paralelos</th>
+            <th class="text-center">Total</th>
+            <th>Observaciones</th>
+            <th class="text-end pe-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="ps-3">
+              <div class="fw-semibold">{{ row.id_docente.nombres_completos }}</div>
+              <div class="text-muted small">{{ row.id_docente.cedula_docente }}</div>
+            </td>
+            <td>
+              <span class="badge bg-warning-subtle text-dark mb-1">{{ row.tipo_actividad }}</span>
+              <div class="small">{{ row.nombre_asignatura_actividad|default:'Sin detalle' }}</div>
+            </td>
+            <td>{{ row.id_carrera.nombre_carrera }}</td>
+            <td>{{ row.id_periodo.nombre_periodo }}</td>
+            <td class="text-center">{{ row.nivel_semestre_actividad|default:'-' }}</td>
+            <td class="text-center">{{ row.horas_actividad }}</td>
+            <td class="text-center">{{ row.numero_paralelos_actividad }}</td>
+            <td class="text-center fw-bold">{{ row.total_horas_f4 }}</td>
+            <td style="min-width:220px;"><span class="text-muted small">{{ row.observaciones|default:'-'|truncatechars:80 }}</span></td>
+            <td class="text-end pe-3">
+              <a href="{% url 'planificacion:planificacionmatrizf4_update' pk=row.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar"><i class="fas fa-pencil-alt"></i></a>
+              <a href="{% url 'planificacion:planificacionmatrizf4_delete' pk=row.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar"><i class="fas fa-trash-alt"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="10" class="text-center py-4 text-muted">No hay actividades F4 para mostrar</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% include 'planificacion/_pagination.html' %}
+{% endblock %}

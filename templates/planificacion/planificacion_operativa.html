@@ -1,0 +1,271 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Planificación Operativa - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="fas fa-table-cells-large me-2 text-primary"></i>Planificación Operativa</h4>
+    <p class="text-muted mb-0 mt-1">Vista de trabajo por asignatura y paralelo para construir asignaciones reales dentro del sistema.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'planificacion:planificaciondemandaacademica_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Demanda</a>
+    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Consolidado</a>
+    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-primary"><i class="fas fa-users me-1"></i>Asignaciones</a>
+  </div>
+</div>
+
+{% include 'planificacion/_planning_flow.html' %}
+
+{% if limit_config.missing_dedicaciones %}
+<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+  <div>
+    <div class="fw-semibold mb-1">Configuración pendiente para la planificación web</div>
+    <div class="small">
+      La vista operativa ya funciona localmente, pero para validar carga y disponibilidad faltan límites en:
+      {% for dedicacion in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Asignaturas</p>
+      <h3 class="fw-bold mb-0 text-primary">{{ total_demands }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Paralelos</p>
+      <h3 class="fw-bold mb-0">{{ total_parallel_slots }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Con asignación</p>
+      <h3 class="fw-bold mb-0 text-success">{{ assigned_parallel_slots }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Pendientes</p>
+      <h3 class="fw-bold mb-0 text-danger">{{ pending_parallel_slots }}</h3>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Periodo</label>
+        <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos los periodos</option>
+          {% for periodo in periodos %}
+          <option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>
+            {{ periodo.nombre_periodo }}{% if periodo.periodo_activo %} · Activo{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Carrera</label>
+        <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todas las carreras</option>
+          {% for c in carreras %}
+          <option value="{{ c.id_carrera }}" {% if carrera_id == c.id_carrera %}selected{% endif %}>{{ c.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Nivel</label>
+        <select name="nivel" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for item in level_options %}
+          <option value="{{ item }}" {% if nivel == item %}selected{% endif %}>Nivel {{ item }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Estado</label>
+        <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+          <option value="parcial" {% if estado == 'parcial' %}selected{% endif %}>Parcial</option>
+          <option value="completa" {% if estado == 'completa' %}selected{% endif %}>Completa</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Buscar asignatura</label>
+        <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm" placeholder="Codigo o nombre">
+      </div>
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not rows %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body py-5 text-center">
+    <i class="fas fa-table-list text-muted mb-3" style="font-size:2rem;"></i>
+    <h5 class="fw-bold mb-1">No hay demanda academica para mostrar</h5>
+    <p class="text-muted mb-3">Carga primero la demanda del periodo para que esta pantalla pueda desglosar los paralelos y sugerir docentes.</p>
+    <a href="{% url 'planificacion:planificaciondemandaacademica_create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Registrar demanda</a>
+  </div>
+</div>
+{% endif %}
+
+{% for row in rows %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <h6 class="fw-bold mb-0">{{ row.demanda.id_asignatura.codigo_asignatura }} - {{ row.demanda.id_asignatura.nombre_asignatura }}</h6>
+        <small class="text-muted">
+          {{ row.demanda.id_carrera.nombre_carrera }} · Nivel {{ row.demanda.id_asignatura.nivel_semestre }} · {{ row.demanda.id_asignatura.horas_semanales_asignatura }}h/sem · Proyeccion {{ row.demanda.proyeccion_estudiantes }} estudiantes
+        </small>
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="badge {% if row.status == 'completa' %}bg-success{% elif row.status == 'parcial' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+          {{ row.assigned_parallel_count }}/{{ row.demanda.numero_paralelos }} paralelos
+        </span>
+        {% for campo in row.campos %}
+        <span class="badge bg-info bg-opacity-10 text-info">{{ campo.id_campo.nombre_campo_conocimiento }}</span>
+        {% empty %}
+        <span class="badge bg-secondary">Sin campo</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Paralelo</th>
+            <th>Campo principal</th>
+            <th class="text-center">Carga base</th>
+            <th>Asignaciones actuales</th>
+            <th>Recomendados</th>
+            <th class="text-end pe-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for paralelo in row.parallel_rows %}
+          <tr>
+            <td class="ps-3">
+              <span class="badge bg-dark-subtle text-dark">Paralelo {{ paralelo.label }}</span>
+            </td>
+            <td>
+              {% if row.principal_campo_id %}
+              {{ row.principal_campo_nombre }}
+              {% else %}
+              <span class="text-muted">Sin campo definido</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <div class="fw-semibold">{{ row.required_class_hours }}h clase</div>
+              <div class="text-muted small">Complementarias segun docente</div>
+            </td>
+            <td>
+              {% if paralelo.asignaciones %}
+              <div class="d-flex flex-column gap-2">
+                {% for asignacion in paralelo.asignaciones %}
+                <div class="border rounded p-2">
+                  <div class="fw-semibold small">{{ asignacion.id_docente.nombres_completos }}</div>
+                  <div class="text-muted small mb-1">
+                    Paralelo: {{ asignacion.horas_clase }}h clase + {{ asignacion.horas_complementarias }}h complementarias
+                  </div>
+                  <div class="small d-flex flex-wrap gap-1">
+                    <span class="badge bg-primary-subtle text-primary">Clase {{ asignacion.workload.horas_clase }}h</span>
+                    <span class="badge bg-success-subtle text-success">Comp. {{ asignacion.workload.horas_complementarias }}h</span>
+                    <span class="badge bg-warning-subtle text-dark">Invest. {{ asignacion.workload.horas_investigacion }}h</span>
+                    <span class="badge bg-secondary-subtle text-secondary">Actividad {{ asignacion.workload.horas_actividad }}h</span>
+                    <span class="badge bg-dark">Total {{ asignacion.workload.total_horas }}h</span>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <span class="text-danger small fw-semibold">Sin asignar</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if row.recommendation_preview %}
+              <div class="d-flex flex-column gap-2">
+                {% for rec in row.recommendation_preview %}
+                <div class="border rounded p-2">
+                  <div class="d-flex justify-content-between gap-2 small">
+                    <span class="fw-semibold">{{ rec.docente.nombres_completos }}</span>
+                    <span class="text-muted">{{ rec.available }}h disp.</span>
+                  </div>
+                  <div class="small d-flex flex-wrap gap-1 mt-1">
+                    <span class="badge bg-primary-subtle text-primary">Clase {{ rec.class_hours }}h</span>
+                    <span class="badge bg-success-subtle text-success">Comp. {{ rec.complementary_hours }}h</span>
+                    <span class="badge bg-warning-subtle text-dark">Invest. {{ rec.investigation_hours }}h</span>
+                    <span class="badge bg-secondary-subtle text-secondary">Actividad {{ rec.activity_hours }}h</span>
+                    <span class="badge bg-dark">Total {{ rec.used }}h</span>
+                  </div>
+                  <div class="d-flex flex-wrap gap-1 mt-2">
+                    <form method="post" action="{% url 'planificacion:asignar_docente_operativa' %}" class="m-0">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                      <input type="hidden" name="docente" value="{{ rec.id }}">
+                      <input type="hidden" name="periodo" value="{{ row.demanda.id_periodo_id }}">
+                      <input type="hidden" name="carrera" value="{{ row.demanda.id_carrera_id }}">
+                      <input type="hidden" name="asignatura" value="{{ row.demanda.id_asignatura_id }}">
+                      <input type="hidden" name="nivel" value="{{ row.demanda.id_asignatura.nivel_semestre }}">
+                      <input type="hidden" name="paralelo" value="{{ paralelo.label }}">
+                      <input type="hidden" name="horas" value="{{ row.demanda.id_asignatura.horas_semanales_asignatura }}">
+                      <input type="hidden" name="complementarias" value="0">
+                      {% if row.principal_campo_id %}<input type="hidden" name="campo" value="{{ row.principal_campo_id }}">{% endif %}
+                      <button type="submit" class="btn btn-sm btn-outline-success">
+                        <i class="fas fa-check me-1"></i>Rápido
+                      </button>
+                    </form>
+                    <a href="{% url 'planificacion:planificacionasignaciondocente_create' %}?docente={{ rec.id }}&periodo={{ row.demanda.id_periodo_id }}&carrera={{ row.demanda.id_carrera_id }}&asignatura={{ row.demanda.id_asignatura_id }}&nivel={{ row.demanda.id_asignatura.nivel_semestre }}&paralelo={{ paralelo.label }}&horas={{ row.demanda.id_asignatura.horas_semanales_asignatura }}{% if row.principal_campo_id %}&campo={{ row.principal_campo_id }}{% endif %}"
+                       class="btn btn-sm btn-outline-primary">
+                      <i class="fas fa-pen me-1"></i>Revisar
+                    </a>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <span class="text-muted small">Sin recomendaciones</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              <div class="d-flex justify-content-end gap-2">
+                <a href="{% url 'planificacion:planificacionasignaciondocente_create' %}?periodo={{ row.demanda.id_periodo_id }}&carrera={{ row.demanda.id_carrera_id }}&asignatura={{ row.demanda.id_asignatura_id }}&nivel={{ row.demanda.id_asignatura.nivel_semestre }}&paralelo={{ paralelo.label }}&horas={{ row.demanda.id_asignatura.horas_semanales_asignatura }}{% if row.principal_campo_id %}&campo={{ row.principal_campo_id }}{% endif %}"
+                   class="btn btn-sm btn-primary">
+                  <i class="fas fa-user-plus me-1"></i>Asignar
+                </a>
+                {% if paralelo.asignaciones %}
+                <a href="{% url 'planificacion:planificacionasignaciondocente_update' pk=paralelo.asignaciones.0.pk %}" class="btn btn-sm btn-outline-secondary">
+                  <i class="fas fa-pen"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% include 'planificacion/_pagination.html' %}
+{% endblock %}

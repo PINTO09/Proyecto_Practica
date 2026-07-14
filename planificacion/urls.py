@@ -26,7 +26,13 @@ urlpatterns = [
     path('aulas/<int:pk>/eliminar/', views.PlanificacionAulaHorarioDeleteView.as_view(), name='planificacionaulahorario_delete'),
 
     path('horas-docentes/', views.reporte_horas_docentes, name='reporte_horas_docentes'),
+    path('operativa/', views.planificacion_operativa, name='planificacion_operativa'),
+    path('operativa/asignar/', views.asignar_docente_operativa, name='asignar_docente_operativa'),
+    path('consolidado-docentes/', views.planificacion_consolidada_docentes, name='planificacion_consolidada_docentes'),
+    path('validacion-excel/', views.validacion_excel_planificacion, name='validacion_excel'),
+    path('validacion-excel/sincronizar/', views.sincronizar_excel_planificacion, name='sincronizar_excel'),
     path('asignacion-inteligente/', views.asignacion_inteligente, name='asignacion_inteligente'),
     path('api/asignatura-info/', views.api_asignatura_info, name='api_asignatura_info'),
     path('api/recommendations/', views.api_recommendations, name='api_recommendations'),
+    path('api/validar-horas/', views.api_validar_horas_disponibles, name='api_validar_horas'),
 ]
