@@ -1,22 +1,58 @@
 {% extends 'core/base_dashboard.html' %}
 {% load static %}
 
-{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} {{ model_verbose|default:model_name }} - ULEAM{% endblock %}
+{% block title %}{{ form_title|default:model_verbose|default:model_name }} - ULEAM{% endblock %}
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-lg-8">
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="fas {% if object %}fa-pen{% else %}fa-plus-circle{% endif %} me-2 text-primary"></i>{{ form_title|default:model_verbose|default:model_name }}
+    </h4>
+    <p class="text-muted mb-0 mt-1">{{ form_subtitle|default:'Complete la información del registro.' }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    {% if active_section == 'planificacionmatrizf4_list' %}
+    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
+    <a href="{% url 'planificacion:planificacionmatrizf4_list' %}" class="btn btn-primary"><i class="fas fa-layer-group me-1"></i>Matriz F4</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if active_section == 'planificacionmatrizf4_list' %}
+{% include 'planificacion/_planning_flow.html' %}
+{% endif %}
+
+{% if limit_config.missing_dedicaciones %}
+<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+  <div class="small">
+    Antes de guardar conviene configurar los límites horarios faltantes:
+    {% for dedicacion in limit_config.missing_dedicaciones %}
+    <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+    {% endfor %}
+  </div>
+  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="{% if load_summary %}col-xl-8{% else %}col-xl-9{% endif %}">
     <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0">
+          <i class="fas fa-clipboard-check me-2 text-primary"></i>Datos del registro
+        </h6>
+      </div>
       <div class="card-body p-4">
-        <h5 class="fw-bold mb-4">
-          <i class="fas {% if object %}fa-edit{% else %}fa-plus-circle{% endif %} me-2 text-primary"></i>
-          {% if object %}Editar{% else %}Nuevo{% endif %} {{ model_verbose|default:model_name }}
-        </h5>
         <form method="post">
           {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <div class="row g-3">
           {% for field in form %}
-          <div class="mb-3">
+          <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'observaciones' %}col-12{% else %}col-md-6{% endif %}">
             <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">{{ field.label }}</label>
             {% if field.field.widget.input_type == 'checkbox' %}
               <div class="form-check">{{ field }}</div>
@@ -27,7 +63,8 @@
             {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
           </div>
           {% endfor %}
-          <div class="d-flex gap-2 mt-4 pt-3 border-top">
+          </div>
+          <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
             <button type="submit" class="btn btn-primary px-4"><i class="fas fa-check me-1"></i>Guardar</button>
             <a href="{% url list_url %}" class="btn btn-outline-secondary"><i class="fas fa-times me-1"></i>Cancelar</a>
           </div>
@@ -35,6 +72,32 @@
       </div>
     </div>
   </div>
+
+  {% if load_summary %}
+  <div class="col-xl-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0"><i class="fas fa-gauge-high me-2 text-primary"></i>Carga del docente</h6>
+      </div>
+      <div class="card-body">
+        <div class="fw-semibold">{{ load_summary.docente.nombres_completos }}</div>
+        <div class="text-muted small mb-3">{{ load_summary.docente.id_dedicacion.codigo_dedicacion|default:'Sin dedicación' }}</div>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <div class="progress flex-grow-1" style="height:8px;">
+            <div class="progress-bar bg-{{ load_summary.badge }}" style="width:{{ load_summary.percentage }}%"></div>
+          </div>
+          <span class="badge bg-{{ load_summary.badge }}">{{ load_summary.percentage }}%</span>
+        </div>
+        <div class="row g-2 small">
+          <div class="col-6"><span class="text-muted">Clase</span><div class="fw-bold">{{ load_summary.workload.horas_clase }}h</div></div>
+          <div class="col-6"><span class="text-muted">Comp.</span><div class="fw-bold">{{ load_summary.workload.horas_complementarias }}h</div></div>
+          <div class="col-6"><span class="text-muted">F4</span><div class="fw-bold">{{ load_summary.workload.horas_investigacion|add:load_summary.workload.horas_actividad }}h</div></div>
+          <div class="col-6"><span class="text-muted">Disponible</span><div class="fw-bold">{{ load_summary.available }}h</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 

@@ -10,7 +10,28 @@
     <h4 class="fw-bold mb-0"><i class="fas fa-clock me-2 text-primary"></i>Horas por Docente</h4>
     <p class="text-muted mb-0 mt-1">Monitoreo de carga horaria de docentes activos</p>
   </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Consolidado</a>
+    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-primary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
+  </div>
 </div>
+
+{% include 'planificacion/_planning_flow.html' %}
+
+{% if limit_config.missing_dedicaciones %}
+<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
+  <div>
+    <div class="fw-semibold mb-1">Faltan límites horarios por configurar</div>
+    <div class="small">
+      La lógica de carga docente usa límites por dedicación. Aún no tienen configuración:
+      {% for dedicacion in limit_config.missing_dedicaciones %}
+      <span class="badge bg-warning text-dark ms-1">{{ dedicacion.codigo_dedicacion }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
+</div>
+{% endif %}
 
 <div class="row g-3 mb-4">
   <div class="col-md-3 col-6">
@@ -21,7 +42,7 @@
   </div>
   <div class="col-md-3 col-6">
     <div class="card border-0 shadow-sm text-center py-3">
-      <p class="text-muted small text-uppercase fw-semibold mb-0">Sobrecargados (≥100%)</p>
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Sobrecargados (&ge;100%)</p>
       <h3 class="fw-bold mb-0 text-danger">{{ sobrecargados }}</h3>
     </div>
   </div>
@@ -50,7 +71,7 @@
           <option value="">Todos los estados</option>
           <option value="success">Disponible (&lt;80%)</option>
           <option value="warning">Alerta (80-99%)</option>
-          <option value="danger">Sobrecargado (≥100%)</option>
+          <option value="danger">Sobrecargado (&ge;100%)</option>
         </select>
       </div>
       <div class="col-md-3">
@@ -80,6 +101,8 @@
             <th class="sortable" data-key="dedicacion">Dedicación</th>
             <th class="text-center sortable" data-key="horas-clase">Hrs Clase</th>
             <th class="text-center sortable" data-key="horas-comp">Hrs Complementarias</th>
+            <th class="text-center sortable" data-key="horas-invest">Hrs Investigación</th>
+            <th class="text-center sortable" data-key="horas-act">Hrs Actividad</th>
             <th class="text-center sortable" data-key="total">Total</th>
             <th class="text-center sortable" data-key="limite">Límite</th>
             <th class="text-center pe-3 sortable" data-key="pct">Uso</th>
@@ -93,6 +116,8 @@
             <td><span class="badge bg-secondary">{{ r.docente.id_dedicacion.codigo_dedicacion }}</span></td>
             <td class="text-center">{{ r.horas_clase }}</td>
             <td class="text-center">{{ r.horas_complementarias }}</td>
+            <td class="text-center">{{ r.horas_investigacion }}</td>
+            <td class="text-center">{{ r.horas_actividad }}</td>
             <td class="text-center fw-bold">{{ r.total_horas }}</td>
             <td class="text-center">{{ r.max_horas }}</td>
             <td class="text-center pe-3">
@@ -105,13 +130,14 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="8" class="text-center py-4 text-muted">No hay docentes activos</td></tr>
+          <tr><td colspan="10" class="text-center py-4 text-muted">No hay docentes activos</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 </div>
+{% include 'planificacion/_pagination.html' %}
 {% endblock %}
 
 {% block extra_js %}
@@ -149,7 +175,7 @@
 
     tbody.innerHTML = '';
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Sin resultados</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">Sin resultados</td></tr>';
     } else {
       filtered.forEach(tr => tbody.appendChild(tr));
     }

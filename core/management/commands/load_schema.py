@@ -18,9 +18,10 @@ def split_sql_statements(sql):
 
         if dollar_tag is not None:
             if sql.startswith(dollar_tag, i):
-                current.append(dollar_tag)
+                closing_tag = dollar_tag
+                current.append(closing_tag)
                 dollar_tag = None
-                i += len(dollar_tag)
+                i += len(closing_tag)
             else:
                 current.append(ch)
                 i += 1
