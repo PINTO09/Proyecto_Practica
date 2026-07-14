@@ -511,20 +511,15 @@ MODULOS = {
     'planificacion': {
         'nombre': 'Planificación',
         'icono': 'fa-calendar-check',
+        'descripcion': 'Flujo principal para construir, revisar y controlar la planificacion docente.',
         'acciones': [
-            ('Planificacion Operativa', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Asignar docentes por materia, paralelo y periodo.'),
-            ('Matriz F4', 'planificacion:planificacionmatrizf4_list', 'fa-layer-group', 'Revisar actividades, investigacion y otras horas docentes.'),
-            ('Consolidado Docente', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revisar carga total por docente, clases y actividades F4.'),
-            ('Horas por Docente', 'planificacion:reporte_horas_docentes', 'fa-chart-bar', 'Monitorear disponibilidad y limites horarios.'),
-            ('Asignacion Inteligente', 'planificacion:asignacion_inteligente', 'fa-robot', 'Explorar recomendaciones de docentes por afinidad y carga.'),
+            ('Operativa', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Asignar docentes por materia, paralelo y periodo.'),
+            ('Asignaciones', 'planificacion:planificacionasignaciondocente_list', 'fa-users', 'Revisar y ajustar las asignaciones docentes registradas.'),
+            ('Matriz F4', 'planificacion:planificacionmatrizf4_list', 'fa-layer-group', 'Registrar actividades, investigacion y otras horas docentes.'),
+            ('Consolidado', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Ver la carga total por docente entre clases y actividades F4.'),
+            ('Reporte', 'planificacion:reporte_horas_docentes', 'fa-chart-bar', 'Controlar disponibilidad, limites horarios y horas asignadas.'),
         ],
-        'modelos': [
-            ('Demanda Académica', 'PlanificacionDemandaAcademica'),
-            ('Asignación Docente', 'PlanificacionAsignacionDocente'),
-            ('Reparto de Horas', 'PlanificacionRepartoHoras'),
-            ('Matriz F4', 'PlanificacionMatrizF4'),
-            ('Aula / Horario', 'PlanificacionAulaHorario'),
-        ],
+        'modelos': [],
     },
     'auditoria': {
         'nombre': 'Auditoría',
