@@ -10,28 +10,11 @@
     <h4 class="fw-bold mb-0"><i class="fas fa-clock me-2 text-primary"></i>Horas por Docente</h4>
     <p class="text-muted mb-0 mt-1">Monitoreo de carga horaria de docentes activos</p>
   </div>
-  <div class="d-flex gap-2">
-    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Consolidado</a>
-    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-primary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
-  </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
 
-{% if limit_config.missing_dedicaciones %}
-<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
-  <div>
-    <div class="fw-semibold mb-1">Faltan límites horarios por configurar</div>
-    <div class="small">
-      La lógica de carga docente usa límites por modalidad. Aún no tienen configuración:
-      {% for modalidad in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
-      {% endfor %}
-    </div>
-  </div>
-  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
-</div>
-{% endif %}
+{% include 'planificacion/_limit_config_alert.html' %}
 
 <div class="row g-3 mb-4">
   <div class="col-md-3 col-6">
