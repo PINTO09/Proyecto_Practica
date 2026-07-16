@@ -74,6 +74,15 @@ def _normalize_cedula(value):
     return digits.zfill(10)
 
 
+def _normalize_phone(value):
+    digits = re.sub(r"\D", "", str(value or ""))
+    if not digits:
+        return None
+    if len(digits) == 9:
+        digits = "0" + digits
+    return digits[:15]
+
+
 def _positive_int(value):
     try:
         number = int(float(value or 0))
@@ -216,13 +225,19 @@ class Command(BaseCommand):
         if not grado_afinidad_default:
             raise CommandError("No existe ningun catalogo de grado de afinidad para crear registros F4.")
 
-        modalidad_map = {
-            _normalize_text(obj.codigo_modalidad): obj
-            for obj in CatalogoModalidadContratacion.objects.all()
-        }
-        dedicacion_map = {
-            _normalize_text(obj.codigo_dedicacion): obj
-            for obj in CatalogoDedicacionHoraria.objects.all()
+        modalidad_map = {}
+        for obj in CatalogoModalidadContratacion.objects.all():
+            modalidad_map[_normalize_text(obj.codigo_modalidad)] = obj
+            modalidad_map[_normalize_text(obj.nombre_modalidad)] = obj
+        dedicacion_map = {}
+        for obj in CatalogoDedicacionHoraria.objects.all():
+            dedicacion_map[_normalize_text(obj.codigo_dedicacion)] = obj
+            dedicacion_map[_normalize_text(obj.nombre_dedicacion)] = obj
+        modalidad_aliases = {
+            'CONTRATOS OCASIONALES': 'CONTRATO',
+            'CONTRATO OCASIONAL': 'CONTRATO',
+            'NOMBRAMIENTO PROVISIONAL': 'NOMBRAMIENTO',
+            'NOMBRAMIENTO AUTORIDAD UNIVERS': 'NOMBRAMIENTO',
         }
 
         field_name_to_code = {}
@@ -351,19 +366,26 @@ class Command(BaseCommand):
                 cedula = _normalize_cedula(row[0])
                 if not cedula:
                     continue
-                modalidad = modalidad_map.get(_normalize_text(row[7])) or CatalogoModalidadContratacion.objects.first()
+                modalidad_key = _normalize_text(row[7])
+                modalidad = (
+                    modalidad_map.get(modalidad_key) or
+                    modalidad_map.get(modalidad_aliases.get(modalidad_key, ''))
+                )
+                if not modalidad:
+                    continue
                 dedicacion = dedicacion_map.get(_normalize_text(row[6])) or CatalogoDedicacionHoraria.objects.first()
                 tipo_docente = tipo_docente_default
                 _, created = DocenteFcacc.objects.update_or_create(
                     cedula_docente=cedula,
                     defaults={
+                        "tipo_documento": "CEDULA",
                         "id_tipo_docente": tipo_docente,
                         "id_modalidad": modalidad,
                         "id_dedicacion": dedicacion,
                         "nombres_completos": _clean_text(row[1]),
                         "unidad_organica": _clean_text(row[2]),
                         "correo_institucional": _clean_text(row[3]) or None,
-                        "numero_celular": str(row[4]).strip() if row[4] else None,
+                        "numero_celular": _normalize_phone(row[4]),
                         "tipo_sangre": _clean_text(row[8]) or None,
                         "docente_activo": True,
                     },

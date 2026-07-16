@@ -4,6 +4,14 @@ from . import views
 app_name = 'planificacion'
 
 urlpatterns = [
+    path('catalogo-actividades/', views.CatalogoActividadComplementariaListView.as_view(), name='catalogoactividadcomplementaria_list'),
+    path('catalogo-actividades/crear/', views.CatalogoActividadComplementariaCreateView.as_view(), name='catalogoactividadcomplementaria_create'),
+    path('catalogo-actividades/<int:pk>/editar/', views.CatalogoActividadComplementariaUpdateView.as_view(), name='catalogoactividadcomplementaria_update'),
+    path('catalogo-actividades/<int:pk>/eliminar/', views.CatalogoActividadComplementariaDeleteView.as_view(), name='catalogoactividadcomplementaria_delete'),
+    path('actividades-docentes/', views.PlanificacionActividadDocenteListView.as_view(), name='planificacionactividaddocente_list'),
+    path('actividades-docentes/crear/', views.PlanificacionActividadDocenteCreateView.as_view(), name='planificacionactividaddocente_create'),
+    path('actividades-docentes/<int:pk>/editar/', views.PlanificacionActividadDocenteUpdateView.as_view(), name='planificacionactividaddocente_update'),
+    path('actividades-docentes/<int:pk>/eliminar/', views.PlanificacionActividadDocenteDeleteView.as_view(), name='planificacionactividaddocente_delete'),
     path('demanda/', views.PlanificacionDemandaAcademicaListView.as_view(), name='planificaciondemandaacademica_list'),
     path('demanda/crear/', views.PlanificacionDemandaAcademicaCreateView.as_view(), name='planificaciondemandaacademica_create'),
     path('demanda/<int:pk>/editar/', views.PlanificacionDemandaAcademicaUpdateView.as_view(), name='planificaciondemandaacademica_update'),

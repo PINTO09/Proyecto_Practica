@@ -1,0 +1,80 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} docente - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-id-card me-2 text-primary"></i>{% if object %}Editar docente{% else %}Registrar docente{% endif %}</h4>
+    <p class="text-muted mb-0">Consulte primero el documento para evitar registros duplicados.</p>
+  </div>
+  <a href="{% url 'docentes:docentefcacc_list' %}" class="btn btn-outline-secondary">Volver</a>
+</div>
+
+<div id="documentResult" class="alert d-none" role="alert"></div>
+<form method="post" enctype="multipart/form-data" id="teacherForm">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3"><h6 class="fw-bold mb-0">Datos personales y laborales</h6></div>
+    <div class="card-body"><div class="row g-3">
+      {% for field in form %}
+      <div class="{% if field.name == 'nombres_completos' or field.name == 'foto' %}col-md-8{% else %}col-md-4{% endif %}">
+        <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">{{ field.label }}</label>
+        {% if field.field.widget.input_type == 'checkbox' %}<div class="form-check mt-2">{{ field }}</div>{% else %}{{ field }}{% endif %}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div></div>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary px-4" type="submit"><i class="fas fa-save me-1"></i>Guardar</button>
+    <a href="{% url 'docentes:docentefcacc_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('id_cedula_docente');
+  const result = document.getElementById('documentResult');
+  if (!input || !result) return;
+  let lastValue = '';
+  function show(message, kind) {
+    result.className = `alert alert-${kind}`;
+    result.innerHTML = message;
+  }
+  function fill(data) {
+    ['tipo_documento','nombres_completos','fecha_nacimiento','id_tipo_docente','id_modalidad','id_dedicacion','unidad_organica','correo_institucional','numero_celular','tipo_sangre'].forEach(name => {
+      const field = document.getElementById('id_' + name);
+      if (field && data[name] !== undefined) field.value = data[name];
+    });
+    const active = document.getElementById('id_docente_activo');
+    if (active) active.checked = Boolean(data.docente_activo);
+  }
+  async function lookup() {
+    const value = input.value.trim();
+    if (!value || value === lastValue) return;
+    lastValue = value;
+    try {
+      const response = await fetch('{% url "docentes:api_docente_por_documento" %}?documento=' + encodeURIComponent(value));
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo consultar.');
+      if (!data.exists) {
+        show('<i class="fas fa-check-circle me-1"></i>Documento disponible para un nuevo docente.', 'success');
+        return;
+      }
+      fill(data);
+      show(`<strong>El docente ya existe.</strong> Sus datos fueron cargados. <a class="alert-link" href="${data.edit_url}">Abrir su registro para editarlo</a>.`, 'warning');
+    } catch (error) {
+      show(error.message, 'danger');
+    }
+  }
+  input.addEventListener('blur', lookup);
+  input.addEventListener('change', lookup);
+});
+</script>
+{% endblock %}

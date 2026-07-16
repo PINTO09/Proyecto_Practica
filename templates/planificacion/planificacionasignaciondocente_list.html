@@ -11,6 +11,7 @@
     <p class="text-muted mb-0 mt-1">Registro real de docentes asignados a materias y paralelos de la planificación.</p>
   </div>
   <div class="d-flex gap-2">
+    <a href="{% url 'planificacion:planificacionactividaddocente_list' %}" class="btn btn-outline-success"><i class="fas fa-list-check me-1"></i>Actividades</a>
     <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
     <a href="{% url 'planificacion:planificacionmatrizf4_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Matriz F4</a>
     <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Consolidado</a>
@@ -172,6 +173,9 @@
               <div class="small text-muted mt-1">
                 Total {{ row.workload.total_horas }}h / Límite {{ row.max_total }}h / Disp. {{ row.available }}h
               </div>
+              <span class="badge mt-1 {% if row.cumple_limite %}bg-success{% else %}bg-danger{% endif %}">
+                {% if row.cumple_limite %}Cumple{% else %}No cumple{% endif %}
+              </span>
             </td>
             <td class="text-end pe-3">
               <a href="{% url 'planificacion:planificacionasignaciondocente_update' pk=row.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar"><i class="fas fa-pencil-alt"></i></a>

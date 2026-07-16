@@ -1,5 +1,6 @@
 import json
 import re
+import unicodedata
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
@@ -62,7 +63,9 @@ def _generate_codigo(nombre_value, codigo_field, model):
     if not nombre_value:
         return None
     max_len = getattr(codigo_field, 'max_length', 20)
-    raw = re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]', '', str(nombre_value)).upper().strip()
+    raw = unicodedata.normalize('NFKD', str(nombre_value))
+    raw = ''.join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = re.sub(r'[^A-Za-z0-9\s]', '', raw).upper().strip()
     words = [w for w in raw.split() if w]
     if not words:
         return None
@@ -101,8 +104,6 @@ def _auto_generate_codigo(form):
     model = form._meta.model
     codigo_field, nombre_field = _find_codigo_nombre_fields(model)
     if not codigo_field or not nombre_field:
-        return
-    if codigo_field.name not in form.cleaned_data and codigo_field.name not in form.initial:
         return
     current_val = form.cleaned_data.get(codigo_field.name) or form.initial.get(codigo_field.name)
     if current_val:
@@ -201,6 +202,14 @@ class CrudCreateView(LoginRequiredMixin, CreateView):
     fields = '__all__'
     template_name = 'generic_crud/form.html'
     autofill_rules = {}
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        codigo_field, _ = _find_codigo_nombre_fields(self.model)
+        if codigo_field and codigo_field.name in form.fields:
+            form.fields[codigo_field.name].required = False
+            form.fields[codigo_field.name].help_text = 'Opcional: el sistema lo genera automáticamente.'
+        return form
 
     def get_success_url(self):
         return reverse_lazy(f'{self.model._meta.app_label}:{self.model._meta.model_name}_list')

@@ -1,6 +1,58 @@
 from django.db import models
 
 
+class CatalogoActividadComplementaria(models.Model):
+    TIPOS = (
+        ('COMPLEMENTARIA', 'Actividad complementaria'),
+        ('INVESTIGACION', 'Investigación'),
+        ('GESTION', 'Gestión académica'),
+        ('VINCULACION', 'Vinculación'),
+    )
+
+    id_actividad = models.AutoField(primary_key=True)
+    codigo_actividad = models.CharField(max_length=20, unique=True)
+    nombre_actividad = models.CharField(max_length=150)
+    tipo_actividad = models.CharField(max_length=20, choices=TIPOS, default='COMPLEMENTARIA')
+    actividad_activa = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'catalogo_actividad_complementaria'
+        verbose_name = 'Actividad complementaria'
+        verbose_name_plural = 'M5 · Planificación · Actividades complementarias'
+        ordering = ('tipo_actividad', 'nombre_actividad')
+
+    def __str__(self):
+        return f'{self.codigo_actividad} - {self.nombre_actividad}'
+
+
+class PlanificacionActividadDocente(models.Model):
+    id_actividad_docente = models.BigAutoField(primary_key=True)
+    id_docente = models.ForeignKey('docentes.DocenteFcacc', on_delete=models.RESTRICT, db_column='id_docente')
+    id_carrera = models.ForeignKey('catalogos.CatalogoCarrera', on_delete=models.RESTRICT, db_column='id_carrera')
+    id_periodo = models.ForeignKey('catalogos.CatalogoPeriodoAcademico', on_delete=models.RESTRICT, db_column='id_periodo')
+    id_actividad = models.ForeignKey(CatalogoActividadComplementaria, on_delete=models.RESTRICT, db_column='id_actividad')
+    horas_asignadas = models.PositiveSmallIntegerField(default=0)
+    observaciones = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'planificacion_actividad_docente'
+        verbose_name = 'Actividad asignada a docente'
+        verbose_name_plural = 'M5 · Planificación · Actividades de docentes'
+        constraints = [
+            models.UniqueConstraint(
+                fields=('id_docente', 'id_periodo', 'id_actividad'),
+                name='uk_actividad_docente_periodo',
+            ),
+            models.CheckConstraint(
+                check=models.Q(horas_asignadas__gt=0),
+                name='chk_actividad_horas_positivas',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.id_docente} - {self.id_actividad} ({self.horas_asignadas}h)'
+
+
 class PlanificacionDemandaAcademica(models.Model):
     id_demanda = models.BigAutoField(primary_key=True, db_column='id_demanda')
     id_asignatura = models.ForeignKey('curriculo.CurriculoAsignatura', on_delete=models.RESTRICT, db_column='id_asignatura')

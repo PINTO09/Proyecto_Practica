@@ -94,6 +94,7 @@ def split_sql_statements(sql):
                     continue
 
         if ch == ';':
+            current.append(ch)
             statement = ''.join(current).strip()
             if statement and statement != ';':
                 statements.append(statement)
