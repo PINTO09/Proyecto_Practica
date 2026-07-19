@@ -21,10 +21,19 @@
     <form method="get" class="row g-3 align-items-end" id="filterForm">
       <div class="col-md-3">
         <label class="form-label small fw-semibold">Carrera</label>
-        <select name="carrera" class="form-select form-select-sm" id="filterCarrera" onchange="this.form.querySelector('[name=asignatura]').value='';this.form.submit()">
+        <select name="carrera" class="form-select form-select-sm" id="filterCarrera" onchange="this.form.querySelector('[name=nivel]').value='';this.form.querySelector('[name=asignatura]').value='';this.form.submit()">
           <option value="">Todas las carreras</option>
           {% for c in carreras %}
           <option value="{{ c.id_carrera }}" {% if carrera_id == c.id_carrera %}selected{% endif %}>{{ c.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Nivel</label>
+        <select name="nivel" class="form-select form-select-sm" id="filterNivel" onchange="this.form.querySelector('[name=asignatura]').value='';this.form.submit()">
+          <option value="">Todos los niveles</option>
+          {% for i in niveles %}
+          <option value="{{ i }}" {% if nivel_selected == i %}selected{% endif %}>Nivel {{ i }}</option>
           {% endfor %}
         </select>
       </div>
@@ -33,7 +42,7 @@
         <select name="asignatura" class="form-select form-select-sm" id="filterAsignatura" onchange="this.form.submit()">
           <option value="">Todas las asignaturas</option>
           {% for s in all_subjects %}
-          <option value="{{ s.id_asignatura }}" {% if subject_id == s.id_asignatura %}selected{% endif %}>{{ s.nombre_asignatura }}</option>
+          <option value="{{ s.id_asignatura }}" {% if subject_id == s.id_asignatura %}selected{% endif %}>{{ s.codigo_asignatura }} - {{ s.nombre_asignatura }}{% if s.es_actividad %} [ACT]{% endif %}</option>
           {% endfor %}
         </select>
       </div>
@@ -59,7 +68,7 @@
   <div class="card-header bg-white py-3">
     <div class="d-flex justify-content-between align-items-start gap-3">
       <div>
-        <h6 class="fw-bold mb-1">{{ sd.asignatura.codigo_asignatura }} - {{ sd.asignatura.nombre_asignatura }}</h6>
+        <h6 class="fw-bold mb-1">{{ sd.asignatura.codigo_asignatura }} - {{ sd.asignatura.nombre_asignatura }}{% if sd.asignatura.es_actividad %} <span class="badge bg-success ms-1" style="font-size:10px;">ACT</span>{% endif %}</h6>
         <small class="text-muted">
           {{ sd.asignatura.id_carrera.nombre_carrera }} &middot; Nivel {{ sd.asignatura.nivel_semestre }} &middot; {{ sd.asignatura.horas_semanales_asignatura }}h/sem
         </small>

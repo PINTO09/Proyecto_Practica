@@ -231,17 +231,23 @@
               {% endif %}
             </td>
             <td class="text-end pe-3">
+              {% if paralelo.asignaciones %}
+              <div class="d-flex flex-column align-items-end gap-1">
+                <span class="badge bg-success-subtle text-success">
+                  <i class="fas fa-check-circle me-1"></i>{{ paralelo.asignaciones.0.id_docente.nombres_completos }}
+                </span>
+                <a href="{% url 'planificacion:planificacionasignaciondocente_update' pk=paralelo.asignaciones.0.pk %}" class="btn btn-sm btn-outline-warning">
+                  <i class="fas fa-pen me-1"></i>Editar
+                </a>
+              </div>
+              {% else %}
               <div class="d-flex justify-content-end gap-2">
                 <a href="{% url 'planificacion:planificacionasignaciondocente_create' %}?periodo={{ row.demanda.id_periodo_id }}&carrera={{ row.demanda.id_carrera_id }}&asignatura={{ row.demanda.id_asignatura_id }}&nivel={{ row.demanda.id_asignatura.nivel_semestre }}&paralelo={{ paralelo.label }}&horas={{ row.demanda.id_asignatura.horas_semanales_asignatura }}{% if row.principal_campo_id %}&campo={{ row.principal_campo_id }}{% endif %}"
                    class="btn btn-sm btn-primary">
                   <i class="fas fa-user-plus me-1"></i>Asignar
                 </a>
-                {% if paralelo.asignaciones %}
-                <a href="{% url 'planificacion:planificacionasignaciondocente_update' pk=paralelo.asignaciones.0.pk %}" class="btn btn-sm btn-outline-secondary">
-                  <i class="fas fa-pen"></i>
-                </a>
-                {% endif %}
               </div>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

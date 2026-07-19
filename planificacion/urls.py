@@ -40,9 +40,11 @@ urlpatterns = [
     path('validacion-excel/', views.validacion_excel_planificacion, name='validacion_excel'),
     path('validacion-excel/sincronizar/', views.sincronizar_excel_planificacion, name='sincronizar_excel'),
     path('asignacion-inteligente/', views.asignacion_inteligente, name='asignacion_inteligente'),
+    path('paralelos-matriz/', views.planificacion_paralelos_matriz, name='planificacion_paralelos_matriz'),
     path('api/asignatura-info/', views.api_asignatura_info, name='api_asignatura_info'),
     path('api/recommendations/', views.api_recommendations, name='api_recommendations'),
     path('api/validar-horas/', views.api_validar_horas_disponibles, name='api_validar_horas'),
     path('api/check-affinity/', views.api_check_affinity, name='api_check_affinity'),
     path('api/crear-asignacion/', views.api_crear_asignacion, name='api_crear_asignacion'),
+    path('api/paralelos-disponibles/', views.api_paralelos_disponibles, name='api_paralelos_disponibles'),
 ]

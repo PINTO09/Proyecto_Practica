@@ -508,7 +508,9 @@ def _build_asignacion_limit_snapshot(docente, periodo, horas_clase_nuevas, horas
     }
 
 
-def _add_asignacion_limit_errors(form, docente, snapshot):
+def _add_asignacion_limit_errors(form, docente, snapshot, es_actividad=False):
+    if es_actividad:
+        return False
     if snapshot.get('error'):
         form.add_error(None, snapshot['error'])
         return True
@@ -783,6 +785,7 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
     def form_valid(self, form):
         docente = form.cleaned_data.get('id_docente')
         periodo = form.cleaned_data.get('id_periodo')
+        asignatura = form.cleaned_data.get('id_asignatura')
         horas_clase_nuevas = form.cleaned_data.get('horas_clase', 0)
         horas_comp_nuevas = form.cleaned_data.get('horas_complementarias', 0)
         snapshot = _build_asignacion_limit_snapshot(
@@ -792,7 +795,7 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
             horas_comp_nuevas=horas_comp_nuevas,
         )
 
-        if _add_asignacion_limit_errors(form, docente, snapshot):
+        if _add_asignacion_limit_errors(form, docente, snapshot, es_actividad=getattr(asignatura, 'es_actividad', False)):
             return self.form_invalid(form)
 
         return super().form_valid(form)
@@ -839,6 +842,11 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
         ctx['form_title'] = 'Nueva asignación docente'
         ctx['form_subtitle'] = 'Registra el docente responsable de una asignatura y paralelo.'
         ctx['back_url'] = 'planificacion:planificacionasignaciondocente_list'
+        subject_data = {
+            str(s.id_asignatura): {'n': s.nivel_semestre, 'c': s.id_carrera_id, 'a': s.es_actividad}
+            for s in CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad')
+        }
+        ctx['subject_data_json'] = json.dumps(subject_data)
         docente_id = self.request.POST.get('id_docente') or self.request.GET.get('docente')
         periodo_id = self.request.POST.get('id_periodo') or self.request.GET.get('periodo')
         if docente_id and periodo_id:
@@ -879,6 +887,7 @@ class PlanificacionAsignacionDocenteUpdateView(CrudUpdateView):
     def form_valid(self, form):
         docente = form.cleaned_data.get('id_docente')
         periodo = form.cleaned_data.get('id_periodo')
+        asignatura = form.cleaned_data.get('id_asignatura')
         horas_clase_nuevas = form.cleaned_data.get('horas_clase', 0)
         horas_comp_nuevas = form.cleaned_data.get('horas_complementarias', 0)
         snapshot = _build_asignacion_limit_snapshot(
@@ -889,7 +898,7 @@ class PlanificacionAsignacionDocenteUpdateView(CrudUpdateView):
             exclude_asignacion_id=self.object.pk,
         )
 
-        if _add_asignacion_limit_errors(form, docente, snapshot):
+        if _add_asignacion_limit_errors(form, docente, snapshot, es_actividad=getattr(asignatura, 'es_actividad', False)):
             return self.form_invalid(form)
 
         return super().form_valid(form)
@@ -905,6 +914,11 @@ class PlanificacionAsignacionDocenteUpdateView(CrudUpdateView):
             docente=self.object.id_docente,
             periodo=self.object.id_periodo_id,
         )
+        subject_data = {
+            str(s.id_asignatura): {'n': s.nivel_semestre, 'c': s.id_carrera_id, 'a': s.es_actividad}
+            for s in CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad')
+        }
+        ctx['subject_data_json'] = json.dumps(subject_data)
         return ctx
 
 class PlanificacionAsignacionDocenteDeleteView(CrudDeleteView):
@@ -1322,7 +1336,7 @@ def _compute_teacher_scores(subject, periodo_id=None):
                 has_affinity = True
                 break
 
-        if subject.nivel_semestre >= 4 and not has_affinity:
+        if subject.nivel_semestre >= 4 and not has_affinity and not subject.es_actividad:
             continue
         if subject.nivel_semestre <= 3:
             reasons.append('Nivel 1–3: cualquier docente activo')
@@ -1374,6 +1388,7 @@ def asignacion_inteligente(request):
     carrera_id = request.GET.get('carrera')
     subject_id = request.GET.get('asignatura')
     periodo_id = request.GET.get('periodo')
+    nivel = request.GET.get('nivel')
 
     from catalogos.models import CatalogoCarrera, CatalogoPeriodoAcademico
     carreras = CatalogoCarrera.objects.filter(carrera_activa=True)
@@ -1387,11 +1402,15 @@ def asignacion_inteligente(request):
         qs = qs.filter(id_carrera_id=carrera_id)
     if subject_id:
         qs = qs.filter(id_asignatura=subject_id)
+    if nivel:
+        qs = qs.filter(nivel_semestre=nivel)
 
-    subj_qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nombre_asignatura')
+    subj_qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')
     if carrera_id:
         subj_qs = subj_qs.filter(id_carrera_id=carrera_id)
-    all_subjects_for_select = list(subj_qs.values('id_asignatura', 'nombre_asignatura'))
+    if nivel:
+        subj_qs = subj_qs.filter(nivel_semestre=nivel)
+    all_subjects_for_select = list(subj_qs.values('id_asignatura', 'nombre_asignatura', 'codigo_asignatura', 'es_actividad'))
 
     paginator = Paginator(qs, 10)
     page_number = request.GET.get('page')
@@ -1421,6 +1440,8 @@ def asignacion_inteligente(request):
         'carrera_id': int(carrera_id) if carrera_id else None,
         'subject_id': int(subject_id) if subject_id else None,
         'periodo_id': int(periodo_id) if periodo_id else None,
+        'nivel_selected': int(nivel) if nivel else None,
+        'niveles': range(1, 11),
         'page_obj': page_obj,
         'paginator': paginator,
         'total_subjects': paginator.count,
@@ -1428,6 +1449,116 @@ def asignacion_inteligente(request):
         'periodo_activo': periodo_activo,
     }
     return render(request, 'planificacion/asignacion_inteligente.html', context)
+
+
+@login_required
+def planificacion_paralelos_matriz(request):
+    from catalogos.models import CatalogoCarrera, CatalogoPeriodoAcademico
+
+    periodo_id = request.GET.get('periodo')
+    carrera_id = request.GET.get('carrera')
+    nivel = request.GET.get('nivel')
+    search = (request.GET.get('q') or '').strip()
+
+    periodos = CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo')
+    periodo_activo = periodos.filter(periodo_activo=True).first()
+    if not periodo_id and periodo_activo:
+        periodo_id = str(periodo_activo.id_periodo)
+
+    carreras = CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera')
+
+    demanda_qs = PlanificacionDemandaAcademica.objects.select_related(
+        'id_asignatura', 'id_carrera', 'id_periodo',
+    ).order_by('id_asignatura__nivel_semestre', 'id_asignatura__nombre_asignatura')
+
+    if periodo_id:
+        demanda_qs = demanda_qs.filter(id_periodo_id=periodo_id)
+    if carrera_id:
+        demanda_qs = demanda_qs.filter(id_carrera_id=carrera_id)
+    if nivel:
+        demanda_qs = demanda_qs.filter(id_asignatura__nivel_semestre=nivel)
+
+    nivel_qs = PlanificacionDemandaAcademica.objects.all()
+    if periodo_id:
+        nivel_qs = nivel_qs.filter(id_periodo_id=periodo_id)
+    if carrera_id:
+        nivel_qs = nivel_qs.filter(id_carrera_id=carrera_id)
+    level_options = sorted(
+        nivel_qs.values_list('id_asignatura__nivel_semestre', flat=True).distinct()
+    )
+
+    if search:
+        demanda_qs = demanda_qs.filter(
+            Q(id_asignatura__nombre_asignatura__icontains=search) |
+            Q(id_asignatura__codigo_asignatura__icontains=search)
+        )
+
+    demandas = list(demanda_qs)
+    subject_ids = [d.id_asignatura_id for d in demandas]
+
+    # Determine all paralelo labels across all filtered demandas
+    max_paralelos = max((d.numero_paralelos for d in demandas), default=0)
+    all_paralelo_labels = _build_parallel_labels(max_paralelos)
+
+    # Lookup existing assignments for these subjects
+    asignaciones_por_clave = {}
+    if subject_ids:
+        asignaciones_qs = PlanificacionAsignacionDocente.objects.filter(
+            id_asignatura_id__in=subject_ids,
+        ).select_related('id_docente', 'id_campo')
+        if periodo_id:
+            asignaciones_qs = asignaciones_qs.filter(id_periodo_id=periodo_id)
+        if carrera_id:
+            asignaciones_qs = asignaciones_qs.filter(id_carrera_id=carrera_id)
+        for asignacion in asignaciones_qs:
+            key = (asignacion.id_asignatura_id, _excel_clean_text(asignacion.paralelo_asignado))
+            asignaciones_por_clave.setdefault(key, []).append(asignacion)
+
+    # Campos lookup
+    campos_por_asignatura = {}
+    if subject_ids:
+        for rel in CurriculoAsignaturaCampo.objects.filter(
+            id_asignatura_id__in=subject_ids
+        ).select_related('id_campo'):
+            campos_por_asignatura.setdefault(rel.id_asignatura_id, []).append(rel)
+
+    rows = []
+    for demanda in demandas:
+        paralelo_cells = []
+        for label in all_paralelo_labels:
+            key = (demanda.id_asignatura_id, label)
+            asignaciones = asignaciones_por_clave.get(key, [])
+            within_demanda = label in _build_parallel_labels(demanda.numero_paralelos)
+            paralelo_cells.append({
+                'label': label,
+                'asignaciones': asignaciones,
+                'has_assignment': bool(asignaciones),
+                'exists_in_demanda': within_demanda,
+            })
+
+        principal_campo = campos_por_asignatura.get(demanda.id_asignatura_id)
+        rows.append({
+            'demanda': demanda,
+            'principal_campo': principal_campo,
+            'paralelo_cells': paralelo_cells,
+        })
+
+    context = {
+        'active_section': 'planificacion_paralelos_matriz',
+        'limit_config': _build_limit_config_state(),
+        'periodos': periodos,
+        'periodo_activo': periodo_activo,
+        'periodo_id': int(periodo_id) if periodo_id else None,
+        'carreras': carreras,
+        'carrera_id': int(carrera_id) if carrera_id else None,
+        'nivel': int(nivel) if nivel else None,
+        'search': search,
+        'level_options': level_options,
+        'all_paralelo_labels': all_paralelo_labels,
+        'rows': rows,
+        'total_subjects': len(rows),
+    }
+    return render(request, 'planificacion/planificacion_paralelos_matriz.html', context)
 
 
 @login_required
@@ -1457,6 +1588,18 @@ def planificacion_operativa(request):
         demanda_qs = demanda_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
         demanda_qs = demanda_qs.filter(id_carrera_id=carrera_id)
+    # Compute level options BEFORE nivel filter so the dropdown always shows all available levels
+    nivel_qs = PlanificacionDemandaAcademica.objects.filter(
+        id_asignatura__nivel_semestre__isnull=False,
+    )
+    if periodo_id:
+        nivel_qs = nivel_qs.filter(id_periodo_id=periodo_id)
+    if carrera_id:
+        nivel_qs = nivel_qs.filter(id_carrera_id=carrera_id)
+    level_options = sorted(
+        nivel_qs.values_list('id_asignatura__nivel_semestre', flat=True).distinct()
+    )
+
     if nivel:
         demanda_qs = demanda_qs.filter(id_asignatura__nivel_semestre=nivel)
     if search:
@@ -1501,8 +1644,6 @@ def planificacion_operativa(request):
                 _excel_clean_text(asignacion.paralelo_asignado),
             )
             asignaciones_por_clave.setdefault(key, []).append(asignacion)
-
-    level_options = sorted({d.id_asignatura.nivel_semestre for d in demandas})
     rows = []
     total_parallel_slots = 0
     assigned_parallel_slots = 0
@@ -1610,6 +1751,14 @@ def asignar_docente_operativa(request):
             raise CatalogoCampoConocimiento.DoesNotExist
     except (DocenteFcacc.DoesNotExist, CurriculoAsignatura.DoesNotExist, CatalogoCampoConocimiento.DoesNotExist, ValueError):
         messages.error(request, 'No se encontro alguno de los datos necesarios para asignar el paralelo.')
+        return redirect(next_url)
+
+    if not PlanificacionDemandaAcademica.objects.filter(
+        id_asignatura_id=asignatura_id,
+        id_carrera_id=carrera_id,
+        id_periodo_id=periodo_id,
+    ).exists():
+        messages.error(request, 'Esta asignatura no está registrada en la demanda académica. No se puede asignar.')
         return redirect(next_url)
 
     if nivel_int >= 4 and not docente_tiene_afinidad(docente, asignatura):
@@ -1832,6 +1981,7 @@ def api_asignatura_info(request):
             'id_campo': campo.id_campo_id if campo else None,
             'campo_nombre': str(campo.id_campo) if campo else '',
             'existing_assignment': existing,
+            'es_actividad': subj.es_actividad,
         }
         return JsonResponse(data)
     except CurriculoAsignatura.DoesNotExist:
@@ -1852,34 +2002,56 @@ def api_recommendations(request):
 
     all_recs = _compute_teacher_scores(subj, periodo_id=periodo_id)
     recs = all_recs[:10]
-    data = [{
-        'id': r['id'],
-        'nombre': r['docente'].nombres_completos,
-        'dedicacion': r['docente'].id_dedicacion.codigo_dedicacion,
-        'score': r['score'],
-        'reasons': r['reasons'],
-        'available': r['available'],
-        'used': r['used'],
-        'max': r['max'],
-        'class_hours': r['class_hours'],
-        'complementary_hours': r['complementary_hours'],
-        'investigation_hours': r['investigation_hours'],
-        'activity_hours': r['activity_hours'],
-        'status': r['status'],
-    } for r in recs]
-    has_subject_fields = CurriculoAsignaturaCampo.objects.filter(id_asignatura=subj).exists()
-    message = ''
-    if subj.nivel_semestre >= 4 and not has_subject_fields:
-        message = 'La asignatura no tiene campos de conocimiento configurados; primero complete su afinidad curricular.'
-    elif subj.nivel_semestre >= 4 and not data:
-        message = 'No existen docentes con afinidad registrada para esta asignatura.'
-    return JsonResponse({
-        'recomendados': data,
-        'docentes_elegibles': [
+    if subj.es_actividad:
+        all_teachers = DocenteFcacc.objects.filter(docente_activo=True).order_by('nombres_completos')
+        data = [{
+            'id': d.id_docente,
+            'nombre': d.nombres_completos,
+            'dedicacion': d.id_dedicacion.codigo_dedicacion if hasattr(d, 'id_dedicacion') and d.id_dedicacion else '',
+            'score': 100,
+            'reasons': ['Actividad: cualquier docente disponible'],
+            'available': 999,
+            'used': 0,
+            'max': 999,
+            'class_hours': 0,
+            'complementary_hours': 0,
+            'investigation_hours': 0,
+            'activity_hours': 0,
+            'status': 'excelente',
+        } for d in all_teachers]
+        docentes_elegibles = [{'id': d.id_docente, 'nombre': d.nombres_completos} for d in all_teachers]
+        has_subject_fields = True
+        message = ''
+    else:
+        data = [{
+            'id': r['id'],
+            'nombre': r['docente'].nombres_completos,
+            'dedicacion': r['docente'].id_dedicacion.codigo_dedicacion,
+            'score': r['score'],
+            'reasons': r['reasons'],
+            'available': r['available'],
+            'used': r['used'],
+            'max': r['max'],
+            'class_hours': r['class_hours'],
+            'complementary_hours': r['complementary_hours'],
+            'investigation_hours': r['investigation_hours'],
+            'activity_hours': r['activity_hours'],
+            'status': r['status'],
+        } for r in recs]
+        docentes_elegibles = [
             {'id': item['id'], 'nombre': item['docente'].nombres_completos}
             for item in all_recs
-        ],
-        'affinity_required': subj.nivel_semestre >= 4,
+        ]
+        has_subject_fields = CurriculoAsignaturaCampo.objects.filter(id_asignatura=subj).exists()
+        message = ''
+        if subj.nivel_semestre >= 4 and not has_subject_fields:
+            message = 'La asignatura no tiene campos de conocimiento configurados; primero complete su afinidad curricular.'
+        elif subj.nivel_semestre >= 4 and not data:
+            message = 'No existen docentes con afinidad registrada para esta asignatura.'
+    return JsonResponse({
+        'recomendados': data,
+        'docentes_elegibles': docentes_elegibles,
+        'affinity_required': subj.nivel_semestre >= 4 and not subj.es_actividad,
         'has_subject_fields': has_subject_fields,
         'message': message,
     })
@@ -1942,6 +2114,24 @@ def api_check_affinity(request):
         'allowed': level <= 3 or has_affinity,
         'level': level,
     })
+
+
+@login_required
+def api_paralelos_disponibles(request):
+    asignatura_id = request.GET.get('asignatura')
+    carrera_id = request.GET.get('carrera')
+    periodo_id = request.GET.get('periodo')
+    if not all([asignatura_id, carrera_id, periodo_id]):
+        return JsonResponse({'paralelos': [], 'message': 'Seleccione asignatura, carrera y período.'})
+    demanda = PlanificacionDemandaAcademica.objects.filter(
+        id_asignatura_id=asignatura_id,
+        id_carrera_id=carrera_id,
+        id_periodo_id=periodo_id,
+    ).first()
+    if not demanda or demanda.numero_paralelos <= 0:
+        return JsonResponse({'paralelos': [], 'message': 'No hay demanda registrada para esta combinación.'})
+    labels = _build_parallel_labels(demanda.numero_paralelos)
+    return JsonResponse({'paralelos': labels, 'message': ''})
 
 
 @login_required

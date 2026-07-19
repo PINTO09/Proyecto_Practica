@@ -8,6 +8,7 @@ class CurriculoAsignatura(models.Model):
     nombre_asignatura = models.CharField(max_length=200, db_column='nombre_asignatura')
     horas_semanales_asignatura = models.SmallIntegerField(default=0, db_column='horas_semanales_asignatura')
     nivel_semestre = models.SmallIntegerField(db_column='nivel_semestre')
+    es_actividad = models.BooleanField(default=False, db_column='es_actividad')
 
     class Meta:
         managed = False
@@ -16,7 +17,8 @@ class CurriculoAsignatura(models.Model):
         verbose_name_plural = 'M4 · Currículo · Asignaturas'
 
     def __str__(self):
-        return f'{self.codigo_asignatura} - {self.nombre_asignatura}'
+        prefix = '[ACT] ' if self.es_actividad else ''
+        return f'{prefix}{self.codigo_asignatura} - {self.nombre_asignatura}'
 
 
 class CurriculoAsignaturaCampo(models.Model):

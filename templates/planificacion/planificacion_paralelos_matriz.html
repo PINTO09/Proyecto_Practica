@@ -1,0 +1,121 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Matriz de Paralelos - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="fas fa-table me-2 text-primary"></i>Matriz de Paralelos</h4>
+    <p class="text-muted mb-0 mt-1">Vista matricial de asignaturas y paralelos con sus docentes asignados.</p>
+  </div>
+</div>
+
+{% include 'planificacion/_planning_flow.html' %}
+{% include 'planificacion/_limit_config_alert.html' %}
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Periodo</label>
+        <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos los periodos</option>
+          {% for periodo in periodos %}
+          <option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>
+            {{ periodo.nombre_periodo }}{% if periodo.periodo_activo %} · Activo{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Carrera</label>
+        <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todas las carreras</option>
+          {% for c in carreras %}
+          <option value="{{ c.id_carrera }}" {% if carrera_id == c.id_carrera %}selected{% endif %}>{{ c.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Nivel</label>
+        <select name="nivel" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for item in level_options %}
+          <option value="{{ item }}" {% if nivel == item %}selected{% endif %}>Nivel {{ item }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Buscar asignatura</label>
+        <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm" placeholder="Código o nombre">
+      </div>
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not rows %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body py-5 text-center">
+    <i class="fas fa-table-list text-muted mb-3" style="font-size:2rem;"></i>
+    <h5 class="fw-bold mb-1">No hay datos para mostrar</h5>
+    <p class="text-muted mb-3">Seleccione un período y carrera para ver la matriz de paralelos.</p>
+  </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle mb-0" style="font-size:0.85rem;">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="min-width:220px;">Asignatura</th>
+            <th>Nivel</th>
+            <th>Carrera</th>
+            {% for label in all_paralelo_labels %}
+            <th class="text-center">Par. {{ label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="ps-3">
+              <div class="fw-semibold">{{ row.demanda.id_asignatura.codigo_asignatura }}</div>
+              <div class="small text-muted">{{ row.demanda.id_asignatura.nombre_asignatura }}</div>
+            </td>
+            <td class="text-center">{{ row.demanda.id_asignatura.nivel_semestre }}</td>
+            <td>{{ row.demanda.id_carrera.nombre_carrera }}</td>
+            {% for cell in row.paralelo_cells %}
+            <td class="text-center">
+              {% if cell.exists_in_demanda %}
+                {% if cell.has_assignment %}
+                  {% for a in cell.asignaciones %}
+                  <div class="d-flex flex-column align-items-center">
+                    <span class="badge bg-success-subtle text-success px-2 py-1" style="font-size:0.8rem;">
+                      {{ a.id_docente.nombres_completos|truncatechars:18 }}
+                    </span>
+                    <span class="text-muted small">{{ a.horas_clase }}h</span>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                <span class="text-danger small fw-semibold">—</span>
+                {% endif %}
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -2,6 +2,9 @@
   <a href="{% url 'planificacion:planificacion_operativa' %}" class="{% if active_section == 'planificacion_operativa' %}active{% endif %}">
     <i class="fas fa-table-cells"></i><span>Operativa</span>
   </a>
+  <a href="{% url 'planificacion:planificacion_paralelos_matriz' %}" class="{% if active_section == 'planificacion_paralelos_matriz' %}active{% endif %}">
+    <i class="fas fa-th"></i><span>Matriz</span>
+  </a>
   <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="{% if active_section == 'planificacionasignaciondocente_list' %}active{% endif %}">
     <i class="fas fa-users"></i><span>Asignaciones</span>
   </a>

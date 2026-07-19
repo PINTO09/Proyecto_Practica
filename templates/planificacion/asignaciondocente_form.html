@@ -140,12 +140,13 @@
 {% endblock %}
 
 {% block extra_js %}
+<script id="subjectData" type="application/json">{{ subject_data_json|default:'{}'|safe }}</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const subjectSelect = document.getElementById('id_id_asignatura');
   const carreraSelect = document.getElementById('id_id_carrera');
   const campoSelect = document.getElementById('id_id_campo');
-  const nivelInput = document.getElementById('id_nivel_semestre_asignado');
+  const nivelSelect = document.getElementById('id_nivel_semestre_asignado');
   const horasInput = document.getElementById('id_horas_clase');
   const periodoSelect = document.getElementById('id_id_periodo');
   const panel = document.getElementById('recommendationsPanel');
@@ -153,9 +154,89 @@ document.addEventListener('DOMContentLoaded', function() {
   const subjInfo = document.getElementById('selectedSubjectInfo');
   const existingWarning = document.getElementById('existingAssignmentWarning');
   const existingTeacherName = document.getElementById('existingTeacherName');
+  const paraleloSelect = document.getElementById('id_paralelo_asignado');
   const assignmentForm = document.getElementById('assignmentForm');
   let currentExistingId = null;
   let currentExistingLabel = '';
+
+  function loadParalelos() {
+    if (!paraleloSelect) return;
+    const subjId = subjectSelect?.value;
+    const carrId = carreraSelect?.value;
+    const perId = periodoSelect?.value;
+    if (!subjId || !carrId || !perId) {
+      paraleloSelect.innerHTML = '<option value="">--- Primero seleccione asignatura, carrera y período ---</option>';
+      return;
+    }
+    const params = new URLSearchParams({ asignatura: subjId, carrera: carrId, periodo: perId });
+    const currentParalelo = paraleloSelect.dataset.current || '';
+    fetch('{% url "planificacion:api_paralelos_disponibles" %}?' + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        paraleloSelect.innerHTML = '<option value="">---------</option>';
+        (data.paralelos || []).forEach(l => {
+          const opt = document.createElement('option');
+          opt.value = l;
+          opt.textContent = l;
+          if (l === currentParalelo) opt.selected = true;
+          paraleloSelect.appendChild(opt);
+        });
+      })
+      .catch(() => {
+        paraleloSelect.innerHTML = '<option value="">Error al cargar paralelos</option>';
+      });
+  }
+
+  const subjectData = JSON.parse(document.getElementById('subjectData')?.textContent || '{}');
+  let originalSubjectOptions = [];
+  if (subjectSelect) {
+    originalSubjectOptions = Array.from(subjectSelect.options).map(o => ({
+      value: o.value, text: o.text, selected: o.selected,
+      nivel: subjectData[o.value]?.n || 0,
+      carrera: subjectData[o.value]?.c || 0,
+      actividad: subjectData[o.value]?.a || false,
+    }));
+  }
+
+  let preservedSubjectValue = subjectSelect?.value || '';
+
+  if (paraleloSelect && paraleloSelect.value) {
+    paraleloSelect.dataset.current = paraleloSelect.value;
+  }
+
+  function filterSubjects() {
+    if (!subjectSelect) return;
+    const nivel = parseInt(nivelSelect?.value) || 0;
+    const carrera = parseInt(carreraSelect?.value) || 0;
+    const currentVal = preservedSubjectValue;
+    subjectSelect.innerHTML = '<option value="">---------</option>';
+    originalSubjectOptions.forEach(o => {
+      if (o.value === '') return;
+      if (carrera > 0 && o.carrera !== carrera) return;
+      if (nivel > 0 && o.nivel !== nivel) return;
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.actividad ? '[ACT] ' + o.text : o.text;
+      if (o.value === currentVal) opt.selected = true;
+      subjectSelect.appendChild(opt);
+    });
+  }
+
+  if (nivelSelect) {
+    nivelSelect.addEventListener('change', function() {
+      preservedSubjectValue = '';
+      filterSubjects();
+      if (subjInfo) subjInfo.textContent = '';
+      if (panel) panel.style.display = 'none';
+    });
+  }
+  if (carreraSelect) carreraSelect.addEventListener('change', function() {
+    preservedSubjectValue = '';
+    filterSubjects();
+    loadParalelos();
+  });
+
+  if (nivelSelect && nivelSelect.value) filterSubjects();
 
   if (!subjectSelect) return;
 
@@ -200,13 +281,20 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('{% url "planificacion:api_asignatura_info" %}?id=' + subjId)
       .then(r => r.json())
       .then(data => {
-        if (data.error) return;
-        if (carreraSelect) carreraSelect.value = data.id_carrera;
-        if (nivelInput) nivelInput.value = data.nivel_semestre_asignado;
-        if (horasInput) horasInput.value = data.horas_clase;
-        if (campoSelect && data.id_campo) campoSelect.value = data.id_campo;
-        if (subjInfo) subjInfo.textContent = data.carrera_nombre + ' - Nivel ' + data.nivel_semestre_asignado;
-        updateExistingWarning(data.existing_assignment || null);
+        if (!data.error) {
+          if (carreraSelect) carreraSelect.value = data.id_carrera;
+          if (nivelSelect) nivelSelect.value = data.nivel_semestre_asignado;
+          if (horasInput) horasInput.value = data.horas_clase;
+          if (data.es_actividad) horasInput.value = 0;
+          if (campoSelect && data.id_campo) campoSelect.value = data.id_campo;
+          if (subjInfo) {
+            let info = data.carrera_nombre + ' - Nivel ' + data.nivel_semestre_asignado;
+            if (data.es_actividad) info += ' <span class="badge bg-success ms-1">Actividad</span>';
+            subjInfo.innerHTML = info;
+          }
+          updateExistingWarning(data.existing_assignment || null);
+        }
+        loadParalelos();
       })
       .catch(() => {});
 
@@ -284,7 +372,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   let currentSubjectId = subjectSelect.value;
-  if (currentSubjectId) loadSubject(currentSubjectId);
+  if (currentSubjectId) {
+    loadSubject(currentSubjectId);
+  } else {
+    loadParalelos();
+  }
 
   let formDirty = false;
   assignmentForm?.addEventListener('change', () => { formDirty = true; });
@@ -300,6 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   periodoSelect?.addEventListener('change', function() {
     if (currentSubjectId) loadSubject(currentSubjectId);
+    loadParalelos();
   });
 
   assignmentForm?.addEventListener('submit', function(e) {

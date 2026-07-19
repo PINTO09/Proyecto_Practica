@@ -54,6 +54,8 @@
             <td class="ps-3">
               {% if f.is_relation %}
                 <span title="{{ obj|getattr:f.name }}">{{ obj|getattr:f.name|truncatechars:40 }}</span>
+              {% elif f.name in image_fields and obj|getattr:f.name %}
+                <img src="{{ obj|getattr:f.name.url }}" alt="Foto" class="rounded" style="width:40px;height:40px;object-fit:cover;">
               {% elif f.name in bool_fields %}
                 {% if obj|getattr:f.name %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}
               {% elif f.name in date_fields %}

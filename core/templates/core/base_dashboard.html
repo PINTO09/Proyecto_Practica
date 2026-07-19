@@ -106,6 +106,9 @@
             color: var(--sidebar-text-hover);
             background: rgba(255,255,255,0.09);
         }
+        input.form-control:not([type="file"]):not([type="date"]):not([type="email"]),
+        select.form-control, textarea.form-control { text-transform: uppercase; }
+        input.form-control[type="email"] { text-transform: lowercase; }
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
@@ -412,6 +415,14 @@
     document.getElementById('sidebarOverlay')?.addEventListener('click', function(){
         document.getElementById('sidebar').classList.remove('show');
         document.getElementById('sidebarOverlay').classList.remove('show');
+    });
+    document.addEventListener('input', function(e) {
+        const t = e.target;
+        if (t.matches('input.form-control:not([type="file"]):not([type="date"]):not([type="email"]):not([type="checkbox"]):not([type="radio"]), textarea.form-control')) {
+            const start = t.selectionStart;
+            t.value = t.value.toUpperCase();
+            t.setSelectionRange(start, start);
+        }
     });
     const t=document.getElementById('themeToggle'),h=document.documentElement,i=document.getElementById('themeIcon'),l=document.getElementById('themeLabel');
     if(localStorage.getItem('theme')==='dark'){h.setAttribute('data-bs-theme','dark');i.className='fas fa-sun';l.textContent='Modo Claro';}

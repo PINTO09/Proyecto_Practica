@@ -6,7 +6,7 @@ from django.db.models import Sum
 
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo
 from docentes.models import DocenteCampoAfinidad
-from catalogos.models import LimiteHorario
+from catalogos.models import LimiteHorario, CatalogoCarrera, CatalogoPeriodoAcademico
 
 from .models import (
     PlanificacionAsignacionDocente, PlanificacionActividadDocente,
@@ -53,9 +53,9 @@ def docente_tiene_afinidad(docente, asignatura):
 
 
 class PlanificacionAsignacionDocenteForm(forms.ModelForm):
-    paralelo_asignado = forms.CharField(
-        label='Paralelo', max_length=3,
-        help_text='Use A, B, C… según los paralelos solicitados en la demanda.',
+    paralelo_asignado = forms.ChoiceField(
+        label='Paralelo', choices=[],
+        help_text='Seleccione el paralelo según la demanda académica.',
     )
 
     class Meta:
@@ -67,7 +67,7 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         )
         widgets = {
             'comision_servicio': forms.Textarea(attrs={'rows': 2}),
-            'nivel_semestre_asignado': forms.NumberInput(attrs={'min': 1, 'max': 10}),
+            'nivel_semestre_asignado': forms.Select(choices=[('', '--- Seleccione ---')] + [(i, f'Nivel {i}') for i in range(1, 11)]),
             'horas_clase': forms.NumberInput(attrs={'min': 0}),
         }
 
@@ -79,12 +79,54 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         self.fields['id_asignatura'].queryset = CurriculoAsignatura.objects.select_related('id_carrera').order_by(
             'id_carrera__nombre_carrera', 'nivel_semestre', 'nombre_asignatura'
         )
+        # Populate paralelo choices from demanda for the current subject+carrera+periodo
+        asignatura = None
+        carrera = None
+        periodo = None
+        paralelo_actual = None
+        if self.instance and self.instance.pk:
+            asignatura = self.instance.id_asignatura
+            carrera = self.instance.id_carrera
+            periodo = self.instance.id_periodo
+            paralelo_actual = self.instance.paralelo_asignado
+        else:
+            raw_subj = self.initial.get('id_asignatura')
+            carr_id = self.initial.get('id_carrera')
+            per_id = self.initial.get('id_periodo')
+            if carr_id and per_id:
+                subj_id = raw_subj.pk if hasattr(raw_subj, 'pk') else raw_subj
+                carr_id_v = carr_id.pk if hasattr(carr_id, 'pk') else carr_id
+                per_id_v = per_id.pk if hasattr(per_id, 'pk') else per_id
+                if subj_id and carr_id_v and per_id_v:
+                    try:
+                        asignatura = CurriculoAsignatura.objects.get(pk=subj_id)
+                        carrera = CatalogoCarrera.objects.get(pk=carr_id_v)
+                        periodo = CatalogoPeriodoAcademico.objects.get(pk=per_id_v)
+                    except (CurriculoAsignatura.DoesNotExist, CatalogoCarrera.DoesNotExist, CatalogoPeriodoAcademico.DoesNotExist):
+                        pass
+            paralelo_actual = self.initial.get('paralelo_asignado', '')
+        choices = self.fields['paralelo_asignado'].choices or []
+        if paralelo_actual:
+            choices.append((paralelo_actual, paralelo_actual))
+        if asignatura and carrera and periodo:
+            demanda = PlanificacionDemandaAcademica.objects.filter(
+                id_asignatura=asignatura, id_carrera=carrera, id_periodo=periodo,
+            ).first()
+            if demanda:
+                labels = _parallel_labels(demanda.numero_paralelos)
+                choices = [(l, l) for l in labels]
+                if paralelo_actual and paralelo_actual not in labels:
+                    choices.append((paralelo_actual, paralelo_actual))
+        self.fields['paralelo_asignado'].choices = choices
 
     def clean_paralelo_asignado(self):
-        value = re.sub(r'\s+', '', self.cleaned_data['paralelo_asignado']).upper()
-        if not re.fullmatch(r'[A-Z]{1,3}', value):
-            raise ValidationError('El paralelo debe contener únicamente letras, por ejemplo A o B.')
-        return value
+        value = self.cleaned_data.get('paralelo_asignado', '').strip().upper()
+        valid = [k for k, v in self.fields['paralelo_asignado'].choices]
+        if valid and value and value not in valid:
+            raise ValidationError(f'Paralelo no válido. Opciones: {", ".join(valid)}.')
+        if not valid and not re.fullmatch(r'[A-Z]{1,3}', value):
+            raise ValidationError('El paralelo debe contener 1 a 3 letras mayúsculas.')
+        return value if value else ''
 
     def clean(self):
         cleaned = super().clean()
@@ -104,24 +146,47 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
             id_asignatura=asignatura, id_campo=campo
         ).exists():
             self.add_error('id_campo', 'El campo seleccionado no corresponde a esta asignatura.')
-        if asignatura and docente and (nivel or asignatura.nivel_semestre) >= 4:
+
+        es_actividad = getattr(asignatura, 'es_actividad', False) if asignatura else False
+
+        # Validar que la asignatura esté en la demanda académica (operativa)
+        if asignatura and carrera and periodo and not es_actividad:
+            if not PlanificacionDemandaAcademica.objects.filter(
+                id_asignatura=asignatura, id_carrera=carrera, id_periodo=periodo,
+            ).exists():
+                self.add_error(
+                    'id_asignatura',
+                    'Esta asignatura no está registrada en la demanda académica del período y carrera seleccionados.',
+                )
+
+        if not es_actividad and asignatura and docente and (nivel or asignatura.nivel_semestre) >= 4:
             if not docente_tiene_afinidad(docente, asignatura):
                 self.add_error(
                     'id_docente',
                     'Desde cuarto nivel solo se permiten docentes con afinidad registrada para la asignatura.',
                 )
 
+        if not es_actividad and asignatura and docente and periodo and asignatura.id_asignatura:
+            otras_asignaciones = PlanificacionAsignacionDocente.objects.filter(
+                id_docente=docente,
+                id_periodo=periodo,
+            ).exclude(
+                id_asignatura__in=PlanificacionAsignacionDocente.objects.filter(
+                    id_asignatura__es_actividad=True
+                ).values('id_asignatura')
+            )
+            if self.instance.pk:
+                otras_asignaciones = otras_asignaciones.exclude(pk=self.instance.pk)
+            otras_ids = set(otras_asignaciones.values_list('id_asignatura_id', flat=True))
+            otras_ids.discard(asignatura.id_asignatura)
+            if otras_ids:
+                self.add_error(
+                    'id_docente',
+                    'El docente ya tiene asignada otra asignatura en este período. '
+                    'Solo puede tener una asignatura distinta (se permiten varios paralelos de la misma).',
+                )
+
         if asignatura and carrera and periodo and paralelo:
-            demanda = PlanificacionDemandaAcademica.objects.filter(
-                id_asignatura=asignatura, id_carrera=carrera, id_periodo=periodo,
-            ).first()
-            if demanda:
-                allowed = _parallel_labels(demanda.numero_paralelos)
-                if paralelo not in allowed:
-                    self.add_error(
-                        'paralelo_asignado',
-                        f'El paralelo debe ser uno de los solicitados: {", ".join(allowed)}.',
-                    )
             duplicate = PlanificacionAsignacionDocente.objects.filter(
                 id_asignatura=asignatura, id_carrera=carrera,
                 id_periodo=periodo, paralelo_asignado__iexact=paralelo,
