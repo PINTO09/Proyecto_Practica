@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.core.validators import RegexValidator
 from .models import (
     Usuario, Docente, Carrera, Dedicacion, Licencia,
@@ -19,14 +20,26 @@ widget_10_digits = forms.TextInput(attrs={
 })
 
 
-class UsuarioAdminForm(forms.ModelForm):
+class UsuarioChangeForm(UserChangeForm):
     cedula = forms.CharField(
         max_length=10, min_length=10,
         validators=[validate_10_digits_admin],
         widget=widget_10_digits,
     )
 
-    class Meta:
+    class Meta(UserChangeForm.Meta):
+        model = Usuario
+        fields = '__all__'
+
+
+class UsuarioCreationForm(UserCreationForm):
+    cedula = forms.CharField(
+        max_length=10, min_length=10,
+        validators=[validate_10_digits_admin],
+        widget=widget_10_digits,
+    )
+
+    class Meta(UserCreationForm.Meta):
         model = Usuario
         fields = '__all__'
 
@@ -75,8 +88,8 @@ class DocenteTransaccionalInline(admin.TabularInline):
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):
     model = Usuario
-    form = UsuarioAdminForm
-    add_form = UsuarioAdminForm
+    form = UsuarioChangeForm
+    add_form = UsuarioCreationForm
     list_display = ['cedula', 'is_staff', 'is_superuser', 'is_active', 'last_login']
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'groups']
     fieldsets = (

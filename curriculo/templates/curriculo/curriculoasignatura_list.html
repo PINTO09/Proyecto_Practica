@@ -1,0 +1,147 @@
+{% extends 'generic_crud/list.html' %}
+{% load crud_tags %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">{{ model_verbose_plural|default:model_name }}</h4>
+  </div>
+  <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo</a>
+</div>
+
+{% if search_fields %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" id="searchForm" class="row g-2 align-items-center">
+      <div class="col-md-3 position-relative">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar..." value="{{ search_value }}" id="searchInput">
+      </div>
+      <div class="col-auto">
+        <select name="tipo" class="form-select form-select-sm" id="tipoFilter">
+          <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todas</option>
+          <option value="subjects" {% if tipo_filter == 'subjects' %}selected{% endif %}>Asignaturas</option>
+          <option value="activities" {% if tipo_filter == 'activities' %}selected{% endif %}>Actividades</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="small fw-semibold me-1 text-muted">Mostrar</label>
+        <select name="cant" class="form-select form-select-sm d-inline-block w-auto" id="cantSelect">
+          <option value="10" {% if cant == 10 %}selected{% endif %}>10</option>
+          <option value="20" {% if cant == 20 %}selected{% endif %}>20</option>
+          <option value="50" {% if cant == 50 %}selected{% endif %}>50</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <span class="text-muted small" id="recordCount">{{ page_obj.paginator.count }} registro(s)</span>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            {% for f in fields %}<th class="ps-3">{{ f.verbose_name|default:f.name }}</th>{% endfor %}
+            <th class="pe-3 text-end">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in object_list %}
+          <tr>
+            {% for f in fields %}
+            <td class="ps-3">
+              {% if f.is_relation %}
+                <span title="{{ obj|getattr:f.name }}">{{ obj|getattr:f.name|truncatechars:40 }}</span>
+              {% elif f.name in image_fields and obj|getattr:f.name %}
+                <img src="{{ obj|getattr:f.name.url }}" alt="Foto" class="rounded" style="width:40px;height:40px;object-fit:cover;">
+              {% elif f.name in bool_fields %}
+                {% if obj|getattr:f.name %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}
+              {% elif f.name in date_fields %}
+                <span title="{{ obj|getattr:f.name|date:'d/m/Y H:i'|default:'' }}">{{ obj|getattr:f.name|date:'d/m/Y'|default:'—' }}</span>
+              {% else %}
+                <span title="{{ obj|getattr:f.name|default:'' }}">{{ obj|getattr:f.name|default:'—'|truncatechars:50 }}</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+            <td class="pe-3 text-end text-nowrap">
+              <a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar">
+                <i class="fas fa-pencil-alt"></i>
+              </a>
+              <a href="{% url delete_url pk=obj.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar">
+                <i class="fas fa-trash-alt"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{{ fields|length|add:1 }}" class="text-center py-4">
+              <div class="text-muted mb-2">No hay registros</div>
+              <a href="{% url create_url %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-3">
+  <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+    <ul class="pagination pagination-sm mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
+      {% endif %}
+      {% for p in paginator.page_range %}
+      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
+      {% endif %}
+    </ul>
+    <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
+      <label class="small text-muted mb-0">Ir a:</label>
+      <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;">
+      {% if search_value %}<input type="hidden" name="q" value="{{ search_value }}">{% endif %}
+      {% if tipo_filter != 'all' %}<input type="hidden" name="tipo" value="{{ tipo_filter }}">{% endif %}
+      {% if cant %}<input type="hidden" name="cant" value="{{ cant }}">{% endif %}
+    </form>
+  </div>
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchForm = document.getElementById('searchForm');
+  const searchInput = document.getElementById('searchInput');
+  const cantSelect = document.getElementById('cantSelect');
+  const tipoFilter = document.getElementById('tipoFilter');
+
+  if (searchInput) {
+    searchInput.focus();
+    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    let debounceTimer;
+    let currentValue = searchInput.value;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      if (this.value === currentValue) return;
+      currentValue = this.value;
+      debounceTimer = setTimeout(() => searchForm.submit(), 350);
+    });
+  }
+  if (cantSelect) {
+    cantSelect.addEventListener('change', function() { searchForm.submit(); });
+  }
+  if (tipoFilter) {
+    tipoFilter.addEventListener('change', function() { searchForm.submit(); });
+  }
+});
+</script>
+{% endblock %}

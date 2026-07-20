@@ -61,6 +61,17 @@
           <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
           <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Filtrar asignaturas</label>
+              <div class="btn-group btn-group-sm" role="group" id="actFilterGroup">
+                <input type="radio" class="btn-check" name="actFilter" id="actFilterAll" value="all" checked>
+                <label class="btn btn-outline-primary" for="actFilterAll">Todas</label>
+                <input type="radio" class="btn-check" name="actFilter" id="actFilterSubjects" value="subjects">
+                <label class="btn btn-outline-primary" for="actFilterSubjects">Asignaturas</label>
+                <input type="radio" class="btn-check" name="actFilter" id="actFilterActivities" value="activities">
+                <label class="btn btn-outline-primary" for="actFilterActivities">Actividades</label>
+              </div>
+            </div>
             {% for field in form %}
             <div class="{% if field.name == 'comision_servicio' %}col-12{% else %}col-md-6{% endif %}">
               <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">{{ field.label }}</label>
@@ -208,12 +219,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!subjectSelect) return;
     const nivel = parseInt(nivelSelect?.value) || 0;
     const carrera = parseInt(carreraSelect?.value) || 0;
+    const actFilter = document.querySelector('input[name="actFilter"]:checked')?.value || 'all';
     const currentVal = preservedSubjectValue;
     subjectSelect.innerHTML = '<option value="">---------</option>';
     originalSubjectOptions.forEach(o => {
       if (o.value === '') return;
       if (carrera > 0 && o.carrera !== carrera) return;
       if (nivel > 0 && o.nivel !== nivel) return;
+      if (actFilter === 'subjects' && o.actividad) return;
+      if (actFilter === 'activities' && !o.actividad) return;
       const opt = document.createElement('option');
       opt.value = o.value;
       opt.textContent = o.actividad ? '[ACT] ' + o.text : o.text;
@@ -234,6 +248,12 @@ document.addEventListener('DOMContentLoaded', function() {
     preservedSubjectValue = '';
     filterSubjects();
     loadParalelos();
+  });
+  document.querySelectorAll('input[name="actFilter"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      preservedSubjectValue = '';
+      filterSubjects();
+    });
   });
 
   if (nivelSelect && nivelSelect.value) filterSubjects();
@@ -307,16 +327,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!panel || !recList) return;
         const docenteSelect = document.getElementById('id_id_docente');
         if (docenteSelect) {
-          const previousValue = docenteSelect.value;
-          docenteSelect.innerHTML = '<option value="">---------</option>';
-          (data.docentes_elegibles || []).forEach(item => {
-            const option = document.createElement('option');
-            option.value = item.id;
-            option.textContent = item.nombre;
-            option.selected = String(item.id) === String(previousValue);
-            docenteSelect.appendChild(option);
-          });
-          docenteSelect.disabled = (data.docentes_elegibles || []).length === 0;
+          const elegibles = data.docentes_elegibles || [];
+          if (elegibles.length > 0) {
+            const previousValue = docenteSelect.value;
+            docenteSelect.innerHTML = '<option value="">---------</option>';
+            elegibles.forEach(item => {
+              const option = document.createElement('option');
+              option.value = item.id;
+              option.textContent = item.nombre;
+              option.selected = String(item.id) === String(previousValue);
+              docenteSelect.appendChild(option);
+            });
+          }
+          docenteSelect.disabled = false;
         }
         const recs = data.recomendados || [];
         if (recs.length === 0) {
@@ -397,15 +420,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
   assignmentForm?.addEventListener('submit', function(e) {
     const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
-    if (!currentExistingId) return;
-    const docenteSelect = document.getElementById('id_id_docente');
-    const newDocenteId = docenteSelect ? docenteSelect.value : null;
-    if (newDocenteId && newDocenteId !== String(currentExistingId)) {
-      const ok = confirm(currentExistingLabel + ' ya tiene esta asignatura. ¿Desea cambiar de docente?');
-      if (!ok) e.preventDefault();
+    if (currentExistingId) {
+      const docenteSelect = document.getElementById('id_id_docente');
+      const newDocenteId = docenteSelect ? docenteSelect.value : null;
+      if (newDocenteId && newDocenteId !== String(currentExistingId)) {
+        const ok = confirm(currentExistingLabel + ' ya tiene esta asignatura. ¿Desea cambiar de docente?');
+        if (!ok) { e.preventDefault(); return; }
+      }
     }
+    setTimeout(() => {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+    }, 0);
   });
 
   attachSelectListeners();
