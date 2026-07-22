@@ -1,9 +1,9 @@
 from django.core.exceptions import ValidationError
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase
 
 from .forms import PlanificacionActividadDocenteForm, PlanificacionAsignacionDocenteForm
 from .management.commands.import_complete_fcacc import _normalize_phone, _valid_email
-from .views import _build_parallel_labels
+from .views import _activity_workload_key, _build_parallel_labels, reporte_horas_docentes
 
 
 class PlanificacionRulesTests(SimpleTestCase):
@@ -37,3 +37,15 @@ class PlanificacionRulesTests(SimpleTestCase):
             _valid_email('avelino.carrillo@uleam.eud.ec'),
             'avelino.carrillo@uleam.edu.ec',
         )
+
+    def test_activity_keys_normalize_names_for_deduplication(self):
+        first = _activity_workload_key(1, 2, 'AD4 Preparación de Clases', 3)
+        second = _activity_workload_key(1, 2, 'ad4 preparacion de clases', 3)
+        self.assertEqual(first, second)
+
+    def test_old_hours_report_redirects_to_consolidated_view(self):
+        request = RequestFactory().get('/', {'periodo': '6', 'carrera': '3'})
+        response = reporte_horas_docentes.__wrapped__(request)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/planificacion/consolidado-docentes/', response['Location'])
+        self.assertIn('periodo=6', response['Location'])

@@ -1,0 +1,149 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}Reportes de planificación - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <div class="page-eyebrow mb-1">Salida de información</div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-file-export me-2 text-primary"></i>Reportes de planificación</h4>
+    <p class="text-muted mb-0">Consulta la carga consolidada y descarga archivos Excel con los mismos filtros.</p>
+  </div>
+  <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}?{{ export_query }}" class="btn btn-outline-primary">
+    <i class="fas fa-table-list me-1"></i>Ver carga docente
+  </a>
+</div>
+
+{% include 'planificacion/_planning_flow.html' %}
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white py-3">
+    <h6 class="fw-bold mb-0"><i class="fas fa-filter me-2 text-primary"></i>Filtros de exportación</h6>
+  </div>
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-5">
+        <label for="reportPeriod" class="form-label small fw-semibold">Período</label>
+        <select id="reportPeriod" name="periodo" class="form-select">
+          <option value="">Todos los períodos</option>
+          {% for periodo in periodos %}
+          <option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>
+            {{ periodo.nombre_periodo }}{% if periodo.periodo_activo %} · Activo{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label for="reportCareer" class="form-label small fw-semibold">Carrera</label>
+        <select id="reportCareer" name="carrera" class="form-select">
+          <option value="">Todas las carreras</option>
+          {% for carrera in carreras %}
+          <option value="{{ carrera.id_carrera }}" {% if carrera_id == carrera.id_carrera %}selected{% endif %}>{{ carrera.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check me-1"></i>Aplicar</button>
+      </div>
+      {% if periodo_id or carrera_id %}
+      <div class="col-12">
+        <a href="{% url 'reportes:centro_reportes' %}" class="small text-decoration-none"><i class="fas fa-xmark me-1"></i>Limpiar filtros</a>
+      </div>
+      {% endif %}
+      {% if carrera_id %}
+      <div class="col-12">
+        <div class="form-text"><i class="fas fa-circle-info me-1"></i>La carrera limita los docentes y el detalle académico; la carga total de cada docente incluye todo el período para compararla correctamente con su límite contractual.</div>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-3 col-6">
+    <div class="card border-0 shadow-sm h-100 metric-card">
+      <div class="card-body"><span class="text-muted small">Docentes con carga</span><h3 class="fw-bold mb-0">{{ teacher_count }}</h3></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="card border-0 shadow-sm h-100 metric-card metric-card--cyan">
+      <div class="card-body"><span class="text-muted small">Asignaciones</span><h3 class="fw-bold mb-0">{{ assignment_count }}</h3></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="card border-0 shadow-sm h-100 metric-card metric-card--success">
+      <div class="card-body"><span class="text-muted small">Actividades vigentes</span><h3 class="fw-bold mb-0">{{ activity_count }}</h3></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="card border-0 shadow-sm h-100 metric-card metric-card--warning">
+      <div class="card-body"><span class="text-muted small">Horas consolidadas</span><h3 class="fw-bold mb-0">{{ total_hours }}</h3></div>
+    </div>
+  </div>
+</div>
+
+<h5 class="fw-bold mb-3">Exportaciones principales</h5>
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex gap-3 align-items-start mb-3">
+          <div class="module-icon"><i class="fas fa-users"></i></div>
+          <div>
+            <h6 class="fw-bold mb-1">Resumen general por docente</h6>
+            <p class="text-muted small mb-0">Una fila por docente con clases, actividades, total, límite, disponibilidad y estado.</p>
+          </div>
+        </div>
+        <a href="{% url 'reportes:export_planificacion_general' %}?{{ export_query }}" class="btn btn-success mt-auto">
+          <i class="fas fa-file-excel me-1"></i>Descargar resumen general
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex gap-3 align-items-start mb-3">
+          <div class="module-icon"><i class="fas fa-table-cells"></i></div>
+          <div>
+            <h6 class="fw-bold mb-1">Planificación detallada</h6>
+            <p class="text-muted small mb-0">Libro con hojas separadas para asignaturas, actividades docentes y registros F4 adicionales.</p>
+          </div>
+        </div>
+        <a href="{% url 'reportes:export_planificacion_detallada' %}?{{ export_query }}" class="btn btn-success mt-auto">
+          <i class="fas fa-file-export me-1"></i>Descargar planificación detallada
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h5 class="fw-bold mb-3">Archivos de apoyo</h5>
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body d-flex justify-content-between align-items-center gap-3">
+        <div><h6 class="fw-bold mb-1">Registro de asignaciones</h6><p class="text-muted small mb-0">Detalle plano para revisión y conciliación.</p></div>
+        <a href="{% url 'reportes:export_carga_docente' %}?{{ export_query }}" class="btn btn-outline-success text-nowrap"><i class="fas fa-download me-1"></i>Excel</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body d-flex justify-content-between align-items-center gap-3">
+        <div><h6 class="fw-bold mb-1">Malla curricular</h6><p class="text-muted small mb-0">Asignaturas, niveles y horas de la carrera seleccionada.</p></div>
+        <a href="{% url 'reportes:export_malla' %}?{{ export_query }}" class="btn btn-outline-success text-nowrap"><i class="fas fa-download me-1"></i>Excel</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if f4_count %}
+<div class="alert alert-light border mt-4 mb-0">
+  <i class="fas fa-circle-info me-1 text-primary"></i>
+  Existen {{ f4_count }} registros F4 históricos para los filtros actuales. Se conservan para trazabilidad; las coincidencias exactas con Actividades docentes no vuelven a sumarse en la carga.
+  <a href="{% url 'planificacion:planificacionmatrizf4_list' %}?{{ export_query }}" class="alert-link ms-1">Consultar F4 histórico</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -14,7 +14,7 @@
   </div>
 </div>
 
-{% if active_section == 'planificacionmatrizf4_list' %}
+{% if show_planning_flow %}
 {% include 'planificacion/_planning_flow.html' %}
 {% endif %}
 
@@ -75,12 +75,14 @@
           </div>
           <span class="badge bg-{{ load_summary.badge }}">{{ load_summary.percentage }}%</span>
         </div>
-        <div class="row g-2 small">
-          <div class="col-6"><span class="text-muted">Clase</span><div class="fw-bold">{{ load_summary.workload.horas_clase }}h</div></div>
-          <div class="col-6"><span class="text-muted">Comp.</span><div class="fw-bold">{{ load_summary.workload.horas_complementarias }}h</div></div>
-          <div class="col-6"><span class="text-muted">F4</span><div class="fw-bold">{{ load_summary.workload.horas_investigacion|add:load_summary.workload.horas_actividad }}h</div></div>
-          <div class="col-6"><span class="text-muted">Disponible</span><div class="fw-bold">{{ load_summary.available }}h</div></div>
-        </div>
+          <div class="row g-2 small">
+            <div class="col-4"><span class="text-muted">Afinidad</span><div class="fw-bold text-success">{{ load_summary.workload.horas_afinidad }}h</div></div>
+            <div class="col-4"><span class="text-muted">No afin.</span><div class="fw-bold text-danger">{{ load_summary.workload.horas_no_afinidad }}h</div></div>
+            <div class="col-4"><span class="text-muted">U. básica</span><div class="fw-bold text-primary">{{ load_summary.workload.horas_unidad_basica }}h</div></div>
+            <div class="col-4"><span class="text-muted">Clase</span><div class="fw-bold">{{ load_summary.workload.total_horas_clase }}h</div></div>
+            <div class="col-4"><span class="text-muted">Actividades</span><div class="fw-bold">{{ load_summary.workload.horas_actividades_total }}h</div></div>
+            <div class="col-4"><span class="text-muted">Disponible</span><div class="fw-bold">{{ load_summary.available }}h</div></div>
+          </div>
       </div>
     </div>
   </div>

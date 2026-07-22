@@ -15,6 +15,8 @@
   <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo registro</a>
 </div>
 
+{% if show_planning_flow %}{% include 'planificacion/_planning_flow.html' %}{% endif %}
+
 {% if search_fields %}
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body py-2">

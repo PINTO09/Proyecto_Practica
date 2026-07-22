@@ -1,8 +1,9 @@
 ﻿import json
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.core.paginator import Paginator
-from django.db.models import Sum, Q, Prefetch, F, IntegerField, ExpressionWrapper
+from django.db.models import Sum, Q, Prefetch
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.management import call_command
@@ -15,7 +16,7 @@ from .models import (
     PlanificacionDemandaAcademica, PlanificacionAsignacionDocente,
     PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario,
 )
-from docentes.models import DocenteFcacc, DocenteCampoAfinidad
+from docentes.models import DocenteFcacc, DocenteCampoAfinidad, DocenteTituloAcademico
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo, RelacionPosgradoCampo
 from catalogos.models import CatalogoCampoConocimiento, CatalogoCarrera, CatalogoDedicacionHoraria, CatalogoModalidadContratacion, LimiteHorario
 import re
@@ -82,13 +83,9 @@ def _build_form_load_summary(docente=None, periodo=None):
     if not docente or not periodo:
         return None
 
-    workload = _build_docente_workload_map(periodo_id=periodo).get(docente.id_docente, {
-        'horas_clase': 0,
-        'horas_complementarias': 0,
-        'horas_investigacion': 0,
-        'horas_actividad': 0,
-        'total_horas': 0,
-    })
+    workload = _build_docente_workload_map(periodo_id=periodo).get(
+        docente.id_docente, _empty_workload()
+    )
     limite = _get_limite_horario_docente(docente)
     max_total = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
     percentage = round((workload['total_horas'] / max_total) * 100, 1) if max_total > 0 else 0
@@ -116,114 +113,208 @@ class LenientPaginationMixin:
         return paginator, page_obj, page_obj.object_list, page_obj.has_other_pages()
 
 
+class PlanningFlowContextMixin:
+    planning_active_section = ''
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['show_planning_flow'] = True
+        context['active_section'] = self.planning_active_section
+        return context
+
+
 def _classify_f4_activity(tipo_actividad):
     activity = (tipo_actividad or '').strip().lower()
     if 'invest' in activity:
         return 'investigacion'
+    if 'gesti' in activity:
+        return 'gestion'
+    if 'vincul' in activity:
+        return 'vinculacion'
     return 'actividad'
+
+
+def _empty_workload():
+    return {
+        'horas_afinidad': 0,
+        'horas_no_afinidad': 0,
+        'horas_unidad_basica': 0,
+        'horas_clase': 0,
+        'total_horas_clase': 0,
+        'horas_complementarias': 0,
+        'horas_investigacion': 0,
+        'horas_gestion': 0,
+        'horas_vinculacion': 0,
+        'horas_actividad': 0,
+        'horas_actividades_total': 0,
+        'total_horas': 0,
+    }
+
+
+def _knowledge_field_maps():
+    subject_fields = {}
+    for subject_id, field_id in CurriculoAsignaturaCampo.objects.values_list(
+        'id_asignatura_id', 'id_campo_id'
+    ):
+        subject_fields.setdefault(subject_id, set()).add(field_id)
+
+    teacher_fields = {}
+    for teacher_id, field_id in DocenteCampoAfinidad.objects.values_list(
+        'id_docente_id', 'id_campo_id'
+    ):
+        teacher_fields.setdefault(teacher_id, set()).add(field_id)
+
+    postgraduate_fields = {}
+    for postgraduate_id, field_id in RelacionPosgradoCampo.objects.values_list(
+        'id_posgrado_id', 'id_campo_id'
+    ):
+        postgraduate_fields.setdefault(postgraduate_id, set()).add(field_id)
+    for teacher_id, postgraduate_id in DocenteTituloAcademico.objects.exclude(
+        id_posgrado__isnull=True
+    ).values_list('id_docente_id', 'id_posgrado_id'):
+        teacher_fields.setdefault(teacher_id, set()).update(
+            postgraduate_fields.get(postgraduate_id, set())
+        )
+    return subject_fields, teacher_fields
+
+
+def _assignment_hour_category(
+    docente_id, asignatura_id, field_name, subject_fields=None, teacher_fields=None
+):
+    """Replica las tres categorías de horas de la hoja ASIGNACION del Excel."""
+    if _excel_normalize_text(field_name) == 'UNIDAD BASICA':
+        return 'unidad_basica'
+    if subject_fields is None or teacher_fields is None:
+        subject_fields, teacher_fields = _knowledge_field_maps()
+    if subject_fields.get(asignatura_id, set()) & teacher_fields.get(docente_id, set()):
+        return 'afinidad'
+    return 'no_afinidad'
+
+
+def _activity_workload_key(docente_id, periodo_id, name, hours):
+    return (
+        docente_id,
+        periodo_id,
+        _excel_normalize_text(name),
+        int(hours or 0),
+    )
+
+
+def _registered_activity_keys(periodo_id=None):
+    qs = PlanificacionActividadDocente.objects.all()
+    if periodo_id:
+        qs = qs.filter(id_periodo_id=periodo_id)
+    return {
+        _activity_workload_key(
+            row['id_docente_id'], row['id_periodo_id'],
+            row['id_actividad__nombre_actividad'], row['horas_asignadas'],
+        )
+        for row in qs.values(
+            'id_docente_id', 'id_periodo_id',
+            'id_actividad__nombre_actividad', 'horas_asignadas',
+        )
+    }
 
 
 def _build_docente_workload_map(periodo_id=None, carrera_id=None):
     workload = {}
+    subject_fields, teacher_fields = _knowledge_field_maps()
 
-    asignaciones_qs = PlanificacionAsignacionDocente.objects.all()
+    asignaciones_qs = PlanificacionAsignacionDocente.objects.select_related('id_campo')
     if periodo_id:
         asignaciones_qs = asignaciones_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
         asignaciones_qs = asignaciones_qs.filter(id_carrera_id=carrera_id)
-    asignaciones_qs = asignaciones_qs.values('id_docente_id').annotate(
-        horas_clase_total=Sum('horas_clase'),
-        horas_comp_total=Sum('horas_complementarias'),
-    )
+    for row in asignaciones_qs.values(
+        'id_docente_id', 'id_asignatura_id', 'id_campo__nombre_campo_conocimiento',
+        'horas_clase', 'horas_complementarias',
+    ):
+        docente_workload = workload.setdefault(row['id_docente_id'], _empty_workload())
+        hours = row['horas_clase'] or 0
+        category = _assignment_hour_category(
+            row['id_docente_id'], row['id_asignatura_id'],
+            row['id_campo__nombre_campo_conocimiento'], subject_fields, teacher_fields,
+        )
+        docente_workload[f'horas_{category}'] += hours
+        docente_workload['horas_clase'] += hours
+        docente_workload['horas_complementarias'] += row['horas_complementarias'] or 0
 
-    for row in asignaciones_qs:
-        workload[row['id_docente_id']] = {
-            'horas_clase': row['horas_clase_total'] or 0,
-            'horas_complementarias': row['horas_comp_total'] or 0,
-            'horas_investigacion': 0,
-            'horas_actividad': 0,
-        }
+    actividades_qs = PlanificacionActividadDocente.objects.select_related('id_actividad')
+    if periodo_id:
+        actividades_qs = actividades_qs.filter(id_periodo_id=periodo_id)
+    activity_keys = _registered_activity_keys(periodo_id)
 
     f4_qs = PlanificacionMatrizF4.objects.all()
     if periodo_id:
         f4_qs = f4_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
         f4_qs = f4_qs.filter(id_carrera_id=carrera_id)
-    if carrera_id:
-        f4_rows = f4_qs.annotate(
-            horas_equivalentes=ExpressionWrapper(
-                F('horas_actividad') * F('numero_paralelos_actividad'),
-                output_field=IntegerField(),
-            )
-        ).values('id_docente_id', 'tipo_actividad').annotate(
-            total_horas=Sum('horas_equivalentes')
+    seen_f4 = set()
+    f4_totals = {}
+    for row in f4_qs.values(
+        'id_docente_id', 'id_periodo_id', 'tipo_actividad',
+        'nombre_asignatura_actividad', 'horas_actividad',
+        'numero_paralelos_actividad',
+    ):
+        total = (row['horas_actividad'] or 0) * (row['numero_paralelos_actividad'] or 1)
+        activity_key = _activity_workload_key(
+            row['id_docente_id'], row['id_periodo_id'],
+            row['nombre_asignatura_actividad'], total,
         )
-    else:
-        seen_f4 = set()
-        f4_totals = {}
-        for row in f4_qs.values(
-            'id_docente_id',
-            'tipo_actividad',
-            'nombre_asignatura_actividad',
-            'horas_actividad',
-            'numero_paralelos_actividad',
-        ):
-            dedupe_key = (
-                row['id_docente_id'],
-                row['tipo_actividad'],
-                row['nombre_asignatura_actividad'],
-                row['horas_actividad'],
-                row['numero_paralelos_actividad'],
-            )
-            if dedupe_key in seen_f4:
-                continue
-            seen_f4.add(dedupe_key)
-            key = (row['id_docente_id'], row['tipo_actividad'])
-            f4_totals[key] = f4_totals.get(key, 0) + (
-                (row['horas_actividad'] or 0) *
-                (row['numero_paralelos_actividad'] or 1)
-            )
-        f4_rows = [
-            {'id_docente_id': key[0], 'tipo_actividad': key[1], 'total_horas': total}
-            for key, total in f4_totals.items()
-        ]
+        if activity_key in activity_keys:
+            continue
+        dedupe_key = (
+            row['id_docente_id'], row['id_periodo_id'], row['tipo_actividad'],
+            _excel_normalize_text(row['nombre_asignatura_actividad']),
+            row['horas_actividad'], row['numero_paralelos_actividad'],
+        )
+        if not carrera_id and dedupe_key in seen_f4:
+            continue
+        seen_f4.add(dedupe_key)
+        key = (row['id_docente_id'], row['tipo_actividad'])
+        f4_totals[key] = f4_totals.get(key, 0) + total
+    f4_rows = [
+        {'id_docente_id': key[0], 'tipo_actividad': key[1], 'total_horas': total}
+        for key, total in f4_totals.items()
+    ]
 
     for row in f4_rows:
-        docente_workload = workload.setdefault(row['id_docente_id'], {
-            'horas_clase': 0,
-            'horas_complementarias': 0,
-            'horas_investigacion': 0,
-            'horas_actividad': 0,
-        })
+        docente_workload = workload.setdefault(row['id_docente_id'], _empty_workload())
         bucket = _classify_f4_activity(row['tipo_actividad'])
         if bucket == 'investigacion':
             docente_workload['horas_investigacion'] += row['total_horas'] or 0
+        elif bucket == 'gestion':
+            docente_workload['horas_gestion'] += row['total_horas'] or 0
+        elif bucket == 'vinculacion':
+            docente_workload['horas_vinculacion'] += row['total_horas'] or 0
         else:
             docente_workload['horas_actividad'] += row['total_horas'] or 0
 
-    actividades_qs = PlanificacionActividadDocente.objects.select_related('id_actividad')
-    if periodo_id:
-        actividades_qs = actividades_qs.filter(id_periodo_id=periodo_id)
     for row in actividades_qs.values('id_docente_id', 'id_actividad__tipo_actividad').annotate(
         total_horas=Sum('horas_asignadas')
     ):
-        docente_workload = workload.setdefault(row['id_docente_id'], {
-            'horas_clase': 0,
-            'horas_complementarias': 0,
-            'horas_investigacion': 0,
-            'horas_actividad': 0,
-        })
-        if row['id_actividad__tipo_actividad'] == 'INVESTIGACION':
+        docente_workload = workload.setdefault(row['id_docente_id'], _empty_workload())
+        activity_type = row['id_actividad__tipo_actividad']
+        if activity_type == 'INVESTIGACION':
             docente_workload['horas_investigacion'] += row['total_horas'] or 0
+        elif activity_type == 'GESTION':
+            docente_workload['horas_gestion'] += row['total_horas'] or 0
+        elif activity_type == 'VINCULACION':
+            docente_workload['horas_vinculacion'] += row['total_horas'] or 0
         else:
             docente_workload['horas_complementarias'] += row['total_horas'] or 0
 
     for docente_workload in workload.values():
-        docente_workload['total_horas'] = (
-            docente_workload['horas_clase'] +
+        docente_workload['total_horas_clase'] = docente_workload['horas_clase']
+        docente_workload['horas_actividades_total'] = (
             docente_workload['horas_complementarias'] +
             docente_workload['horas_investigacion'] +
+            docente_workload['horas_gestion'] +
+            docente_workload['horas_vinculacion'] +
             docente_workload['horas_actividad']
+        )
+        docente_workload['total_horas'] = (
+            docente_workload['horas_clase'] + docente_workload['horas_actividades_total']
         )
 
     return workload
@@ -396,8 +487,8 @@ def _build_excel_global_validation(periodo_id=None):
     for key, item in expected.items():
         docente = teachers_by_name.get(key)
         workload = workload_map.get(docente.id_docente, {}) if docente else {}
-        actual_class = (workload.get('horas_clase') or 0) + (workload.get('horas_complementarias') or 0)
-        actual_f4 = (workload.get('horas_investigacion') or 0) + (workload.get('horas_actividad') or 0)
+        actual_class = workload.get('total_horas_clase') or workload.get('horas_clase') or 0
+        actual_f4 = workload.get('horas_actividades_total') or 0
         actual_total = actual_class + actual_f4
         detail_total = item['detail_class'] + item['detail_f4']
         declared_diff = actual_total - item['declared_total']
@@ -472,19 +563,15 @@ def _build_asignacion_limit_snapshot(docente, periodo, horas_clase_nuevas, horas
     max_comp = limite.horas_complementarias_maximas or 0
     max_total = max_clase + max_comp
     workload_map = _build_docente_workload_map(periodo_id=periodo)
-    docente_workload = workload_map.get(docente.id_docente, {
-        'horas_clase': 0,
-        'horas_complementarias': 0,
-        'horas_investigacion': 0,
-        'horas_actividad': 0,
-        'total_horas': 0,
-    })
+    docente_workload = workload_map.get(docente.id_docente, _empty_workload())
     actividad_complementaria_total = max(
         0, docente_workload['horas_complementarias'] - comp_previa
     )
     otras_actividades_total = (
         actividad_complementaria_total +
         docente_workload['horas_investigacion'] +
+        docente_workload['horas_gestion'] +
+        docente_workload['horas_vinculacion'] +
         docente_workload['horas_actividad']
     )
     total_general = total_asignado + otras_actividades_total
@@ -500,6 +587,8 @@ def _build_asignacion_limit_snapshot(docente, periodo, horas_clase_nuevas, horas
         'max_comp': max_comp,
         'max_total': max_total,
         'horas_investigacion': docente_workload['horas_investigacion'],
+        'horas_gestion': docente_workload['horas_gestion'],
+        'horas_vinculacion': docente_workload['horas_vinculacion'],
         'horas_actividad': docente_workload['horas_actividad'],
         'horas_actividad_complementaria': actividad_complementaria_total,
         'otras_actividades_total': otras_actividades_total,
@@ -608,12 +697,14 @@ def _add_f4_limit_errors(form, docente, snapshot):
     return bool(form.errors)
 
 
-class PlanificacionDemandaAcademicaListView(CrudListView):
+class PlanificacionDemandaAcademicaListView(PlanningFlowContextMixin, CrudListView):
     model = PlanificacionDemandaAcademica
+    planning_active_section = 'planificaciondemandaacademica_list'
 
 
-class PlanificacionDemandaAcademicaCreateView(CrudCreateView):
+class PlanificacionDemandaAcademicaCreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionDemandaAcademica
+    planning_active_section = 'planificaciondemandaacademica_list'
     autofill_rules = {
         'id_asignatura': {
             'app': 'curriculo',
@@ -624,8 +715,9 @@ class PlanificacionDemandaAcademicaCreateView(CrudCreateView):
         },
     }
 
-class PlanificacionDemandaAcademicaUpdateView(CrudUpdateView):
+class PlanificacionDemandaAcademicaUpdateView(PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionDemandaAcademica
+    planning_active_section = 'planificaciondemandaacademica_list'
 
 class PlanificacionDemandaAcademicaDeleteView(CrudDeleteView):
     model = PlanificacionDemandaAcademica
@@ -715,13 +807,7 @@ class PlanificacionAsignacionDocenteListView(LenientPaginationMixin, CrudListVie
         for row in rows:
             row.paralelo_limpio = _excel_clean_text(row.paralelo_asignado)
             row.total_asignacion = (row.horas_clase or 0) + (row.horas_complementarias or 0)
-            row.workload = workload_map.get(row.id_docente_id, {
-                'horas_clase': 0,
-                'horas_complementarias': 0,
-                'horas_investigacion': 0,
-                'horas_actividad': 0,
-                'total_horas': 0,
-            })
+            row.workload = workload_map.get(row.id_docente_id, _empty_workload())
             row.limite = limites.get(row.id_docente.id_modalidad_id)
             row.max_total = ((row.limite.horas_maximas or 0) + (row.limite.horas_complementarias_maximas or 0)) if row.limite else 0
             row.available = max(0, row.max_total - row.workload['total_horas'])
@@ -951,21 +1037,24 @@ class CatalogoActividadComplementariaDeleteView(CrudDeleteView):
     model = CatalogoActividadComplementaria
 
 
-class PlanificacionActividadDocenteListView(CrudListView):
+class PlanificacionActividadDocenteListView(PlanningFlowContextMixin, CrudListView):
     model = PlanificacionActividadDocente
     select_related_fields = ('id_docente', 'id_periodo', 'id_actividad')
+    planning_active_section = 'planificacionactividaddocente_list'
 
 
-class PlanificacionActividadDocenteCreateView(CrudCreateView):
+class PlanificacionActividadDocenteCreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionActividadDocente
     fields = None
     form_class = PlanificacionActividadDocenteForm
+    planning_active_section = 'planificacionactividaddocente_list'
 
 
-class PlanificacionActividadDocenteUpdateView(CrudUpdateView):
+class PlanificacionActividadDocenteUpdateView(PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionActividadDocente
     fields = None
     form_class = PlanificacionActividadDocenteForm
+    planning_active_section = 'planificacionactividaddocente_list'
 
 
 class PlanificacionActividadDocenteDeleteView(CrudDeleteView):
@@ -1174,73 +1263,10 @@ class PlanificacionAulaHorarioDeleteView(CrudDeleteView):
 
 @login_required
 def reporte_horas_docentes(request):
-    periodo_id = request.GET.get('periodo')
-
-    docentes = DocenteFcacc.objects.filter(docente_activo=True).select_related('id_modalidad')
-    workload_map = _build_docente_workload_map(periodo_id=periodo_id)
-    limites = {l.id_modalidad_id: l for l in LimiteHorario.objects.filter(activo=True).select_related('id_modalidad')}
-
-    rows = []
-    for d in docentes:
-        docente_workload = workload_map.get(d.id_docente, {
-            'horas_clase': 0,
-            'horas_complementarias': 0,
-            'horas_investigacion': 0,
-            'horas_actividad': 0,
-            'total_horas': 0,
-        })
-        h_clase = docente_workload['horas_clase']
-        h_comp = docente_workload['horas_complementarias']
-        h_invest = docente_workload['horas_investigacion']
-        h_act = docente_workload['horas_actividad']
-        h_total = docente_workload['total_horas']
-
-        limite = limites.get(d.id_modalidad_id)
-        max_horas = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
-        pct = round((h_total / max_horas) * 100, 1) if max_horas > 0 else 0
-
-        if pct > 100:
-            status = 'danger'
-        elif pct >= 80:
-            status = 'warning'
-        else:
-            status = 'success'
-
-        rows.append({
-            'docente': d,
-            'horas_clase': h_clase,
-            'horas_complementarias': h_comp,
-            'horas_investigacion': h_invest,
-            'horas_actividad': h_act,
-            'total_horas': h_total,
-            'max_horas': max_horas,
-            'porcentaje': pct,
-            'status': status,
-        })
-
-    rows.sort(key=lambda r: r['total_horas'], reverse=True)
-
-    total = len(rows)
-    sobrecargados = sum(1 for r in rows if r['porcentaje'] > 100)
-    alerta = sum(1 for r in rows if 80 <= r['porcentaje'] <= 100)
-    disponibles = total - sobrecargados - alerta
-    paginator, page_obj, page_rows = _paginate_items(request, rows, 20)
-
-    context = {
-        'active_section': 'reporte_horas_docentes',
-        'rows': page_rows,
-        'page_obj': page_obj,
-        'paginator': paginator,
-        'is_paginated': page_obj.has_other_pages(),
-        'filter_querystring': _filter_querystring(request),
-        'limites_config': limites,
-        'limit_config': _build_limit_config_state(),
-        'total_docentes': total,
-        'sobrecargados': sobrecargados,
-        'en_alerta': alerta,
-        'disponibles': disponibles,
-    }
-    return render(request, 'planificacion/reporte_horas_docentes.html', context)
+    """Ruta histórica; la carga se consolidó en una sola interfaz."""
+    target = reverse('planificacion:planificacion_consolidada_docentes')
+    query = request.GET.urlencode()
+    return redirect(f'{target}?{query}' if query else target)
 
 
 @login_required
@@ -1359,13 +1385,7 @@ def _compute_teacher_scores(subject, periodo_id=None):
         # 4. Available hours (+10)
         limite = limites.get(d.id_modalidad_id)
         max_h = (limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0) if limite else 0
-        docente_workload = workload_map.get(d.id_docente, {
-            'horas_clase': 0,
-            'horas_complementarias': 0,
-            'horas_investigacion': 0,
-            'horas_actividad': 0,
-            'total_horas': 0,
-        })
+        docente_workload = workload_map.get(d.id_docente, _empty_workload())
         used_h = docente_workload['total_horas']
         available = max_h - used_h
         if available > 0:
@@ -1380,9 +1400,15 @@ def _compute_teacher_scores(subject, periodo_id=None):
                 'used': used_h,
                 'max': max_h,
                 'class_hours': docente_workload['horas_clase'],
+                'affinity_hours': docente_workload['horas_afinidad'],
+                'non_affinity_hours': docente_workload['horas_no_afinidad'],
+                'basic_unit_hours': docente_workload['horas_unidad_basica'],
                 'complementary_hours': docente_workload['horas_complementarias'],
                 'investigation_hours': docente_workload['horas_investigacion'],
+                'management_hours': docente_workload['horas_gestion'],
+                'outreach_hours': docente_workload['horas_vinculacion'],
                 'activity_hours': docente_workload['horas_actividad'],
+                'activities_total': docente_workload['horas_actividades_total'],
                 'status': 'excelente' if score >= 50 else 'bueno' if score >= 25 else 'regular',
                 'has_affinity': has_affinity,
             })
@@ -1640,13 +1666,9 @@ def planificacion_operativa(request):
         if carrera_id:
             asignaciones_qs = asignaciones_qs.filter(id_carrera_id=carrera_id)
         for asignacion in asignaciones_qs:
-            docente_workload = workload_map.get(asignacion.id_docente_id, {
-                'horas_clase': 0,
-                'horas_complementarias': 0,
-                'horas_investigacion': 0,
-                'horas_actividad': 0,
-                'total_horas': 0,
-            })
+            docente_workload = workload_map.get(
+                asignacion.id_docente_id, _empty_workload()
+            )
             asignacion.workload = docente_workload
             key = (
                 asignacion.id_asignatura_id,
@@ -1854,7 +1876,9 @@ def planificacion_consolidada_docentes(request):
         periodo_id = str(periodo_activo.id_periodo)
 
     carreras = CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera')
-    docentes = list(DocenteFcacc.objects.filter(docente_activo=True).select_related('id_dedicacion').order_by('nombres_completos'))
+    docentes_qs = DocenteFcacc.objects.filter(docente_activo=True).select_related(
+        'id_dedicacion'
+    ).order_by('nombres_completos')
 
     assignments_qs = PlanificacionAsignacionDocente.objects.select_related(
         'id_docente',
@@ -1879,12 +1903,42 @@ def planificacion_consolidada_docentes(request):
     if carrera_id:
         f4_qs = f4_qs.filter(id_carrera_id=carrera_id)
 
-    workload_map = _build_docente_workload_map(periodo_id=periodo_id, carrera_id=carrera_id)
+    if carrera_id:
+        scoped_teacher_ids = set(assignments_qs.values_list('id_docente_id', flat=True)) | set(
+            f4_qs.values_list('id_docente_id', flat=True)
+        )
+        docentes_qs = docentes_qs.filter(id_docente__in=scoped_teacher_ids)
+    docentes = list(docentes_qs)
+
+    # El filtro de carrera define los docentes y el detalle visible. Para
+    # comparar con el límite contractual se conserva su carga total del período.
+    workload_map = _build_docente_workload_map(periodo_id=periodo_id)
     limites = {l.id_modalidad_id: l for l in LimiteHorario.objects.filter(activo=True).select_related('id_modalidad')}
 
     assignments_by_doc = {}
+    subject_fields, teacher_fields = _knowledge_field_maps()
     for assignment in assignments_qs:
+        assignment.hour_category = _assignment_hour_category(
+            assignment.id_docente_id,
+            assignment.id_asignatura_id,
+            assignment.id_campo.nombre_campo_conocimiento,
+            subject_fields,
+            teacher_fields,
+        )
         assignments_by_doc.setdefault(assignment.id_docente_id, []).append(assignment)
+
+    activities_qs = PlanificacionActividadDocente.objects.select_related(
+        'id_docente', 'id_periodo', 'id_actividad'
+    )
+    if periodo_id:
+        activities_qs = activities_qs.filter(id_periodo_id=periodo_id)
+    if carrera_id:
+        activities_qs = activities_qs.filter(
+            id_docente_id__in=[docente.id_docente for docente in docentes]
+        )
+    activities_by_doc = {}
+    for activity in activities_qs:
+        activities_by_doc.setdefault(activity.id_docente_id, []).append(activity)
 
     f4_by_doc = {}
     for activity in f4_qs:
@@ -1901,14 +1955,9 @@ def planificacion_consolidada_docentes(request):
                 continue
 
         docente_assignments = assignments_by_doc.get(docente.id_docente, [])
+        docente_activities = activities_by_doc.get(docente.id_docente, [])
         docente_f4 = f4_by_doc.get(docente.id_docente, [])
-        workload = workload_map.get(docente.id_docente, {
-            'horas_clase': 0,
-            'horas_complementarias': 0,
-            'horas_investigacion': 0,
-            'horas_actividad': 0,
-            'total_horas': 0,
-        })
+        workload = workload_map.get(docente.id_docente, _empty_workload())
         limite = limites.get(docente.id_modalidad_id)
         max_total = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
         available = max(0, max_total - workload['total_horas'])
@@ -1933,6 +1982,7 @@ def planificacion_consolidada_docentes(request):
         rows.append({
             'docente': docente,
             'assignments': docente_assignments,
+            'activities': docente_activities,
             'f4_activities': docente_f4,
             'workload': workload,
             'max_total': max_total,
@@ -1941,6 +1991,7 @@ def planificacion_consolidada_docentes(request):
             'status': status,
             'badge': badge,
             'assignment_count': len(docente_assignments),
+            'activity_count': len(docente_activities),
             'f4_count': len(docente_f4),
         })
 

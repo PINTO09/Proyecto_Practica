@@ -211,3 +211,67 @@ importaciones con aprobación fila por fila.
   local.
 - Resultado de verificación: 143 interfaces sin errores ni advertencias, 18
   pruebas automatizadas aprobadas y todos los recursos visuales con HTTP 200.
+
+## 10. Reorganización de Planificación y Reportes
+
+Se eliminó la duplicidad visible entre “Control de horas” y “Consolidado”. La
+interfaz canónica es ahora **Carga docente**, mientras que la dirección anterior
+redirige conservando sus filtros.
+
+El flujo principal queda organizado así:
+
+1. Demanda académica.
+2. Planificación operativa y matriz de paralelos.
+3. Registro de asignaciones.
+4. Actividades docentes.
+5. Carga docente consolidada.
+6. Reportes y exportaciones.
+
+La Matriz F4 permanece disponible como fuente histórica desde el centro de
+reportes, pero ya no se presenta como un segundo registro principal de
+actividades. Se detectaron tres coincidencias exactas entre Actividades docentes
+y F4, equivalentes a 9 horas; el cálculo consolidado y el Excel detallado ya no
+las suman dos veces. El detallado global conserva 5 registros F4 adicionales de
+los 12 registros históricos originales.
+
+El nuevo centro de reportes permite seleccionar período y carrera antes de
+generar:
+
+- resumen general por docente;
+- planificación detallada en tres hojas;
+- registro de asignaciones;
+- malla curricular.
+
+Todos los archivos respetan los filtros. Cuando se elige una carrera, esta
+define los docentes y el detalle académico del reporte; la carga total del
+docente se calcula sobre todo el período para compararla correctamente con su
+límite contractual.
+
+## 11. Tipos de horas exigidos por la hoja ASIGNACION
+
+La hoja `ASIGNACION` de los libros de planificación no maneja una única columna
+de clase. Sus fórmulas consolidan por docente los siguientes valores:
+
+- horas no afinidad;
+- horas de unidad básica;
+- horas de actividad;
+- horas de afinidad;
+- total de horas clase;
+- total general.
+
+El sistema reproduce esa clasificación en **Carga docente**. La afinidad se
+obtiene de los campos de conocimiento de la asignatura y del docente, incluyendo
+los campos derivados de sus posgrados; Unidad Básica se mantiene como categoría
+propia. Las actividades que el libro agrupa también se muestran desglosadas en
+complementarias, investigación, gestión, vinculación y otras.
+
+El mismo esquema se incorporó al Excel general (19 columnas). El Excel detallado
+indica para cada asignatura si sus horas son de afinidad, no afinidad o unidad
+básica. Los colores son consistentes: verde para afinidad, rojo para no afinidad
+y azul para unidad básica; el cumplimiento de carga conserva sus estados verde,
+amarillo y rojo.
+
+Validación con el período activo `2026-2`: 76 docentes con carga, 1.062 horas de
+clase y 111 de actividades. Las dos identidades contables se cumplieron en todos
+los casos: las tres clases de docencia suman el total de clase, y clase más
+actividades suma el total general.

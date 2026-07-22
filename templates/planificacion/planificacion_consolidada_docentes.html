@@ -8,16 +8,11 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h4 class="fw-bold mb-0"><i class="fas fa-clipboard-list me-2 text-primary"></i>Consolidado por Docente</h4>
-    <p class="text-muted mb-0 mt-1">Resumen final del periodo por docente, combinando asignaciones y actividades F4.</p>
+    <p class="text-muted mb-0 mt-1">Carga completa del periodo: docencia por afinidad y todas las actividades que no son asignaturas.</p>
   </div>
-  <div class="d-flex flex-wrap gap-2">
-    <a href="{% url 'reportes:export_planificacion_general' %}?periodo={{ periodo_id|default:'' }}&amp;carrera={{ carrera_id|default:'' }}" class="btn btn-outline-success">
-      <i class="fas fa-file-excel me-1"></i>Exportar general
-    </a>
-    <a href="{% url 'reportes:export_planificacion_detallada' %}?periodo={{ periodo_id|default:'' }}&amp;carrera={{ carrera_id|default:'' }}" class="btn btn-success">
-      <i class="fas fa-file-export me-1"></i>Exportar detallado
-    </a>
-  </div>
+  <a href="{% url 'reportes:centro_reportes' %}?periodo={{ periodo_id|default:'' }}&amp;carrera={{ carrera_id|default:'' }}" class="btn btn-outline-primary">
+    <i class="fas fa-file-export me-1"></i>Ir a reportes
+  </a>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
@@ -91,6 +86,9 @@
       <div class="col-md-1 d-grid">
         <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i></button>
       </div>
+      {% if carrera_id %}
+      <div class="col-12"><div class="form-text">Se muestran docentes vinculados con esta carrera; su total corresponde a toda la carga del período.</div></div>
+      {% endif %}
     </form>
   </div>
 </div>
@@ -100,19 +98,29 @@
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
-          <tr>
-            <th class="ps-3">Docente</th>
-            <th>Dedicación</th>
-            <th class="text-center">Clase</th>
-            <th class="text-center">Comp.</th>
-            <th class="text-center">Invest.</th>
-            <th class="text-center">Actividad</th>
-            <th class="text-center">Total</th>
-            <th class="text-center">Límite</th>
-            <th class="text-center">Disponible</th>
-            <th>Asignaturas</th>
-            <th>F4</th>
-            <th class="text-end pe-3">Estado</th>
+          <tr class="text-center small text-uppercase">
+            <th rowspan="2" class="ps-3 text-start align-middle">Docente</th>
+            <th rowspan="2" class="align-middle">Dedicación</th>
+            <th colspan="4" class="table-primary border-start">Horas de docencia</th>
+            <th colspan="6" class="table-info border-start">Actividades (no asignaturas)</th>
+            <th colspan="3" class="border-start">Carga contractual</th>
+            <th rowspan="2" class="align-middle">Detalle</th>
+            <th rowspan="2" class="text-end pe-3 align-middle">Estado</th>
+          </tr>
+          <tr class="text-center small">
+            <th class="border-start text-success" title="Asignaturas afines al perfil del docente">Afinidad</th>
+            <th class="text-danger" title="Asignaturas sin afinidad registrada">No afin.</th>
+            <th class="text-primary" title="Asignaturas del campo Unidad Básica">U. básica</th>
+            <th title="Total de horas clase">Total</th>
+            <th class="border-start">Comp.</th>
+            <th>Invest.</th>
+            <th>Gestión</th>
+            <th>Vinc.</th>
+            <th>Otras</th>
+            <th title="Total de actividades que no son asignaturas">Total</th>
+            <th class="border-start">Total</th>
+            <th>Límite</th>
+            <th>Disp.</th>
           </tr>
         </thead>
         <tbody>
@@ -122,41 +130,42 @@
               <div class="fw-semibold">{{ row.docente.nombres_completos }}</div>
               <div class="text-muted small">{{ row.docente.cedula_docente }}</div>
             </td>
-            <td><span class="badge bg-secondary">{{ row.docente.id_dedicacion.codigo_dedicacion }}</span></td>
-            <td class="text-center">{{ row.workload.horas_clase }}</td>
-            <td class="text-center">{{ row.workload.horas_complementarias }}</td>
+            <td><span class="badge bg-secondary">{{ row.docente.id_dedicacion.codigo_dedicacion|default:'—' }}</span></td>
+            <td class="text-center border-start text-success fw-semibold">{{ row.workload.horas_afinidad }}</td>
+            <td class="text-center text-danger fw-semibold">{{ row.workload.horas_no_afinidad }}</td>
+            <td class="text-center text-primary fw-semibold">{{ row.workload.horas_unidad_basica }}</td>
+            <td class="text-center fw-bold">{{ row.workload.total_horas_clase }}</td>
+            <td class="text-center border-start">{{ row.workload.horas_complementarias }}</td>
             <td class="text-center">{{ row.workload.horas_investigacion }}</td>
+            <td class="text-center">{{ row.workload.horas_gestion }}</td>
+            <td class="text-center">{{ row.workload.horas_vinculacion }}</td>
             <td class="text-center">{{ row.workload.horas_actividad }}</td>
-            <td class="text-center fw-bold">{{ row.workload.total_horas }}</td>
+            <td class="text-center fw-semibold">{{ row.workload.horas_actividades_total }}</td>
+            <td class="text-center border-start fw-bold text-primary">{{ row.workload.total_horas }}</td>
             <td class="text-center">{{ row.max_total }}</td>
             <td class="text-center">
               <span class="badge {% if row.available > 0 %}bg-success{% else %}bg-danger{% endif %}">{{ row.available }}h</span>
             </td>
-            <td style="min-width:260px;">
-              {% if row.assignments %}
-              <div class="d-flex flex-wrap gap-1">
-                {% for assignment in row.assignments %}
-                <span class="badge bg-primary-subtle text-primary">
-                  {{ assignment.id_asignatura.codigo_asignatura }} {{ assignment.paralelo_asignado }} - {{ assignment.horas_clase }}h
-                </span>
-                {% endfor %}
-              </div>
-              {% else %}
-              <span class="text-muted small">Sin asignaturas</span>
-              {% endif %}
-            </td>
-            <td style="min-width:240px;">
-              {% if row.f4_activities %}
-              <div class="d-flex flex-wrap gap-1">
-                {% for activity in row.f4_activities %}
-                <span class="badge bg-warning-subtle text-dark">
-                  {{ activity.tipo_actividad }} - {{ activity.horas_actividad }}h
-                </span>
-                {% endfor %}
-              </div>
-              {% else %}
-              <span class="text-muted small">Sin actividades F4</span>
-              {% endif %}
+            <td style="min-width:190px;">
+              <details>
+                <summary class="small text-primary" style="cursor:pointer;">
+                  {{ row.assignment_count }} asignatura{{ row.assignment_count|pluralize }}, {{ row.activity_count|add:row.f4_count }} actividad{{ row.activity_count|add:row.f4_count|pluralize:"es" }}
+                </summary>
+                <div class="mt-2 d-flex flex-column gap-1">
+                  {% for assignment in row.assignments %}
+                  <span class="badge text-start {% if assignment.hour_category == 'afinidad' %}bg-success-subtle text-success{% elif assignment.hour_category == 'unidad_basica' %}bg-primary-subtle text-primary{% else %}bg-danger-subtle text-danger{% endif %}">
+                    {{ assignment.id_asignatura.codigo_asignatura }} {{ assignment.paralelo_asignado }} · {{ assignment.horas_clase }}h
+                  </span>
+                  {% endfor %}
+                  {% for activity in row.activities %}
+                  <span class="badge bg-info-subtle text-dark text-start">{{ activity.id_actividad.nombre_actividad }} · {{ activity.horas_asignadas }}h</span>
+                  {% endfor %}
+                  {% for activity in row.f4_activities %}
+                  <span class="badge bg-warning-subtle text-dark text-start">{{ activity.nombre_asignatura_actividad }} · {{ activity.horas_actividad }}h</span>
+                  {% endfor %}
+                  {% if not row.assignments and not row.activities and not row.f4_activities %}<span class="text-muted small">Sin carga registrada</span>{% endif %}
+                </div>
+              </details>
             </td>
             <td class="text-end pe-3">
               <div class="d-flex flex-column align-items-end gap-1">
@@ -166,7 +175,7 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="12" class="text-center py-4 text-muted">No hay docentes para mostrar con esos filtros</td></tr>
+          <tr><td colspan="17" class="text-center py-4 text-muted">No hay docentes para mostrar con esos filtros</td></tr>
           {% endfor %}
         </tbody>
       </table>
