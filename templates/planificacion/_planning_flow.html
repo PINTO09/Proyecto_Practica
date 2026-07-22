@@ -2,11 +2,17 @@
   <a href="{% url 'planificacion:planificacion_operativa' %}" class="{% if active_section == 'planificacion_operativa' %}active{% endif %}">
     <i class="fas fa-table-cells"></i><span>Operativa</span>
   </a>
+  <a href="{% url 'planificacion:planificacion_paralelos_matriz' %}" class="{% if active_section == 'planificacion_paralelos_matriz' %}active{% endif %}">
+    <i class="fas fa-th"></i><span>Matriz</span>
+  </a>
   <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="{% if active_section == 'planificacionasignaciondocente_list' %}active{% endif %}">
     <i class="fas fa-users"></i><span>Asignaciones</span>
   </a>
   <a href="{% url 'planificacion:planificacionmatrizf4_list' %}" class="{% if active_section == 'planificacionmatrizf4_list' %}active{% endif %}">
     <i class="fas fa-layer-group"></i><span>Matriz F4</span>
+  </a>
+  <a href="{% url 'planificacion:planificacionactividaddocente_list' %}" class="{% if active_section == 'planificacionactividaddocente_list' %}active{% endif %}">
+    <i class="fas fa-list-check"></i><span>Actividades</span>
   </a>
   <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="{% if active_section == 'planificacion_consolidada_docentes' %}active{% endif %}">
     <i class="fas fa-clipboard-list"></i><span>Consolidado</span>

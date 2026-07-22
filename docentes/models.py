@@ -2,7 +2,20 @@ from django.db import models
 
 
 class DocenteFcacc(models.Model):
+    TIPOS_DOCUMENTO = (
+        ('CEDULA', 'Cédula'),
+        ('PASAPORTE', 'Pasaporte'),
+        ('RUC', 'RUC'),
+    )
+    TIPOS_SANGRE = (
+        ('A+', 'A+'), ('A-', 'A-'), ('B+', 'B+'), ('B-', 'B-'),
+        ('AB+', 'AB+'), ('AB-', 'AB-'), ('O+', 'O+'), ('O-', 'O-'),
+    )
+
     id_docente = models.BigAutoField(primary_key=True, db_column='id_docente')
+    tipo_documento = models.CharField(
+        max_length=12, choices=TIPOS_DOCUMENTO, default='CEDULA', db_column='tipo_documento'
+    )
     cedula_docente = models.CharField(max_length=13, unique=True, db_column='cedula_docente')
     id_tipo_docente = models.ForeignKey('catalogos.CatalogoTipoDocente', on_delete=models.RESTRICT, db_column='id_tipo_docente')
     id_modalidad = models.ForeignKey('catalogos.CatalogoModalidadContratacion', on_delete=models.RESTRICT, db_column='id_modalidad')
@@ -11,7 +24,11 @@ class DocenteFcacc(models.Model):
     unidad_organica = models.CharField(max_length=100, null=True, blank=True, db_column='unidad_organica')
     correo_institucional = models.EmailField(max_length=100, null=True, blank=True, unique=True, db_column='correo_institucional')
     numero_celular = models.CharField(max_length=15, null=True, blank=True, db_column='numero_celular')
-    tipo_sangre = models.CharField(max_length=5, null=True, blank=True, db_column='tipo_sangre')
+    tipo_sangre = models.CharField(
+        max_length=5, choices=TIPOS_SANGRE, null=True, blank=True, db_column='tipo_sangre'
+    )
+    fecha_nacimiento = models.DateField(null=True, blank=True, db_column='fecha_nacimiento')
+    foto = models.ImageField(upload_to='docentes/fotos/', null=True, blank=True, db_column='foto')
     docente_activo = models.BooleanField(default=True, db_column='docente_activo')
     fecha_creacion_registro = models.DateTimeField(auto_now_add=True, db_column='fecha_creacion_registro')
 

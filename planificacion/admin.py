@@ -2,9 +2,24 @@ from django.contrib import admin
 from django.db import ProgrammingError, OperationalError
 from django.shortcuts import render
 from .models import (
+    CatalogoActividadComplementaria, PlanificacionActividadDocente,
     PlanificacionDemandaAcademica, PlanificacionAsignacionDocente,
     PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario,
 )
+
+
+@admin.register(CatalogoActividadComplementaria)
+class CatalogoActividadComplementariaAdmin(admin.ModelAdmin):
+    list_display = ['codigo_actividad', 'nombre_actividad', 'tipo_actividad', 'actividad_activa']
+    list_filter = ['tipo_actividad', 'actividad_activa']
+    search_fields = ['codigo_actividad', 'nombre_actividad']
+
+
+@admin.register(PlanificacionActividadDocente)
+class PlanificacionActividadDocenteAdmin(admin.ModelAdmin):
+    list_display = ['id_docente', 'id_actividad', 'id_periodo', 'id_carrera', 'horas_asignadas']
+    list_filter = ['id_periodo', 'id_carrera', 'id_actividad__tipo_actividad']
+    search_fields = ['id_docente__nombres_completos', 'id_actividad__nombre_actividad']
 
 
 class SafePlanificacionAdmin(admin.ModelAdmin):

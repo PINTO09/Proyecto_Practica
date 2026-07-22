@@ -12,23 +12,21 @@
     </h4>
     <p class="text-muted mb-0 mt-1">{{ form_subtitle|default:'Gestiona la asignaci&oacute;n de docentes a paralelos.' }}</p>
   </div>
-  <div class="d-flex gap-2">
-    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
-    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-primary"><i class="fas fa-users me-1"></i>Asignaciones</a>
-  </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
 
-{% if limit_config.missing_dedicaciones %}
-<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
-  <div class="small">
-    Antes de asignar desde la web conviene configurar los l&iacute;mites horarios faltantes:
-      {% for modalidad in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
-      {% endfor %}
-  </div>
-  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
+<div class="alert alert-info small">
+  <strong>Regla de asignación:</strong> en niveles 1–3 se puede seleccionar cualquier docente activo;
+  desde nivel 4 el sistema exige afinidad registrada con la asignatura.
+</div>
+
+{% include 'planificacion/_limit_config_alert.html' %}
+
+{% if affinity_data_missing %}
+<div class="alert alert-danger">
+  Esta asignatura es de nivel 4 o superior y todavía no tiene campos de conocimiento configurados.
+  Registre primero la relación asignatura–campo en Currículo para poder recomendar y validar docentes afines.
 </div>
 {% endif %}
 
@@ -63,6 +61,15 @@
           <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
           <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Filtrar asignaturas</label>
+                <div class="btn-group btn-group-sm" role="group" id="actFilterGroup">
+                  <input type="radio" class="btn-check" name="actFilter" id="actFilterSubjects" value="subjects" checked>
+                  <label class="btn btn-outline-primary" for="actFilterSubjects">Asignaturas</label>
+                  <input type="radio" class="btn-check" name="actFilter" id="actFilterActivities" value="activities">
+                  <label class="btn btn-outline-primary" for="actFilterActivities">Actividades</label>
+                </div>
+            </div>
             {% for field in form %}
             <div class="{% if field.name == 'comision_servicio' %}col-12{% else %}col-md-6{% endif %}">
               <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">{{ field.label }}</label>
@@ -86,29 +93,27 @@
   </div>
 
   <div class="col-xl-4">
-    {% if load_summary %}
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-4" id="teacherLoadPanel" style="display:none;">
       <div class="card-header bg-white py-3">
         <h6 class="fw-bold mb-0"><i class="fas fa-gauge-high me-2 text-primary"></i>Carga del docente</h6>
       </div>
       <div class="card-body">
-        <div class="fw-semibold">{{ load_summary.docente.nombres_completos }}</div>
-        <div class="text-muted small mb-3">{{ load_summary.docente.id_dedicacion.codigo_dedicacion|default:'Sin dedicaci&oacute;n' }}</div>
-        <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="fw-semibold" id="loadTeacherName"></div>
+        <div class="text-muted small mb-3" id="loadDedicacion"></div>
+        <div class="d-flex align-items-center gap-2 mb-3">
           <div class="progress flex-grow-1" style="height:8px;">
-            <div class="progress-bar bg-{{ load_summary.badge }}" style="width:{{ load_summary.percentage }}%"></div>
+            <div class="progress-bar" id="loadProgress" style="width:0%"></div>
           </div>
-          <span class="badge bg-{{ load_summary.badge }}">{{ load_summary.percentage }}%</span>
+          <span class="badge" id="loadPercentage">0%</span>
         </div>
         <div class="row g-2 small">
-          <div class="col-6"><span class="text-muted">Clase</span><div class="fw-bold">{{ load_summary.workload.horas_clase }}h</div></div>
-          <div class="col-6"><span class="text-muted">Comp.</span><div class="fw-bold">{{ load_summary.workload.horas_complementarias }}h</div></div>
-          <div class="col-6"><span class="text-muted">F4</span><div class="fw-bold">{{ load_summary.workload.horas_investigacion|add:load_summary.workload.horas_actividad }}h</div></div>
-          <div class="col-6"><span class="text-muted">Disponible</span><div class="fw-bold">{{ load_summary.available }}h</div></div>
+          <div class="col-6"><span class="text-muted">Clase</span><div class="fw-bold"><span id="loadClase">0h</span></div></div>
+          <div class="col-6"><span class="text-muted">Comp.</span><div class="fw-bold"><span id="loadComp">0h</span></div></div>
+          <div class="col-6"><span class="text-muted">F4</span><div class="fw-bold"><span id="loadF4">0h</span></div></div>
+          <div class="col-6"><span class="text-muted">Disponible</span><div class="fw-bold"><span id="loadAvailable">0h</span></div></div>
         </div>
       </div>
     </div>
-    {% endif %}
 
     <div class="card border-0 shadow-sm" id="recommendationsPanel" style="{% if not teacher_recommendations %}display:none{% endif %}">
       <div class="card-header bg-white py-3">
@@ -142,12 +147,14 @@
 {% endblock %}
 
 {% block extra_js %}
+  <script id="subjectData" type="application/json">{{ subject_data_json|default:'{}'|safe }}</script>
+  <script id="careerData" type="application/json">{{ career_data_json|default:'{}'|safe }}</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const subjectSelect = document.getElementById('id_id_asignatura');
   const carreraSelect = document.getElementById('id_id_carrera');
   const campoSelect = document.getElementById('id_id_campo');
-  const nivelInput = document.getElementById('id_nivel_semestre_asignado');
+  const nivelSelect = document.getElementById('id_nivel_semestre_asignado');
   const horasInput = document.getElementById('id_horas_clase');
   const periodoSelect = document.getElementById('id_id_periodo');
   const panel = document.getElementById('recommendationsPanel');
@@ -155,9 +162,200 @@ document.addEventListener('DOMContentLoaded', function() {
   const subjInfo = document.getElementById('selectedSubjectInfo');
   const existingWarning = document.getElementById('existingAssignmentWarning');
   const existingTeacherName = document.getElementById('existingTeacherName');
+  const paraleloSelect = document.getElementById('id_paralelo_asignado');
   const assignmentForm = document.getElementById('assignmentForm');
+  const loadPanel = document.getElementById('teacherLoadPanel');
   let currentExistingId = null;
   let currentExistingLabel = '';
+
+  const careerData = JSON.parse(document.getElementById('careerData')?.textContent || '{}');
+
+  function loadTeacherLoad(docenteId, periodoId) {
+    if (!docenteId || !periodoId) {
+      if (loadPanel) loadPanel.style.display = 'none';
+      return;
+    }
+    fetch('{% url "planificacion:api_teacher_load" %}?docente=' + docenteId + '&periodo=' + periodoId)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          if (loadPanel) loadPanel.style.display = 'none';
+          return;
+        }
+        if (loadPanel) {
+          document.getElementById('loadTeacherName').textContent = data.docente;
+          document.getElementById('loadDedicacion').textContent = data.dedicacion || 'Sin dedicaci\u00f3n';
+          document.getElementById('loadProgress').style.width = data.percentage + '%';
+          document.getElementById('loadProgress').className = 'progress-bar bg-' + data.badge;
+          document.getElementById('loadPercentage').textContent = data.percentage + '%';
+          document.getElementById('loadClase').textContent = data.clase + 'h';
+          document.getElementById('loadComp').textContent = data.comp + 'h';
+          document.getElementById('loadF4').textContent = (data.investigacion + data.actividad) + 'h';
+          document.getElementById('loadAvailable').textContent = data.available + 'h';
+          loadPanel.style.display = '';
+        }
+      })
+      .catch(() => {});
+  }
+
+  function filterCareers() {
+    if (!carreraSelect) return;
+    const actFilter = document.querySelector('input[name="actFilter"]:checked')?.value || 'subjects';
+    const currentVal = carreraSelect.value;
+    carreraSelect.innerHTML = '<option value="">---------</option>';
+    Array.from(carreraSelect.optionsOriginal || []).forEach(o => {
+      if (o.value === '') return;
+      const careerInfo = careerData[o.value] || {};
+      const isAct = careerInfo.a || false;
+      if (actFilter === 'subjects' && isAct) return;
+      if (actFilter === 'activities' && !isAct) return;
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.textOrig;
+      if (o.value === currentVal) opt.selected = true;
+      carreraSelect.appendChild(opt);
+    });
+  }
+
+  function loadParalelos() {
+    if (!paraleloSelect) return;
+    const subjId = subjectSelect?.value;
+    const carrId = carreraSelect?.value;
+    const perId = periodoSelect?.value;
+    if (!subjId || !carrId || !perId) {
+      paraleloSelect.innerHTML = '<option value="">--- Primero seleccione asignatura, carrera y período ---</option>';
+      return;
+    }
+    const params = new URLSearchParams({ asignatura: subjId, carrera: carrId, periodo: perId });
+    const currentParalelo = paraleloSelect.dataset.current || '';
+    fetch('{% url "planificacion:api_paralelos_disponibles" %}?' + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        paraleloSelect.innerHTML = '<option value="">---------</option>';
+        (data.paralelos || []).forEach(l => {
+          const opt = document.createElement('option');
+          opt.value = l;
+          opt.textContent = l;
+          if (l === currentParalelo) opt.selected = true;
+          paraleloSelect.appendChild(opt);
+        });
+      })
+      .catch(() => {
+        paraleloSelect.innerHTML = '<option value="">Error al cargar paralelos</option>';
+      });
+  }
+
+  const subjectData = JSON.parse(document.getElementById('subjectData')?.textContent || '{}');
+  let originalSubjectOptions = [];
+  if (subjectSelect) {
+    originalSubjectOptions = Array.from(subjectSelect.options).map(o => ({
+      value: o.value, text: o.text, selected: o.selected,
+      nivel: subjectData[o.value]?.n || 0,
+      carrera: subjectData[o.value]?.c || 0,
+      actividad: subjectData[o.value]?.a || false,
+    }));
+  }
+  if (carreraSelect) {
+    carreraSelect.optionsOriginal = Array.from(carreraSelect.options).map(o => ({
+      value: o.value, textOrig: o.text, selected: o.selected,
+    }));
+  }
+
+  let preservedSubjectValue = subjectSelect?.value || '';
+
+  if (paraleloSelect && paraleloSelect.value) {
+    paraleloSelect.dataset.current = paraleloSelect.value;
+  }
+
+  const activityFieldGroups = ['nivel_semestre_asignado', 'paralelo_asignado', 'id_campo'];
+  function toggleActivityFields(show) {
+    activityFieldGroups.forEach(name => {
+      const el = document.getElementById('id_' + name);
+      const parent = el?.closest('.col-md-6');
+      if (parent) {
+        parent.style.display = show ? '' : 'none';
+      }
+      if (el) el.disabled = !show;
+    });
+  }
+
+  function filterSubjects() {
+    if (!subjectSelect) return;
+    const nivel = parseInt(nivelSelect?.value) || 0;
+    const carrera = parseInt(carreraSelect?.value) || 0;
+    const actFilter = document.querySelector('input[name="actFilter"]:checked')?.value || 'all';
+    const currentVal = preservedSubjectValue;
+    subjectSelect.innerHTML = '<option value="">---------</option>';
+    originalSubjectOptions.forEach(o => {
+      if (o.value === '') return;
+      if (carrera > 0 && o.carrera !== carrera) return;
+      if (nivel > 0 && o.nivel !== nivel) return;
+      if (actFilter === 'subjects' && o.actividad) return;
+      if (actFilter === 'activities' && !o.actividad) return;
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.actividad ? '[ACT] ' + o.text : o.text;
+      if (o.value === currentVal) opt.selected = true;
+      subjectSelect.appendChild(opt);
+    });
+    toggleActivityFields(actFilter !== 'activities');
+    filterCareers();
+  }
+
+  if (nivelSelect) {
+    nivelSelect.addEventListener('change', function() {
+      preservedSubjectValue = '';
+      currentSubjectId = null;
+      filterSubjects();
+      if (subjInfo) subjInfo.textContent = '';
+      if (panel) panel.style.display = 'none';
+    });
+  }
+  function updateNivelChoices(carreraId) {
+    if (!nivelSelect) return;
+    nivelSelect.innerHTML = '<option value="">--- Seleccione ---</option>';
+    if (!carreraId) return;
+    const nivels = new Set();
+    originalSubjectOptions.forEach(o => {
+      if (String(o.carrera) === String(carreraId) && o.nivel > 0) {
+        nivels.add(o.nivel);
+      }
+    });
+    [...nivels].sort((a, b) => a - b).forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      opt.textContent = 'Nivel ' + n;
+      nivelSelect.appendChild(opt);
+    });
+  }
+
+  if (carreraSelect) carreraSelect.addEventListener('change', function() {
+    preservedSubjectValue = '';
+    updateNivelChoices(this.value);
+    nivelSelect.value = '';
+    filterSubjects();
+    loadParalelos();
+  });
+  document.querySelectorAll('input[name="actFilter"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      preservedSubjectValue = '';
+      filterSubjects();
+    });
+  });
+
+  filterCareers();
+  if (carreraSelect && carreraSelect.value) {
+    updateNivelChoices(carreraSelect.value);
+  }
+  if (nivelSelect && nivelSelect.value) filterSubjects();
+  // Apply initial activity toggle based on current filter selection
+  const initialActFilter = document.querySelector('input[name="actFilter"]:checked')?.value || 'subjects';
+  toggleActivityFields(initialActFilter !== 'activities');
+  // Load initial teacher load if teacher is pre-selected
+  const initialDocente = document.getElementById('id_id_docente');
+  if (initialDocente && initialDocente.value && periodoSelect?.value) {
+    loadTeacherLoad(initialDocente.value, periodoSelect.value);
+  }
 
   if (!subjectSelect) return;
 
@@ -172,6 +370,8 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!ok) return;
         }
         docenteSelect.value = selectedId;
+        const perId = periodoSelect?.value;
+        if (selectedId && perId) loadTeacherLoad(selectedId, perId);
       });
     });
   }
@@ -202,13 +402,27 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('{% url "planificacion:api_asignatura_info" %}?id=' + subjId)
       .then(r => r.json())
       .then(data => {
-        if (data.error) return;
-        if (carreraSelect) carreraSelect.value = data.id_carrera;
-        if (nivelInput) nivelInput.value = data.nivel_semestre_asignado;
-        if (horasInput) horasInput.value = data.horas_clase;
-        if (campoSelect && data.id_campo) campoSelect.value = data.id_campo;
-        if (subjInfo) subjInfo.textContent = data.carrera_nombre + ' - Nivel ' + data.nivel_semestre_asignado;
-        updateExistingWarning(data.existing_assignment || null);
+        if (!data.error) {
+          if (horasInput) horasInput.value = data.horas_clase;
+          if (campoSelect) campoSelect.value = data.id_campo || '';
+          if (data.es_actividad) {
+            horasInput.value = 0;
+            nivelSelect.value = '';
+            if (campoSelect) campoSelect.value = '';
+            if (paraleloSelect) paraleloSelect.innerHTML = '<option value="">--- Sin paralelo ---</option>';
+            toggleActivityFields(false);
+          } else {
+            toggleActivityFields(true);
+          }
+          if (subjInfo) {
+            let info = data.carrera_nombre;
+            if (!data.es_actividad) info += ' - Nivel ' + data.nivel_semestre_asignado;
+            if (data.es_actividad) info += ' <span class="badge bg-success ms-1">Actividad</span>';
+            subjInfo.innerHTML = info;
+          }
+          updateExistingWarning(data.existing_assignment || null);
+        }
+        if (!data.es_actividad) loadParalelos();
       })
       .catch(() => {});
 
@@ -219,10 +433,34 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(r => r.json())
       .then(data => {
         if (!panel || !recList) return;
+        const docenteSelect = document.getElementById('id_id_docente');
+        if (docenteSelect) {
+          const elegibles = data.docentes_elegibles || [];
+          if (elegibles.length > 0) {
+            const previousValue = docenteSelect.value;
+            docenteSelect.innerHTML = '<option value="">---------</option>';
+            elegibles.forEach(item => {
+              const option = document.createElement('option');
+              option.value = item.id;
+              option.textContent = item.nombre;
+              option.selected = String(item.id) === String(previousValue);
+              docenteSelect.appendChild(option);
+            });
+          }
+          docenteSelect.disabled = false;
+        }
         const recs = data.recomendados || [];
         if (recs.length === 0) {
-          panel.style.display = 'none';
           recList.innerHTML = '';
+          if (data.message) {
+            panel.style.display = '';
+            const notice = document.createElement('div');
+            notice.className = 'alert alert-warning m-3 small';
+            notice.textContent = data.message;
+            recList.appendChild(notice);
+          } else {
+            panel.style.display = 'none';
+          }
           return;
         }
         panel.style.display = '';
@@ -265,7 +503,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   let currentSubjectId = subjectSelect.value;
-  if (currentSubjectId) loadSubject(currentSubjectId);
+  if (currentSubjectId) {
+    loadSubject(currentSubjectId);
+  } else {
+    loadParalelos();
+  }
 
   let formDirty = false;
   assignmentForm?.addEventListener('change', () => { formDirty = true; });
@@ -274,6 +516,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (formDirty && !confirm('Hay cambios sin guardar. ¿Salir de todas formas?')) e.preventDefault();
   });
 
+  const docenteSelect = document.getElementById('id_id_docente');
+  if (docenteSelect) {
+    docenteSelect.addEventListener('change', function() {
+      const perId = periodoSelect?.value;
+      if (this.value && perId) loadTeacherLoad(this.value, perId);
+    });
+  }
+
   subjectSelect.addEventListener('change', function() {
     if (!this.value || this.value === currentSubjectId) return;
     currentSubjectId = this.value;
@@ -281,19 +531,23 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   periodoSelect?.addEventListener('change', function() {
     if (currentSubjectId) loadSubject(currentSubjectId);
+    loadParalelos();
   });
 
   assignmentForm?.addEventListener('submit', function(e) {
     const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
-    if (!currentExistingId) return;
-    const docenteSelect = document.getElementById('id_id_docente');
-    const newDocenteId = docenteSelect ? docenteSelect.value : null;
-    if (newDocenteId && newDocenteId !== String(currentExistingId)) {
-      const ok = confirm(currentExistingLabel + ' ya tiene esta asignatura. ¿Desea cambiar de docente?');
-      if (!ok) e.preventDefault();
+    if (currentExistingId) {
+      const docenteSelect = document.getElementById('id_id_docente');
+      const newDocenteId = docenteSelect ? docenteSelect.value : null;
+      if (newDocenteId && newDocenteId !== String(currentExistingId)) {
+        const ok = confirm(currentExistingLabel + ' ya tiene esta asignatura. ¿Desea cambiar de docente?');
+        if (!ok) { e.preventDefault(); return; }
+      }
     }
+    setTimeout(() => {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+    }, 0);
   });
 
   attachSelectListeners();

@@ -1,9 +1,5 @@
-{% extends 'core/base_dashboard.html' %}
-{% load static %}
+{% extends 'generic_crud/list.html' %}
 {% load crud_tags %}
-
-{% block title %}{{ model_verbose_plural|default:model_name }} - ULEAM{% endblock %}
-{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -17,9 +13,15 @@
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body py-2">
     <form method="get" id="searchForm" class="row g-2 align-items-center">
-      <div class="col-md-5 position-relative">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar..." value="{{ search_value }}" id="searchInput" aria-label="Buscar registros">
-        <div id="searchSpinner" class="spinner-border spinner-border-sm position-absolute end-0 top-50 translate-middle-y me-2 d-none" role="status"></div>
+      <div class="col-md-3 position-relative">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar..." value="{{ search_value }}" id="searchInput">
+      </div>
+      <div class="col-auto">
+        <select name="tipo" class="form-select form-select-sm" id="tipoFilter">
+          <option value="all" {% if tipo_filter == 'all' %}selected{% endif %}>Todas</option>
+          <option value="subjects" {% if tipo_filter == 'subjects' %}selected{% endif %}>Asignaturas</option>
+          <option value="activities" {% if tipo_filter == 'activities' %}selected{% endif %}>Actividades</option>
+        </select>
       </div>
       <div class="col-auto">
         <label class="small fw-semibold me-1 text-muted">Mostrar</label>
@@ -66,10 +68,10 @@
             </td>
             {% endfor %}
             <td class="pe-3 text-end text-nowrap">
-              <a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar {{ obj|truncatechars:30 }}" aria-label="Editar registro">
+              <a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar">
                 <i class="fas fa-pencil-alt"></i>
               </a>
-              <a href="{% url delete_url pk=obj.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar {{ obj|truncatechars:30 }}" aria-label="Eliminar registro">
+              <a href="{% url delete_url pk=obj.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar">
                 <i class="fas fa-trash-alt"></i>
               </a>
             </td>
@@ -93,19 +95,20 @@
   <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
     <ul class="pagination pagination-sm mb-0">
       {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
       {% endif %}
       {% for p in paginator.page_range %}
-      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
+      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
       {% endfor %}
       {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
       {% endif %}
     </ul>
     <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
       <label class="small text-muted mb-0">Ir a:</label>
-      <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;" aria-label="Ir a página">
+      <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;">
       {% if search_value %}<input type="hidden" name="q" value="{{ search_value }}">{% endif %}
+      {% if tipo_filter != 'all' %}<input type="hidden" name="tipo" value="{{ tipo_filter }}">{% endif %}
       {% if cant %}<input type="hidden" name="cant" value="{{ cant }}">{% endif %}
     </form>
   </div>
@@ -116,9 +119,10 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const searchForm = document.getElementById('searchForm');
   const searchInput = document.getElementById('searchInput');
   const cantSelect = document.getElementById('cantSelect');
-  const searchForm = document.getElementById('searchForm');
+  const tipoFilter = document.getElementById('tipoFilter');
 
   if (searchInput) {
     searchInput.focus();
@@ -133,9 +137,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   if (cantSelect) {
-    cantSelect.addEventListener('change', function() {
-      searchForm.submit();
-    });
+    cantSelect.addEventListener('change', function() { searchForm.submit(); });
+  }
+  if (tipoFilter) {
+    tipoFilter.addEventListener('change', function() { searchForm.submit(); });
   }
 });
 </script>

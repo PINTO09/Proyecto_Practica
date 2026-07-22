@@ -4,6 +4,7 @@ from . import views
 app_name = 'docentes'
 
 urlpatterns = [
+    path('api/docente-por-documento/', views.api_docente_por_documento, name='api_docente_por_documento'),
     path('docentes/', views.DocenteFcaccListView.as_view(), name='docentefcacc_list'),
     path('docentes/crear/', views.DocenteFcaccCreateView.as_view(), name='docentefcacc_create'),
     path('docentes/<int:pk>/editar/', views.DocenteFcaccUpdateView.as_view(), name='docentefcacc_update'),

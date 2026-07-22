@@ -11,330 +11,58 @@
     {% block extra_css %}{% endblock %}
     <style>
         :root {
-            --sidebar-width: 260px;
-            --sidebar-bg: linear-gradient(180deg, #3f4644 0%, #5b6461 54%, #343a38 100%);
-            --sidebar-text: rgba(255,255,255,0.74);
-            --sidebar-text-hover: #fff;
-            --sidebar-border: rgba(255,255,255,0.1);
+            --access-font-size: 1;
+            --access-font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
-        .wrapper {
-            display: flex;
-            min-height: 100vh;
+        html { font-size: calc(100% * var(--access-font-size)); }
+        *, body, button, input, select, textarea, .form-control, .form-select, .btn,
+        .table, .nav-link, .card, .card-header, .card-body, .modal, .modal-content,
+        .dropdown-menu, .sidebar, .topbar, .content-area,
+        a, p, h1, h2, h3, h4, h5, h6, label, span, div, td, th, li, ul, ol,
+        small, strong, em, code, pre, .badge, .alert, .list-group, .list-group-item,
+        .page-link, .breadcrumb, .progress, .tooltip, .popover {
+            font-family: var(--access-font-family);
         }
-        .sidebar {
-            width: var(--sidebar-width);
-            background: var(--sidebar-bg);
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            z-index: 1030;
-            box-shadow: 8px 0 24px rgba(15,23,42,0.14);
+        .sidebar-nav .nav-link { font-size: 0.86rem; }
+        .sidebar-footer button, .sidebar-footer a { font-size: 0.84rem; }
+        .planning-flow {
+            display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.45rem;
+            background: #fff; border: 1px solid rgba(148,163,184,0.16);
+            border-radius: 8px; box-shadow: 0 10px 28px rgba(15,23,42,0.045);
         }
-        .sidebar-brand {
-            padding: 1.2rem 1.25rem;
-            border-bottom: 1px solid var(--sidebar-border);
-            text-align: center;
+        .planning-flow a {
+            display: inline-flex; align-items: center; gap: 0.45rem;
+            min-height: 34px; padding: 0.42rem 0.7rem; color: #475569;
+            border-radius: 7px; text-decoration: none; font-size: 0.84rem; font-weight: 650;
         }
-        .sidebar-brand h5 {
-            color: #fff;
-            font-weight: 700;
-            margin-bottom: 0.15rem;
+        .planning-flow a:hover { color: #172033; background: rgba(71,85,105,0.075); }
+        .planning-flow a.active { color: #fff; background: #465268; }
+        .planning-pagination {
+            padding: 0.7rem 0.85rem; background: #fff;
+            border: 1px solid rgba(148,163,184,0.16); border-radius: 8px;
+            box-shadow: 0 10px 28px rgba(15,23,42,0.045);
         }
-        .sidebar-brand small {
-            color: var(--sidebar-text);
-            font-size: 0.74rem;
-        }
-        .sidebar-nav {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0.65rem 0;
-        }
-        .sidebar-nav .nav-item {
-            padding: 0 0.6rem;
-        }
-        .sidebar-nav .nav-link {
-            color: var(--sidebar-text);
-            padding: 0.55rem 0.85rem;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 0.72rem;
-            font-size: 0.86rem;
-            font-weight: 500;
-            line-height: 1.2;
-            text-decoration: none;
-            margin-bottom: 1px;
-        }
-        .sidebar-nav .nav-link:hover,
-        .sidebar-nav .nav-link.active {
-            color: var(--sidebar-text-hover);
-            background: rgba(255,255,255,0.14);
-        }
-        .sidebar-nav .nav-link.active {
-            box-shadow: inset 3px 0 0 rgba(202,210,205,0.95);
-        }
-        .sidebar-nav .nav-link i {
-            width: 20px;
-            min-width: 20px;
-            text-align: center;
-        }
-        .sidebar-footer {
-            padding: 0.75rem 1.15rem;
-            border-top: 1px solid var(--sidebar-border);
-        }
-        .sidebar-footer button,
-        .sidebar-footer a {
-            width: 100%;
-            text-align: left;
-            background: transparent;
-            border: 0;
-            color: var(--sidebar-text);
-            padding: 0.48rem 0.55rem;
-            font-size: 0.84rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            text-decoration: none;
-            border-radius: 8px;
-        }
-        .sidebar-footer button:hover,
-        .sidebar-footer a:hover {
-            color: var(--sidebar-text-hover);
-            background: rgba(255,255,255,0.09);
-        }
-        .main-content {
-            flex: 1;
-            margin-left: var(--sidebar-width);
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
+        @media (max-width: 991.98px) {
+            .content-area { padding: 1rem; }
+            .planning-flow a { flex: 1 1 130px; justify-content: center; }
         }
         @media (max-width: 767.98px) {
             .sidebar { transform: translateX(-100%); transition: transform 0.28s ease; }
             .sidebar.show { transform: translateX(0); }
             .sidebar-overlay {
-                display: none;
-                position: fixed;
-                inset: 0;
-                background: rgba(15,23,42,0.55);
-                z-index: 1025;
+                display: none; position: fixed; inset: 0;
+                background: rgba(15,23,42,0.55); z-index: 1025;
             }
             .sidebar-overlay.show { display: block; }
             .main-content { margin-left: 0; }
         }
-        .content-area {
-            background: #f5f7fa;
-            min-height: calc(100vh - 58px);
-            padding: 1.35rem;
-        }
-        .topbar {
-            border-bottom: 1px solid rgba(148, 163, 184, 0.24);
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(8px);
-        }
-        [data-bs-theme="dark"] .content-area { background: #111827; }
-        [data-bs-theme="dark"] .topbar {
-            background: rgba(17, 24, 39, 0.92);
-            border-bottom-color: rgba(148, 163, 184, 0.18);
-        }
-        .content-area > .d-flex.justify-content-between.align-items-center.mb-4 {
-            align-items: flex-start !important;
-            gap: 1rem;
-            margin-bottom: 1rem !important;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.22);
-        }
-        .content-area > .d-flex.justify-content-between.align-items-center.mb-4 h4 {
-            color: #172033;
-            font-size: 1.16rem;
-            line-height: 1.25;
-        }
-        [data-bs-theme="dark"] .content-area > .d-flex.justify-content-between.align-items-center.mb-4 h4 { color: #f8fafc; }
-        .content-area > .d-flex.justify-content-between.align-items-center.mb-4 p {
-            font-size: 0.86rem;
-            max-width: 780px;
-        }
-        .content-area > .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex {
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-        .btn {
-            border-radius: 7px;
-            font-weight: 600;
-        }
-        .card { border-radius: 8px; }
-        .card.border-0.shadow-sm {
-            border: 1px solid rgba(148, 163, 184, 0.16) !important;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.055) !important;
-        }
-        [data-bs-theme="dark"] .card.border-0.shadow-sm {
-            border-color: rgba(148, 163, 184, 0.14) !important;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22) !important;
-        }
-        .row.g-3.mb-4 > [class*="col-"] > .card {
-            min-height: 104px;
-            display: flex;
-            justify-content: center;
-        }
-        .row.g-3.mb-4 > [class*="col-"] > .card p {
-            letter-spacing: 0;
-            font-size: 0.72rem;
-        }
-        .row.g-3.mb-4 > [class*="col-"] > .card h3 {
-            font-size: 1.78rem;
-            line-height: 1.1;
-        }
-        .form-control,
-        .form-select {
-            border-radius: 7px;
-            border-color: #d6dde8;
-        }
-        .form-control:focus,
-        .form-select:focus {
-            border-color: #6b7a90;
-            box-shadow: 0 0 0 0.18rem rgba(87, 102, 124, 0.14);
-        }
-        .table {
-            --bs-table-hover-bg: rgba(71, 85, 105, 0.045);
-            font-size: 0.875rem;
-        }
-        .table thead th {
-            color: #475569;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0;
-            text-transform: uppercase;
-            white-space: nowrap;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.26);
-        }
-        .table tbody td {
-            vertical-align: middle;
-            border-color: rgba(148, 163, 184, 0.15);
-        }
-        .table-responsive { border-radius: 8px; }
-        .badge {
-            border-radius: 7px;
-            font-weight: 650;
-        }
-        .progress {
-            background-color: rgba(148, 163, 184, 0.24);
-            border-radius: 999px;
-        }
-        .alert {
-            border: 0;
-            border-radius: 8px;
-            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.045);
-        }
-        .planning-flow {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.45rem;
-            padding: 0.45rem;
-            background: #fff;
-            border: 1px solid rgba(148, 163, 184, 0.16);
-            border-radius: 8px;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.045);
-        }
-        [data-bs-theme="dark"] .planning-flow {
-            background: #1f2937;
-            border-color: rgba(148, 163, 184, 0.14);
-        }
-        .planning-flow a {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            min-height: 34px;
-            padding: 0.42rem 0.7rem;
-            color: #475569;
-            border-radius: 7px;
-            text-decoration: none;
-            font-size: 0.84rem;
-            font-weight: 650;
-        }
-        .planning-flow a:hover {
-            color: #172033;
-            background: rgba(71, 85, 105, 0.075);
-        }
-        .planning-flow a.active {
-            color: #fff;
-            background: #465268;
-        }
-        .planning-pagination {
-            padding: 0.7rem 0.85rem;
-            background: #fff;
-            border: 1px solid rgba(148, 163, 184, 0.16);
-            border-radius: 8px;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.045);
-        }
-        .planning-pagination .page-link {
-            border: 0;
-            border-radius: 7px;
-            margin: 0 0.1rem;
-            color: #475569;
-            font-weight: 650;
-        }
-        .planning-pagination .page-item.active .page-link {
-            background: #465268;
-            color: #fff;
-        }
-        .planning-pagination .page-item.disabled .page-link {
-            color: #94a3b8;
-            background: transparent;
-        }
-        .card-header.bg-white {
-            border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-        }
-        .card-body > form.row {
-            row-gap: 0.75rem !important;
-        }
-        .table tbody tr:last-child td {
-            border-bottom: 0;
-        }
-        .table td .border.rounded {
-            border-color: rgba(148, 163, 184, 0.22) !important;
-            border-radius: 7px !important;
-            background: rgba(248, 250, 252, 0.74);
-        }
-        [data-bs-theme="dark"] .table td .border.rounded {
-            background: rgba(15, 23, 42, 0.42);
-            border-color: rgba(148, 163, 184, 0.16) !important;
-        }
+        [data-bs-theme="dark"] .planning-flow { background: #1f2937; border-color: rgba(148,163,184,0.14); }
         [data-bs-theme="dark"] .planning-flow a { color: #cbd5e1; }
-        [data-bs-theme="dark"] .planning-flow a:hover {
-            color: #f8fafc;
-            background: rgba(148, 163, 184, 0.12);
-        }
+        [data-bs-theme="dark"] .planning-flow a:hover { color: #f8fafc; background: rgba(148,163,184,0.12); }
         [data-bs-theme="dark"] .planning-flow a.active { background: #64748b; }
-        [data-bs-theme="dark"] .planning-pagination {
-            background: #1f2937;
-            border-color: rgba(148, 163, 184, 0.14);
-        }
-        [data-bs-theme="dark"] .planning-pagination .page-link {
-            background: transparent;
-            color: #cbd5e1;
-        }
-        [data-bs-theme="dark"] .planning-pagination .page-item.active .page-link {
-            background: #64748b;
-            color: #fff;
-        }
-        @media (max-width: 991.98px) {
-            .content-area { padding: 1rem; }
-            .content-area > .d-flex.justify-content-between.align-items-center.mb-4 {
-                flex-direction: column;
-            }
-            .content-area > .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex {
-                width: 100%;
-                justify-content: flex-start;
-            }
-            .planning-flow a {
-                flex: 1 1 130px;
-                justify-content: center;
-            }
-        }
+        [data-bs-theme="dark"] .planning-pagination { background: #1f2937; border-color: rgba(148,163,184,0.14); }
+        [data-bs-theme="dark"] .planning-pagination .page-link { background: transparent; color: #cbd5e1; }
+        [data-bs-theme="dark"] .planning-pagination .page-item.active .page-link { background: #64748b; color: #fff; }
     </style>
 </head>
 <body>
@@ -353,12 +81,11 @@
             <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-shield-alt"></i> M3 · Seguridad</a></div>
             <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_curriculo' %} active{% endif %}" href="{% url 'core:modulo_curriculo' %}"><i class="fas fa-book-open"></i> M4 · Currículo</a></div>
             <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_planificacion' %} active{% endif %}" href="{% url 'core:modulo_planificacion' %}"><i class="fas fa-calendar-check"></i> M5 · Planificación</a></div>
-            <div class="nav-item ps-3"><a class="nav-link small{% if active_section == 'reporte_horas_docentes' %} active{% endif %}" href="{% url 'planificacion:reporte_horas_docentes' %}"><i class="fas fa-chart-bar fa-fw"></i> Horas por Docente</a></div>
-            <div class="nav-item ps-3"><a class="nav-link small{% if active_section == 'planificacion_operativa' %} active{% endif %}" href="{% url 'planificacion:planificacion_operativa' %}"><i class="fas fa-table-cells fa-fw"></i> Planificación Operativa</a></div>
-            <div class="nav-item ps-3"><a class="nav-link small{% if active_section == 'planificacionasignaciondocente_list' %} active{% endif %}" href="{% url 'planificacion:planificacionasignaciondocente_list' %}"><i class="fas fa-users fa-fw"></i> Asignaciones</a></div>
-            <div class="nav-item ps-3"><a class="nav-link small{% if active_section == 'planificacion_consolidada_docentes' %} active{% endif %}" href="{% url 'planificacion:planificacion_consolidada_docentes' %}"><i class="fas fa-clipboard-list fa-fw"></i> Consolidado Docente</a></div>
-            <div class="nav-item ps-3"><a class="nav-link small{% if active_section == 'planificacionmatrizf4_list' %} active{% endif %}" href="{% url 'planificacion:planificacionmatrizf4_list' %}"><i class="fas fa-layer-group fa-fw"></i> Matriz F4</a></div>
-            <div class="nav-item ps-3"><a class="nav-link small{% if active_section == 'asignacion_inteligente' %} active{% endif %}" href="{% url 'planificacion:asignacion_inteligente' %}"><i class="fas fa-robot fa-fw"></i> Asignación Inteligente</a></div>
+            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacion_operativa' %} active{% endif %}" href="{% url 'planificacion:planificacion_operativa' %}"><i class="fas fa-table-cells fa-fw"></i> Planificación Operativa</a></div>
+            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacionasignaciondocente_list' %} active{% endif %}" href="{% url 'planificacion:planificacionasignaciondocente_list' %}"><i class="fas fa-users fa-fw"></i> Asignaciones</a></div>
+            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacionmatrizf4_list' %} active{% endif %}" href="{% url 'planificacion:planificacionmatrizf4_list' %}"><i class="fas fa-layer-group fa-fw"></i> Matriz F4</a></div>
+            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacion_consolidada_docentes' %} active{% endif %}" href="{% url 'planificacion:planificacion_consolidada_docentes' %}"><i class="fas fa-clipboard-list fa-fw"></i> Consolidado</a></div>
+            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'reporte_horas_docentes' %} active{% endif %}" href="{% url 'planificacion:reporte_horas_docentes' %}"><i class="fas fa-chart-bar fa-fw"></i> Reporte</a></div>
             <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_auditoria' %} active{% endif %}" href="{% url 'core:modulo_auditoria' %}"><i class="fas fa-history"></i> M6 · Auditoría</a></div>
             <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_restricciones' %} active{% endif %}" href="{% url 'core:modulo_restricciones' %}"><i class="fas fa-exclamation-triangle"></i> M7 · Restricciones</a></div>
         </nav>
@@ -366,6 +93,9 @@
             <button id="themeToggle" type="button">
                 <i class="fas fa-moon" id="themeIcon"></i>
                 <span id="themeLabel">Modo Oscuro</span>
+            </button>
+            <button id="accessibilityToggle" type="button" data-bs-toggle="modal" data-bs-target="#accessibilityModal">
+                <i class="fas fa-universal-access"></i> Accesibilidad
             </button>
             <a href="{% url 'core:logout' %}"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a>
         </div>
@@ -404,6 +134,56 @@
         </main>
     </div>
 </div>
+<div class="modal fade" id="accessibilityModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="fas fa-universal-access me-2"></i>Accesibilidad</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Tamaño de fuente</label>
+          <div class="d-flex flex-wrap gap-2" id="fontSizeGroup">
+            <button class="btn btn-outline-secondary btn-sm flex-fill" data-size="0.85">Pequeño</button>
+            <button class="btn btn-outline-secondary btn-sm flex-fill" data-size="1">Normal</button>
+            <button class="btn btn-outline-secondary btn-sm flex-fill" data-size="1.15">Grande</button>
+            <button class="btn btn-outline-secondary btn-sm flex-fill" data-size="1.35">Extra</button>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Tipo de letra</label>
+          <select class="form-select form-select-sm" id="fontFamilySelect">
+            <option value="'Segoe UI', system-ui, -apple-system, sans-serif">Predeterminado</option>
+            <option value="Arial, Helvetica, sans-serif">Arial</option>
+            <option value="Verdana, Geneva, sans-serif">Verdana</option>
+            <option value="'Times New Roman', Georgia, serif">Serif</option>
+            <option value="'Courier New', monospace">Monospace</option>
+            <option value="'OpenDyslexic', 'Comic Sans MS', sans-serif">OpenDyslexic</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button class="btn btn-sm btn-outline-danger" id="resetAccessibility"><i class="fas fa-undo me-1"></i>Restablecer</button>
+        <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+#accessibilityModal .modal-content {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.055);
+}
+#accessibilityModal .modal-body { overflow-wrap: break-word; word-break: break-word; }
+#accessibilityModal .btn { white-space: normal; }
+#accessibilityModal input,
+#accessibilityModal select,
+#accessibilityModal button {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+}
+</style>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     document.getElementById('sidebarToggle')?.addEventListener('click', function(){
@@ -414,6 +194,14 @@
         document.getElementById('sidebar').classList.remove('show');
         document.getElementById('sidebarOverlay').classList.remove('show');
     });
+    document.addEventListener('input', function(e) {
+        const t = e.target;
+        if (t.matches('input.form-control:not([type="file"]):not([type="date"]):not([type="email"]):not([type="checkbox"]):not([type="radio"]), textarea.form-control')) {
+            const start = t.selectionStart;
+            t.value = t.value.toUpperCase();
+            t.setSelectionRange(start, start);
+        }
+    });
     const t=document.getElementById('themeToggle'),h=document.documentElement,i=document.getElementById('themeIcon'),l=document.getElementById('themeLabel');
     if(localStorage.getItem('theme')==='dark'){h.setAttribute('data-bs-theme','dark');i.className='fas fa-sun';l.textContent='Modo Claro';}
     t?.addEventListener('click',function(){
@@ -421,6 +209,41 @@
         h.setAttribute('data-bs-theme',n);localStorage.setItem('theme',n);
         i.className=n==='dark'?'fas fa-sun':'fas fa-moon';l.textContent=n==='dark'?'Modo Claro':'Modo Oscuro';
     });
+    (function(){
+        const root = document.documentElement;
+        const savedSize = localStorage.getItem('access-font-size') || '1';
+        const savedFont = localStorage.getItem('access-font-family') || "'Segoe UI', system-ui, -apple-system, sans-serif";
+        root.style.setProperty('--access-font-size', savedSize);
+        root.style.setProperty('--access-font-family', savedFont);
+        const sizeBtns = document.querySelectorAll('#fontSizeGroup .btn');
+        sizeBtns.forEach(btn => {
+            if(btn.dataset.size === savedSize) btn.classList.replace('btn-outline-secondary','btn-secondary');
+            btn.addEventListener('click', function(){
+                const size = this.dataset.size;
+                sizeBtns.forEach(b => b.classList.replace('btn-secondary','btn-outline-secondary'));
+                this.classList.replace('btn-outline-secondary','btn-secondary');
+                root.style.setProperty('--access-font-size', size);
+                localStorage.setItem('access-font-size', size);
+            });
+        });
+        const fontSelect = document.getElementById('fontFamilySelect');
+        if(fontSelect){
+            fontSelect.value = savedFont;
+            fontSelect.addEventListener('change', function(){
+                root.style.setProperty('--access-font-family', this.value);
+                localStorage.setItem('access-font-family', this.value);
+            });
+        }
+        document.getElementById('resetAccessibility')?.addEventListener('click', function(){
+            localStorage.removeItem('access-font-size');
+            localStorage.removeItem('access-font-family');
+            root.style.setProperty('--access-font-size', '1');
+            root.style.setProperty('--access-font-family', "'Segoe UI', system-ui, -apple-system, sans-serif");
+            sizeBtns.forEach(b => b.classList.replace('btn-secondary','btn-outline-secondary'));
+            sizeBtns[1]?.classList.replace('btn-outline-secondary','btn-secondary');
+            if(fontSelect) fontSelect.value = "'Segoe UI', system-ui, -apple-system, sans-serif";
+        });
+    })();
 </script>
 {% block extra_js %}{% endblock %}
 </body>

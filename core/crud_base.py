@@ -1,5 +1,6 @@
 import json
 import re
+import unicodedata
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
@@ -62,50 +63,54 @@ def _generate_codigo(nombre_value, codigo_field, model):
     if not nombre_value:
         return None
     max_len = getattr(codigo_field, 'max_length', 20)
-    raw = re.sub(r'[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]', '', str(nombre_value)).upper().strip()
+    raw = unicodedata.normalize('NFKD', str(nombre_value))
+    raw = ''.join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = re.sub(r'[^A-Za-z0-9\s]', '', raw).upper().strip()
     words = [w for w in raw.split() if w]
     if not words:
         return None
     if len(words) == 1:
-        base = words[0][:3]
+        siglas = words[0][:5]
     else:
-        base = ''.join(w[0] for w in words if w)
-    if not base:
+        siglas = ''.join(w[0] for w in words if w)
+    if not siglas:
         return None
-    base = base[:max_len]
-    qs = model._default_manager.filter(**{codigo_field.name + '__startswith': base})
+    if max_len >= 6:
+        suffix_room = 4
+    elif max_len >= 4:
+        suffix_room = 3
+    else:
+        suffix_room = 2
+    base_max = max_len - suffix_room
+    if base_max < 2:
+        base_max = 2
+        suffix_room = max_len - 2
+        if suffix_room < 1:
+            suffix_room = 1
+    base = siglas[:base_max]
+    prefix = base + '-'
+    qs = model._default_manager.filter(**{codigo_field.name + '__startswith': prefix})
     existing = set(qs.values_list(codigo_field.name, flat=True))
-    if base not in existing:
-        return base
-    for i in range(1, 999):
-        available = max_len - len(base)
-        if available >= 4:
-            suffix = f'-{i:03d}'
-        elif available >= 3:
-            suffix = f'-{i:02d}'
-        elif available >= 2:
-            suffix = f'-{i:d}'
+    for i in range(1, 9999):
+        if suffix_room == 4:
+            candidate = f'{base}-{i:03d}'
+        elif suffix_room == 3:
+            candidate = f'{base}-{i:02d}'
+        elif suffix_room == 2:
+            candidate = f'{base}-{i:d}'
         else:
-            for j in range(1, 999):
-                alt = base[:max_len - len(str(j))] + str(j)
-                if alt not in existing:
-                    return alt
-            return base[:max_len]
-        candidate = base + suffix
+            candidate = f'{base}{i:d}'
+        if len(candidate) > max_len:
+            continue
         if candidate not in existing:
             return candidate
-    return base[:max_len]
+    return base
 
 
 def _auto_generate_codigo(form):
     model = form._meta.model
     codigo_field, nombre_field = _find_codigo_nombre_fields(model)
     if not codigo_field or not nombre_field:
-        return
-    if codigo_field.name not in form.cleaned_data and codigo_field.name not in form.initial:
-        return
-    current_val = form.cleaned_data.get(codigo_field.name) or form.initial.get(codigo_field.name)
-    if current_val:
         return
     nombre_val = form.cleaned_data.get(nombre_field.name) or getattr(form.instance, nombre_field.attname, None)
     generated = _generate_codigo(nombre_val, codigo_field, model)
@@ -177,9 +182,11 @@ class CrudListView(LoginRequiredMixin, ListView):
         fields = [f for f in model._meta.get_fields() if f.concrete and not f.auto_created and not f.primary_key]
         bool_types = {'BooleanField', 'NullBooleanField'}
         date_types = {'DateField', 'DateTimeField'}
+        image_types = {'ImageField'}
         ctx['fields'] = fields
         ctx['bool_fields'] = {f.name for f in fields if hasattr(f, 'get_internal_type') and f.get_internal_type() in bool_types}
         ctx['date_fields'] = {f.name for f in fields if hasattr(f, 'get_internal_type') and f.get_internal_type() in date_types}
+        ctx['image_fields'] = {f.name for f in fields if hasattr(f, 'get_internal_type') and f.get_internal_type() in image_types}
         ctx['model_name'] = name
         ctx['model_verbose'] = getattr(model._meta, 'verbose_name', name)
         ctx['model_verbose_plural'] = getattr(model._meta, 'verbose_name_plural', name)
@@ -201,6 +208,16 @@ class CrudCreateView(LoginRequiredMixin, CreateView):
     fields = '__all__'
     template_name = 'generic_crud/form.html'
     autofill_rules = {}
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        codigo_field, _ = _find_codigo_nombre_fields(self.model)
+        if codigo_field and codigo_field.name in form.fields:
+            form.fields[codigo_field.name].required = False
+            form.fields[codigo_field.name].help_text = 'El sistema lo genera automáticamente.'
+            form.fields[codigo_field.name].widget.attrs['readonly'] = True
+            form.fields[codigo_field.name].widget.attrs['class'] = 'form-control bg-light'
+        return form
 
     def get_success_url(self):
         return reverse_lazy(f'{self.model._meta.app_label}:{self.model._meta.model_name}_list')

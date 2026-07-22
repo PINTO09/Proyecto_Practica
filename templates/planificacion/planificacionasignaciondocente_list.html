@@ -11,29 +11,13 @@
     <p class="text-muted mb-0 mt-1">Registro real de docentes asignados a materias y paralelos de la planificación.</p>
   </div>
   <div class="d-flex gap-2">
-    <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-secondary"><i class="fas fa-table-cells me-1"></i>Operativa</a>
-    <a href="{% url 'planificacion:planificacionmatrizf4_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Matriz F4</a>
-    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Consolidado</a>
     <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nueva</a>
   </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
 
-{% if limit_config.missing_dedicaciones %}
-<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
-  <div>
-    <div class="fw-semibold mb-1">Asignaciones con límites parciales</div>
-    <div class="small">
-      Faltan límites por modalidad para validar toda la carga:
-      {% for modalidad in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
-      {% endfor %}
-    </div>
-  </div>
-  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
-</div>
-{% endif %}
+{% include 'planificacion/_limit_config_alert.html' %}
 
 <div class="row g-3 mb-4">
   <div class="col-md-3 col-6">
@@ -165,13 +149,19 @@
             <td style="min-width:220px;">
               <div class="d-flex align-items-center gap-2">
                 <div class="progress flex-grow-1" style="height:8px;">
-                  <div class="progress-bar bg-{{ row.badge }}" role="progressbar" style="width:{{ row.percentage }}%"></div>
+                  <div class="progress-bar" role="progressbar"
+                       style="width:{{ row.percentage }}%;{% if row.badge == 'danger' %}background-color:#dc3545{% elif row.badge == 'warning' %}background-color:#ffc107;color:#000{% elif row.badge == 'success' %}background-color:#198754{% else %}background-color:#0d6efd{% endif %} !important;">
+                  </div>
                 </div>
-                <span class="badge bg-{{ row.badge }}">{{ row.percentage }}%</span>
+                <span class="badge"
+                      style="{% if row.badge == 'danger' %}background-color:#dc3545{% elif row.badge == 'warning' %}background-color:#ffc107;color:#000{% elif row.badge == 'success' %}background-color:#198754{% else %}background-color:#6c757d{% endif %} !important;">{{ row.percentage }}%</span>
               </div>
               <div class="small text-muted mt-1">
                 Total {{ row.workload.total_horas }}h / Límite {{ row.max_total }}h / Disp. {{ row.available }}h
               </div>
+              <span class="badge mt-1 {% if row.cumple_limite %}bg-success{% else %}bg-danger{% endif %}">
+                {% if row.cumple_limite %}Cumple{% else %}No cumple{% endif %}
+              </span>
             </td>
             <td class="text-end pe-3">
               <a href="{% url 'planificacion:planificacionasignaciondocente_update' pk=row.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar"><i class="fas fa-pencil-alt"></i></a>

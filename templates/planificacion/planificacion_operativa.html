@@ -12,27 +12,12 @@
   </div>
   <div class="d-flex gap-2">
     <a href="{% url 'planificacion:planificaciondemandaacademica_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Demanda</a>
-    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Consolidado</a>
-    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-primary"><i class="fas fa-users me-1"></i>Asignaciones</a>
   </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
 
-{% if limit_config.missing_dedicaciones %}
-<div class="alert alert-warning d-flex justify-content-between align-items-start gap-3">
-  <div>
-    <div class="fw-semibold mb-1">Configuración pendiente para la planificación web</div>
-    <div class="small">
-      La vista operativa ya funciona localmente, pero para validar carga y disponibilidad faltan límites en:
-      {% for modalidad in limit_config.missing_dedicaciones %}
-      <span class="badge bg-warning text-dark ms-1">{{ modalidad.codigo_modalidad }}</span>
-      {% endfor %}
-    </div>
-  </div>
-  <a href="{% url 'catalogos:limitehorario_list' %}" class="btn btn-sm btn-outline-dark">Configurar</a>
-</div>
-{% endif %}
+{% include 'planificacion/_limit_config_alert.html' %}
 
 <div class="row g-3 mb-4">
   <div class="col-md-3 col-6">
@@ -175,7 +160,7 @@
             </td>
             <td class="text-center">
               <div class="fw-semibold">{{ row.required_class_hours }}h clase</div>
-              <div class="text-muted small">Complementarias segun docente</div>
+              <div class="text-muted small">Las actividades complementarias se asignan por separado</div>
             </td>
             <td>
               {% if paralelo.asignaciones %}
@@ -246,17 +231,23 @@
               {% endif %}
             </td>
             <td class="text-end pe-3">
+              {% if paralelo.asignaciones %}
+              <div class="d-flex flex-column align-items-end gap-1">
+                <span class="badge bg-success-subtle text-success">
+                  <i class="fas fa-check-circle me-1"></i>{{ paralelo.asignaciones.0.id_docente.nombres_completos }}
+                </span>
+                <a href="{% url 'planificacion:planificacionasignaciondocente_update' pk=paralelo.asignaciones.0.pk %}" class="btn btn-sm btn-outline-warning">
+                  <i class="fas fa-pen me-1"></i>Editar
+                </a>
+              </div>
+              {% else %}
               <div class="d-flex justify-content-end gap-2">
                 <a href="{% url 'planificacion:planificacionasignaciondocente_create' %}?periodo={{ row.demanda.id_periodo_id }}&carrera={{ row.demanda.id_carrera_id }}&asignatura={{ row.demanda.id_asignatura_id }}&nivel={{ row.demanda.id_asignatura.nivel_semestre }}&paralelo={{ paralelo.label }}&horas={{ row.demanda.id_asignatura.horas_semanales_asignatura }}{% if row.principal_campo_id %}&campo={{ row.principal_campo_id }}{% endif %}"
                    class="btn btn-sm btn-primary">
                   <i class="fas fa-user-plus me-1"></i>Asignar
                 </a>
-                {% if paralelo.asignaciones %}
-                <a href="{% url 'planificacion:planificacionasignaciondocente_update' pk=paralelo.asignaciones.0.pk %}" class="btn btn-sm btn-outline-secondary">
-                  <i class="fas fa-pen"></i>
-                </a>
-                {% endif %}
               </div>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
