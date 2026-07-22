@@ -1,0 +1,40 @@
+{% extends 'generic_crud/form.html' %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const carreraSelect = document.getElementById('id_id_carrera');
+  const actividadCheck = document.getElementById('id_es_actividad');
+  const nivelSelect = document.getElementById('id_nivel_semestre');
+
+  function toggleNivel() {
+    if (!nivelSelect) return;
+    if (!actividadCheck) return;
+    const isAct = actividadCheck.checked;
+    nivelSelect.disabled = isAct;
+    nivelSelect.required = !isAct;
+    if (isAct) {
+      nivelSelect.value = '';
+    }
+  }
+
+  function checkCarreraActividad() {
+    if (!carreraSelect || !actividadCheck) return;
+    const selected = carreraSelect.options[carreraSelect.selectedIndex];
+    const isAct = selected && selected.text.startsWith('[ACT]');
+    actividadCheck.checked = isAct;
+    toggleNivel();
+  }
+
+  if (actividadCheck) {
+    actividadCheck.addEventListener('change', toggleNivel);
+  }
+  if (carreraSelect) {
+    carreraSelect.addEventListener('change', checkCarreraActividad);
+    checkCarreraActividad();
+  }
+  toggleNivel();
+});
+</script>
+{% endblock %}

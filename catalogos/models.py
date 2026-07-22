@@ -6,6 +6,7 @@ class CatalogoCarrera(models.Model):
     codigo_carrera = models.CharField(max_length=20, unique=True, db_column='codigo_carrera')
     nombre_carrera = models.CharField(max_length=120, db_column='nombre_carrera')
     carrera_activa = models.BooleanField(default=True, db_column='carrera_activa')
+    es_actividad = models.BooleanField(default=False, db_column='es_actividad')
 
     class Meta:
         managed = False

@@ -47,4 +47,5 @@ urlpatterns = [
     path('api/check-affinity/', views.api_check_affinity, name='api_check_affinity'),
     path('api/crear-asignacion/', views.api_crear_asignacion, name='api_crear_asignacion'),
     path('api/paralelos-disponibles/', views.api_paralelos_disponibles, name='api_paralelos_disponibles'),
+    path('api/teacher-load/', views.api_teacher_load, name='api_teacher_load'),
 ]

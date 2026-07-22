@@ -1,5 +1,6 @@
 ﻿from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 from .models import CurriculoAsignatura, CurriculoAsignaturaCampo, RelacionPosgradoCampo
+from .forms import CurriculoAsignaturaForm
 
 
 class CurriculoAsignaturaListView(CrudListView):
@@ -22,9 +23,15 @@ class CurriculoAsignaturaListView(CrudListView):
 
 class CurriculoAsignaturaCreateView(CrudCreateView):
     model = CurriculoAsignatura
+    fields = None
+    form_class = CurriculoAsignaturaForm
+    template_name = 'curriculo/curriculoasignatura_form.html'
 
 class CurriculoAsignaturaUpdateView(CrudUpdateView):
     model = CurriculoAsignatura
+    fields = None
+    form_class = CurriculoAsignaturaForm
+    template_name = 'curriculo/curriculoasignatura_form.html'
 
 class CurriculoAsignaturaDeleteView(CrudDeleteView):
     model = CurriculoAsignatura

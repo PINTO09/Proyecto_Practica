@@ -149,9 +149,12 @@
             <td style="min-width:220px;">
               <div class="d-flex align-items-center gap-2">
                 <div class="progress flex-grow-1" style="height:8px;">
-                  <div class="progress-bar bg-{{ row.badge }}" role="progressbar" style="width:{{ row.percentage }}%"></div>
+                  <div class="progress-bar" role="progressbar"
+                       style="width:{{ row.percentage }}%;{% if row.badge == 'danger' %}background-color:#dc3545{% elif row.badge == 'warning' %}background-color:#ffc107;color:#000{% elif row.badge == 'success' %}background-color:#198754{% else %}background-color:#0d6efd{% endif %} !important;">
+                  </div>
                 </div>
-                <span class="badge bg-{{ row.badge }}">{{ row.percentage }}%</span>
+                <span class="badge"
+                      style="{% if row.badge == 'danger' %}background-color:#dc3545{% elif row.badge == 'warning' %}background-color:#ffc107;color:#000{% elif row.badge == 'success' %}background-color:#198754{% else %}background-color:#6c757d{% endif %} !important;">{{ row.percentage }}%</span>
               </div>
               <div class="small text-muted mt-1">
                 Total {{ row.workload.total_horas }}h / Límite {{ row.max_total }}h / Disp. {{ row.available }}h

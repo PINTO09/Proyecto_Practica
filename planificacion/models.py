@@ -153,3 +153,25 @@ class PlanificacionAulaHorario(models.Model):
 
     def __str__(self):
         return f'{self.nombre_aula} - {self.turno_horario} ({self.id_periodo})'
+
+
+class CargaHistorial(models.Model):
+    id_carga = models.BigAutoField(primary_key=True, db_column='id_carga')
+    fecha_carga = models.DateTimeField(auto_now_add=True, db_column='fecha_carga')
+    tipo_carga = models.CharField(max_length=50, db_column='tipo_carga')
+    archivo_origen = models.CharField(max_length=255, db_column='archivo_origen')
+    total_registros = models.IntegerField(default=0, db_column='total_registros')
+    registros_creados = models.IntegerField(default=0, db_column='registros_creados')
+    registros_actualizados = models.IntegerField(default=0, db_column='registros_actualizados')
+    registros_omitidos = models.IntegerField(default=0, db_column='registros_omitidos')
+    detalle_errores = models.TextField(null=True, blank=True, db_column='detalle_errores')
+    estado = models.CharField(max_length=20, default='COMPLETADO', db_column='estado')
+
+    class Meta:
+        managed = False
+        db_table = 'carga_historial'
+        verbose_name = 'Historial de Carga'
+        verbose_name_plural = 'M8 · Cargas de Datos'
+
+    def __str__(self):
+        return f'{self.tipo_carga} - {self.fecha_carga}'

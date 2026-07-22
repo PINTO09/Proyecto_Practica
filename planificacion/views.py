@@ -17,7 +17,7 @@ from .models import (
 )
 from docentes.models import DocenteFcacc, DocenteCampoAfinidad
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo, RelacionPosgradoCampo
-from catalogos.models import CatalogoCampoConocimiento, CatalogoDedicacionHoraria, CatalogoModalidadContratacion, LimiteHorario
+from catalogos.models import CatalogoCampoConocimiento, CatalogoCarrera, CatalogoDedicacionHoraria, CatalogoModalidadContratacion, LimiteHorario
 import re
 import unicodedata
 import warnings
@@ -34,6 +34,8 @@ F4_ACTIVITY_CAREER_CODES = {
     'FCACC-6-IVN',
     'FCACC-8-VI-SO',
     'FCACC-9-GE_ED',
+    'FCACC-8-PRAC',
+    'FCACC-8-TITU',
 }
 
 
@@ -94,6 +96,8 @@ def _build_form_load_summary(docente=None, periodo=None):
         'docente': docente,
         'workload': workload,
         'max_total': max_total,
+        'max_clase': limite.horas_maximas if limite else 0,
+        'max_comp': limite.horas_complementarias_maximas if limite else 0,
         'available': max(0, max_total - workload['total_horas']),
         'percentage': percentage,
         'badge': 'danger' if percentage > 100 else 'warning' if percentage >= 80 else 'success',
@@ -772,8 +776,6 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
             'app': 'curriculo',
             'model': 'CurriculoAsignatura',
             'fields': {
-                'id_carrera': 'id_carrera_id',
-                'nivel_semestre_asignado': 'nivel_semestre',
                 'horas_clase': 'horas_semanales_asignatura',
             },
         },
@@ -847,6 +849,11 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
             for s in CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad')
         }
         ctx['subject_data_json'] = json.dumps(subject_data)
+        career_data = {
+            str(c.id_carrera): {'a': c.es_actividad}
+            for c in CatalogoCarrera.objects.only('id_carrera', 'es_actividad')
+        }
+        ctx['career_data_json'] = json.dumps(career_data)
         docente_id = self.request.POST.get('id_docente') or self.request.GET.get('docente')
         periodo_id = self.request.POST.get('id_periodo') or self.request.GET.get('periodo')
         if docente_id and periodo_id:
@@ -919,6 +926,11 @@ class PlanificacionAsignacionDocenteUpdateView(CrudUpdateView):
             for s in CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad')
         }
         ctx['subject_data_json'] = json.dumps(subject_data)
+        career_data = {
+            str(c.id_carrera): {'a': c.es_actividad}
+            for c in CatalogoCarrera.objects.only('id_carrera', 'es_actividad')
+        }
+        ctx['career_data_json'] = json.dumps(career_data)
         return ctx
 
 class PlanificacionAsignacionDocenteDeleteView(CrudDeleteView):
@@ -1972,6 +1984,9 @@ def api_asignatura_info(request):
         subj = CurriculoAsignatura.objects.select_related('id_carrera').get(id_asignatura=asignatura_id)
         campo = CurriculoAsignaturaCampo.objects.filter(id_asignatura=subj).select_related('id_campo').first()
         existing = _get_existing_assignment(subj.id_asignatura)
+        niveles = sorted(CurriculoAsignatura.objects.filter(
+            id_carrera=subj.id_carrera, es_actividad=False
+        ).values_list('nivel_semestre', flat=True).distinct())
         data = {
             'id_asignatura': subj.id_asignatura,
             'id_carrera': subj.id_carrera_id,
@@ -1982,6 +1997,7 @@ def api_asignatura_info(request):
             'campo_nombre': str(campo.id_campo) if campo else '',
             'existing_assignment': existing,
             'es_actividad': subj.es_actividad,
+            'niveles_disponibles': niveles,
         }
         return JsonResponse(data)
     except CurriculoAsignatura.DoesNotExist:
@@ -2132,6 +2148,35 @@ def api_paralelos_disponibles(request):
         return JsonResponse({'paralelos': [], 'message': 'No hay demanda registrada para esta combinación.'})
     labels = _build_parallel_labels(demanda.numero_paralelos)
     return JsonResponse({'paralelos': labels, 'message': ''})
+
+
+@login_required
+def api_teacher_load(request):
+    docente_id = request.GET.get('docente')
+    periodo_id = request.GET.get('periodo')
+    if not docente_id or not periodo_id:
+        return JsonResponse({'error': 'docente y periodo requeridos'}, status=400)
+    try:
+        docente = DocenteFcacc.objects.select_related('id_dedicacion', 'id_modalidad').get(id_docente=docente_id)
+    except DocenteFcacc.DoesNotExist:
+        return JsonResponse({'error': 'docente no encontrado'}, status=404)
+    summary = _build_form_load_summary(docente=docente, periodo=periodo_id)
+    if not summary:
+        return JsonResponse({'error': 'no se pudo calcular la carga'}, status=400)
+    return JsonResponse({
+        'docente': summary['docente'].nombres_completos,
+        'dedicacion': summary['docente'].id_dedicacion.codigo_dedicacion if summary['docente'].id_dedicacion else '',
+        'percentage': summary['percentage'],
+        'badge': summary['badge'],
+        'clase': summary['workload']['horas_clase'],
+        'comp': summary['workload']['horas_complementarias'],
+        'investigacion': summary['workload']['horas_investigacion'],
+        'actividad': summary['workload']['horas_actividad'],
+        'available': summary['available'],
+        'max_clase': summary['max_clase'],
+        'max_comp': summary['max_comp'],
+        'max_total': summary['max_total'],
+    })
 
 
 @login_required

@@ -67,7 +67,7 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         )
         widgets = {
             'comision_servicio': forms.Textarea(attrs={'rows': 2}),
-            'nivel_semestre_asignado': forms.Select(choices=[('', '--- Seleccione ---')] + [(i, f'Nivel {i}') for i in range(1, 11)]),
+            'nivel_semestre_asignado': forms.Select(choices=[('', '--- Seleccione ---')]),
             'horas_clase': forms.NumberInput(attrs={'min': 0}),
         }
 
@@ -79,16 +79,17 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         self.fields['id_asignatura'].queryset = CurriculoAsignatura.objects.select_related('id_carrera').order_by(
             'id_carrera__nombre_carrera', 'nivel_semestre', 'nombre_asignatura'
         )
-        # Populate paralelo choices from demanda for the current subject+carrera+periodo
         asignatura = None
         carrera = None
         periodo = None
         paralelo_actual = None
+        es_actividad = False
         if self.instance and self.instance.pk:
             asignatura = self.instance.id_asignatura
             carrera = self.instance.id_carrera
             periodo = self.instance.id_periodo
             paralelo_actual = self.instance.paralelo_asignado
+            es_actividad = getattr(asignatura, 'es_actividad', False) or getattr(carrera, 'es_actividad', False)
         else:
             raw_subj = self.initial.get('id_asignatura')
             carr_id = self.initial.get('id_carrera')
@@ -102,9 +103,20 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
                         asignatura = CurriculoAsignatura.objects.get(pk=subj_id)
                         carrera = CatalogoCarrera.objects.get(pk=carr_id_v)
                         periodo = CatalogoPeriodoAcademico.objects.get(pk=per_id_v)
+                        es_actividad = asignatura.es_actividad or carrera.es_actividad
                     except (CurriculoAsignatura.DoesNotExist, CatalogoCarrera.DoesNotExist, CatalogoPeriodoAcademico.DoesNotExist):
                         pass
             paralelo_actual = self.initial.get('paralelo_asignado', '')
+
+        # Populate nivel choices based on career's actual levels
+        if carrera:
+            niveles = CurriculoAsignatura.objects.filter(
+                id_carrera=carrera, es_actividad=False
+            ).values_list('nivel_semestre', flat=True).distinct().order_by('nivel_semestre')
+            nivel_choices = [('', '--- Seleccione ---')] + [(n, f'Nivel {n}') for n in niveles]
+            self.fields['nivel_semestre_asignado'].widget = forms.Select(choices=nivel_choices)
+
+        # Populate paralelo choices from demanda for the current subject+carrera+periodo
         choices = self.fields['paralelo_asignado'].choices or []
         if paralelo_actual:
             choices.append((paralelo_actual, paralelo_actual))
@@ -138,19 +150,22 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         paralelo = cleaned.get('paralelo_asignado')
         campo = cleaned.get('id_campo')
 
+        es_actividad = False
+        if asignatura:
+            es_actividad = asignatura.es_actividad
+        if carrera and not es_actividad:
+            es_actividad = carrera.es_actividad
+
         if asignatura and carrera and asignatura.id_carrera_id != carrera.id_carrera:
             self.add_error('id_carrera', 'La carrera no corresponde a la asignatura seleccionada.')
         if asignatura and nivel and asignatura.nivel_semestre != nivel:
             self.add_error('nivel_semestre_asignado', 'El nivel debe coincidir con el nivel de la asignatura.')
-        if asignatura and campo and not CurriculoAsignaturaCampo.objects.filter(
+        if not es_actividad and asignatura and campo and not CurriculoAsignaturaCampo.objects.filter(
             id_asignatura=asignatura, id_campo=campo
         ).exists():
             self.add_error('id_campo', 'El campo seleccionado no corresponde a esta asignatura.')
 
-        es_actividad = getattr(asignatura, 'es_actividad', False) if asignatura else False
-
-        # Validar que la asignatura esté en la demanda académica (operativa)
-        if asignatura and carrera and periodo and not es_actividad:
+        if not es_actividad and asignatura and carrera and periodo:
             if not PlanificacionDemandaAcademica.objects.filter(
                 id_asignatura=asignatura, id_carrera=carrera, id_periodo=periodo,
             ).exists():
@@ -186,7 +201,7 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
                     'Solo puede tener una asignatura distinta (se permiten varios paralelos de la misma).',
                 )
 
-        if asignatura and carrera and periodo and paralelo:
+        if not es_actividad and asignatura and carrera and periodo and paralelo:
             duplicate = PlanificacionAsignacionDocente.objects.filter(
                 id_asignatura=asignatura, id_carrera=carrera,
                 id_periodo=periodo, paralelo_asignado__iexact=paralelo,

@@ -677,6 +677,25 @@ CREATE TABLE cuerpo (
 );
 
 -- ============================================================
+--  MÓDULO 8 · CARGA DE DATOS (HISTORIAL)
+-- ============================================================
+
+CREATE TABLE carga_historial (
+    ID_CARGA            BIGSERIAL       NOT NULL,
+    FECHA_CARGA         TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    TIPO_CARGA          VARCHAR(50)     NOT NULL,
+    ARCHIVO_ORIGEN      VARCHAR(255)    NOT NULL,
+    TOTAL_REGISTROS     INTEGER         NOT NULL DEFAULT 0,
+    REGISTROS_CREADOS   INTEGER         NOT NULL DEFAULT 0,
+    REGISTROS_ACTUALIZADOS INTEGER     NOT NULL DEFAULT 0,
+    REGISTROS_OMITIDOS  INTEGER         NOT NULL DEFAULT 0,
+    DETALLE_ERRORES     TEXT            NULL,
+    ESTADO              VARCHAR(20)     NOT NULL DEFAULT 'COMPLETADO',
+    CONSTRAINT PK_CARGA_HISTORIAL PRIMARY KEY (ID_CARGA),
+    CONSTRAINT CHK_CARGA_ESTADO CHECK (ESTADO IN ('COMPLETADO', 'PARCIAL', 'FALLIDO'))
+);
+
+-- ============================================================
 --  ÍNDICES DE RENDIMIENTO
 -- ============================================================
 

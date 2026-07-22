@@ -106,9 +106,12 @@
             <td class="text-center pe-3">
               <div class="d-flex align-items-center gap-2 justify-content-end">
                 <div class="progress flex-grow-1" style="max-width:100px;height:8px;">
-                  <div class="progress-bar bg-{{ r.status }}" role="progressbar" style="width:{{ r.porcentaje }}%"></div>
+                  <div class="progress-bar" role="progressbar"
+                       style="width:{{ r.porcentaje }}%;{% if r.status == 'danger' %}background-color:#dc3545{% elif r.status == 'warning' %}background-color:#ffc107;color:#000{% elif r.status == 'success' %}background-color:#198754{% else %}background-color:#0d6efd{% endif %} !important;">
+                  </div>
                 </div>
-                <small class="text-{{ r.status }} fw-semibold" style="min-width:40px;">{{ r.porcentaje }}%</small>
+                <small class="fw-semibold"
+                       style="min-width:40px;{% if r.status == 'warning' %}color:#ffc107{% elif r.status == 'danger' %}color:#dc3545{% elif r.status == 'success' %}color:#198754{% else %}color:#6c757d{% endif %} !important;">{{ r.porcentaje }}%</small>
               </div>
             </td>
           </tr>
