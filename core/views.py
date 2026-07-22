@@ -524,6 +524,7 @@ MODULOS = {
             ('Matriz de paralelos', 'planificacion:planificacion_paralelos_matriz', 'fa-grip', 'Detectar visualmente paralelos asignados y pendientes.'),
             ('Asignaciones', 'planificacion:planificacionasignaciondocente_list', 'fa-users', 'Revisar y ajustar las asignaciones docentes registradas.'),
             ('Actividades docentes', 'planificacion:planificacionactividaddocente_list', 'fa-puzzle-piece', 'Registrar horas complementarias sin usar pseudo-carreras.'),
+            ('Matriz F4', 'planificacion:planificacionmatrizf4_list', 'fa-layer-group', 'Consultar actividades, investigación y otras horas docentes.'),
             ('Carga docente', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Controlar en una sola vista la carga, disponibilidad y cumplimiento por docente.'),
             ('Reportes y exportaciones', 'reportes:centro_reportes', 'fa-file-excel', 'Aplicar filtros y descargar archivos generales, detallados o de apoyo.'),
         ],

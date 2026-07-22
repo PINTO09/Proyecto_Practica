@@ -1075,7 +1075,8 @@ class PlanificacionRepartoHorasDeleteView(CrudDeleteView):
     model = PlanificacionRepartoHoras
 
 
-class PlanificacionMatrizF4ListView(LenientPaginationMixin, CrudListView):
+class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationMixin, CrudListView):
+    planning_active_section = 'planificacionmatrizf4_list'
     model = PlanificacionMatrizF4
     template_name = 'planificacion/planificacionmatrizf4_list.html'
     paginate_by = 20
@@ -1174,8 +1175,9 @@ class PlanificacionMatrizF4ListView(LenientPaginationMixin, CrudListView):
         return ctx
 
 
-class PlanificacionMatrizF4CreateView(CrudCreateView):
+class PlanificacionMatrizF4CreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionMatrizF4
+    planning_active_section = 'planificacionmatrizf4_list'
 
     def get_form(self, form_class=None):
         return _style_form_fields(super().get_form(form_class))
@@ -1200,13 +1202,13 @@ class PlanificacionMatrizF4CreateView(CrudCreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['limit_config'] = _build_limit_config_state()
-        ctx['active_section'] = 'planificacionmatrizf4_list'
         ctx['form_title'] = 'Nueva actividad F4'
         ctx['form_subtitle'] = 'Registra actividades, investigación u otras horas que suman a la carga docente.'
         return ctx
 
-class PlanificacionMatrizF4UpdateView(CrudUpdateView):
+class PlanificacionMatrizF4UpdateView(PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionMatrizF4
+    planning_active_section = 'planificacionmatrizf4_list'
 
     def get_form(self, form_class=None):
         return _style_form_fields(super().get_form(form_class))
@@ -1232,7 +1234,6 @@ class PlanificacionMatrizF4UpdateView(CrudUpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['limit_config'] = _build_limit_config_state()
-        ctx['active_section'] = 'planificacionmatrizf4_list'
         ctx['form_title'] = 'Editar actividad F4'
         ctx['form_subtitle'] = 'Actualiza horas, actividad o docente asociado.'
         ctx['load_summary'] = _build_form_load_summary(
