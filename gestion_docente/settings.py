@@ -18,8 +18,18 @@ def parse_bool(value, default=False):
         return False
     return default
 
-DEBUG = parse_bool(config('DEBUG', default='True'))
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+DEBUG = (
+    parse_bool(config('DEBUG', default='True')) or
+    parse_bool(config('LOCAL_DEVELOPMENT', default='False'))
+)
+# En desarrollo se permite acceder con la IP LAN del equipo. En producción se
+# debe declarar ALLOWED_HOSTS explícitamente en el archivo .env.
+_default_allowed_hosts = '*' if DEBUG else 'localhost,127.0.0.1'
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default=_default_allowed_hosts,
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()],
+)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -107,7 +117,9 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'staticfiles']
+# Los recursos fuente viven dentro de cada aplicación (por ejemplo,
+# core/static). La carpeta STATIC_ROOT es únicamente la salida de collectstatic.
+STATICFILES_DIRS = []
 STATIC_ROOT = BASE_DIR / 'static'
 
 MEDIA_URL = 'media/'

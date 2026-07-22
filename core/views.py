@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.db import ProgrammingError, OperationalError
+from django.db import DatabaseError, ProgrammingError, OperationalError, transaction
 from django.urls import reverse
 from django.apps import apps
 
@@ -384,7 +384,7 @@ def usuarios_list_view(request):
 def usuarios_por_rol_view(request, rol=None):
     if not _require_admin(request.user):
         return
-    usuarios = Usuario.objects.all().order_by('-date_joined')
+    usuarios = Usuario.objects.prefetch_related('groups').order_by('-date_joined')
     title = 'Usuarios del Sistema'
     if rol:
         usuarios = usuarios.filter(groups__name=rol)
@@ -404,18 +404,24 @@ def usuario_crear_view(request):
     if request.method == 'POST':
         form = UsuarioCreateForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            Docente.objects.get_or_create(
-                cedula=user.cedula,
-                defaults={'apellidos_nombres': f'Usuario {user.cedula}'}
-            )
-            rol = form.cleaned_data.get('rol')
-            if rol:
+            try:
                 from django.contrib.auth.models import Group
-                group, _ = Group.objects.get_or_create(name=rol)
-                user.groups.add(group)
-            messages.success(request, f'Usuario {user.cedula} creado correctamente.')
-            return redirect('core:usuarios_list')
+                with transaction.atomic():
+                    user = form.save()
+                    Docente.objects.get_or_create(
+                        cedula=user.cedula,
+                        defaults={'apellidos_nombres': f'Usuario {user.cedula}'},
+                    )
+                    group, _ = Group.objects.get_or_create(name=form.cleaned_data['rol'])
+                    user.groups.add(group)
+            except DatabaseError:
+                form.add_error(
+                    None,
+                    'No fue posible crear el usuario. Verifique que las migraciones estén aplicadas e inténtelo nuevamente.',
+                )
+            else:
+                messages.success(request, f'Usuario {user.cedula} creado correctamente.')
+                return redirect('core:usuarios_list')
     else:
         form = UsuarioCreateForm()
     return render(request, 'core/usuario_form.html', {
@@ -437,7 +443,7 @@ def usuario_editar_view(request, usuario_id):
             rol = form.cleaned_data.get('rol')
             if rol:
                 from django.contrib.auth.models import Group
-                user.groups.clear()
+                user.groups.remove(*Group.objects.filter(name__in=[ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO]))
                 group, _ = Group.objects.get_or_create(name=rol)
                 user.groups.add(group)
             messages.success(request, f'Usuario {usuario.cedula} actualizado.')
@@ -513,11 +519,15 @@ MODULOS = {
         'icono': 'fa-calendar-check',
         'descripcion': 'Flujo principal para construir, revisar y controlar la planificacion docente.',
         'acciones': [
-            ('Operativa', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Asignar docentes por materia, paralelo y periodo.'),
+            ('Demanda académica', 'planificacion:planificaciondemandaacademica_list', 'fa-list-check', 'Definir materias, niveles y número de paralelos requeridos.'),
+            ('Planificación operativa', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Asignar docentes por materia, paralelo y período.'),
+            ('Matriz de paralelos', 'planificacion:planificacion_paralelos_matriz', 'fa-grip', 'Detectar visualmente paralelos asignados y pendientes.'),
             ('Asignaciones', 'planificacion:planificacionasignaciondocente_list', 'fa-users', 'Revisar y ajustar las asignaciones docentes registradas.'),
-            ('Matriz F4', 'planificacion:planificacionmatrizf4_list', 'fa-layer-group', 'Registrar actividades, investigacion y otras horas docentes.'),
-            ('Consolidado', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Ver la carga total por docente entre clases y actividades F4.'),
-            ('Reporte', 'planificacion:reporte_horas_docentes', 'fa-chart-bar', 'Controlar disponibilidad, limites horarios y horas asignadas.'),
+            ('Actividades docentes', 'planificacion:planificacionactividaddocente_list', 'fa-puzzle-piece', 'Registrar horas complementarias sin usar pseudo-carreras.'),
+            ('Matriz F4', 'planificacion:planificacionmatrizf4_list', 'fa-layer-group', 'Consultar actividades, investigación y otras horas docentes.'),
+            ('Consolidado', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Ver la carga total por docente entre clases y actividades.'),
+            ('Control de horas', 'planificacion:reporte_horas_docentes', 'fa-chart-column', 'Controlar disponibilidad, límites horarios y cumplimiento.'),
+            ('Reportes y exportación', 'reportes:reporte_resumen_horas', 'fa-file-excel', 'Generar consultas y archivos generales o detallados.'),
         ],
         'modelos': [],
     },

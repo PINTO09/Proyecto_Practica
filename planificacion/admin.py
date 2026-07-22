@@ -5,6 +5,7 @@ from .models import (
     CatalogoActividadComplementaria, PlanificacionActividadDocente,
     PlanificacionDemandaAcademica, PlanificacionAsignacionDocente,
     PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario,
+    CargaHistorial,
 )
 
 
@@ -17,9 +18,33 @@ class CatalogoActividadComplementariaAdmin(admin.ModelAdmin):
 
 @admin.register(PlanificacionActividadDocente)
 class PlanificacionActividadDocenteAdmin(admin.ModelAdmin):
-    list_display = ['id_docente', 'id_actividad', 'id_periodo', 'id_carrera', 'horas_asignadas']
-    list_filter = ['id_periodo', 'id_carrera', 'id_actividad__tipo_actividad']
+    list_display = ['id_docente', 'id_actividad', 'id_periodo', 'horas_asignadas']
+    list_filter = ['id_periodo', 'id_actividad__tipo_actividad']
     search_fields = ['id_docente__nombres_completos', 'id_actividad__nombre_actividad']
+
+
+@admin.register(CargaHistorial)
+class CargaHistorialAdmin(admin.ModelAdmin):
+    list_display = [
+        'fecha_carga', 'tipo_carga', 'archivo_origen', 'estado',
+        'registros_creados', 'registros_actualizados', 'registros_omitidos',
+    ]
+    list_filter = ['estado', 'tipo_carga', 'fecha_carga']
+    search_fields = ['archivo_origen', 'detalle_errores']
+    readonly_fields = [
+        'fecha_carga', 'tipo_carga', 'archivo_origen', 'total_registros',
+        'registros_creados', 'registros_actualizados', 'registros_omitidos',
+        'detalle_errores', 'estado',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class SafePlanificacionAdmin(admin.ModelAdmin):

@@ -181,26 +181,6 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
                     'Desde cuarto nivel solo se permiten docentes con afinidad registrada para la asignatura.',
                 )
 
-        if not es_actividad and asignatura and docente and periodo and asignatura.id_asignatura:
-            otras_asignaciones = PlanificacionAsignacionDocente.objects.filter(
-                id_docente=docente,
-                id_periodo=periodo,
-            ).exclude(
-                id_asignatura__in=PlanificacionAsignacionDocente.objects.filter(
-                    id_asignatura__es_actividad=True
-                ).values('id_asignatura')
-            )
-            if self.instance.pk:
-                otras_asignaciones = otras_asignaciones.exclude(pk=self.instance.pk)
-            otras_ids = set(otras_asignaciones.values_list('id_asignatura_id', flat=True))
-            otras_ids.discard(asignatura.id_asignatura)
-            if otras_ids:
-                self.add_error(
-                    'id_docente',
-                    'El docente ya tiene asignada otra asignatura en este período. '
-                    'Solo puede tener una asignatura distinta (se permiten varios paralelos de la misma).',
-                )
-
         if not es_actividad and asignatura and carrera and periodo and paralelo:
             duplicate = PlanificacionAsignacionDocente.objects.filter(
                 id_asignatura=asignatura, id_carrera=carrera,
@@ -224,7 +204,7 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
 class PlanificacionActividadDocenteForm(forms.ModelForm):
     class Meta:
         model = PlanificacionActividadDocente
-        fields = '__all__'
+        fields = ['id_docente', 'id_periodo', 'id_actividad', 'horas_asignadas', 'observaciones']
         widgets = {'observaciones': forms.Textarea(attrs={'rows': 3})}
 
     def __init__(self, *args, **kwargs):

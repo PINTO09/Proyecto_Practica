@@ -137,13 +137,14 @@ def _audit_log(request, instance, action, old_values=None):
 
 class CrudListView(LoginRequiredMixin, ListView):
     paginate_by = 25
+    allowed_page_sizes = (10, 25, 50, 100)
     template_name = 'generic_crud/list.html'
     select_related_fields = None
     search_fields = None
 
     def get_paginate_by(self, queryset):
         cant = self.request.GET.get('cant')
-        if cant and cant.isdigit():
+        if cant and cant.isdigit() and int(cant) in self.allowed_page_sizes:
             return int(cant)
         return self.paginate_by
 
@@ -181,11 +182,17 @@ class CrudListView(LoginRequiredMixin, ListView):
         name = model._meta.model_name
         fields = [f for f in model._meta.get_fields() if f.concrete and not f.auto_created and not f.primary_key]
         bool_types = {'BooleanField', 'NullBooleanField'}
-        date_types = {'DateField', 'DateTimeField'}
         image_types = {'ImageField'}
         ctx['fields'] = fields
         ctx['bool_fields'] = {f.name for f in fields if hasattr(f, 'get_internal_type') and f.get_internal_type() in bool_types}
-        ctx['date_fields'] = {f.name for f in fields if hasattr(f, 'get_internal_type') and f.get_internal_type() in date_types}
+        ctx['date_fields'] = {
+            f.name for f in fields
+            if hasattr(f, 'get_internal_type') and f.get_internal_type() == 'DateField'
+        }
+        ctx['datetime_fields'] = {
+            f.name for f in fields
+            if hasattr(f, 'get_internal_type') and f.get_internal_type() == 'DateTimeField'
+        }
         ctx['image_fields'] = {f.name for f in fields if hasattr(f, 'get_internal_type') and f.get_internal_type() in image_types}
         ctx['model_name'] = name
         ctx['model_verbose'] = getattr(model._meta, 'verbose_name', name)
@@ -201,6 +208,12 @@ class CrudListView(LoginRequiredMixin, ListView):
             ctx['cant'] = int(raw_cant)
         except (ValueError, TypeError):
             ctx['cant'] = self.paginate_by
+        if ctx['cant'] not in self.allowed_page_sizes:
+            ctx['cant'] = self.paginate_by
+        if ctx.get('paginator') and ctx.get('page_obj'):
+            ctx['elided_page_range'] = ctx['paginator'].get_elided_page_range(
+                ctx['page_obj'].number, on_each_side=2, on_ends=1,
+            )
         return ctx
 
 

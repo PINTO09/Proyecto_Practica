@@ -1,6 +1,7 @@
 from django import forms
 from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from .models import (
     Docente, Titulo, Publicacion, DocenteTransaccional, Pais, TipoPublicacion,
 )
@@ -232,6 +233,17 @@ class UsuarioCreateForm(forms.ModelForm):
             }),
         }
 
+    def clean_cedula(self):
+        cedula = (self.cleaned_data.get('cedula') or '').strip()
+        if Usuario.objects.filter(cedula=cedula).exists():
+            raise forms.ValidationError('Ya existe un usuario registrado con esta cédula.')
+        return cedula
+
+    def clean_password1(self):
+        password = self.cleaned_data.get('password1')
+        validate_password(password, self.instance)
+        return password
+
     def clean_password2(self):
         p1 = self.cleaned_data.get('password1')
         p2 = self.cleaned_data.get('password2')
@@ -305,6 +317,12 @@ class UsuarioEditForm(forms.ModelForm):
         if p1 and not p2:
             raise forms.ValidationError('Confirma la nueva contraseña.')
         return p2
+
+    def clean_password1(self):
+        password = self.cleaned_data.get('password1')
+        if password:
+            validate_password(password, self.instance)
+        return password
 
     def save(self, commit=True):
         user = super().save(commit=False)

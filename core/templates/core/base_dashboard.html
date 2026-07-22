@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Dashboard - ULEAM{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=plomo-menu-20260703">
+    <link href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'core/vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=azul-ui-20260722">
     {% block extra_css %}{% endblock %}
     <style>
         :root {
@@ -27,19 +27,19 @@
         .sidebar-footer button, .sidebar-footer a { font-size: 0.84rem; }
         .planning-flow {
             display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.45rem;
-            background: #fff; border: 1px solid rgba(148,163,184,0.16);
-            border-radius: 8px; box-shadow: 0 10px 28px rgba(15,23,42,0.045);
+            background: #fff; border: 1px solid rgba(37,99,235,0.14);
+            border-radius: 12px; box-shadow: 0 10px 28px rgba(30,64,175,0.06);
         }
         .planning-flow a {
             display: inline-flex; align-items: center; gap: 0.45rem;
             min-height: 34px; padding: 0.42rem 0.7rem; color: #475569;
-            border-radius: 7px; text-decoration: none; font-size: 0.84rem; font-weight: 650;
+            border-radius: 9px; text-decoration: none; font-size: 0.84rem; font-weight: 650;
         }
-        .planning-flow a:hover { color: #172033; background: rgba(71,85,105,0.075); }
-        .planning-flow a.active { color: #fff; background: #465268; }
+        .planning-flow a:hover { color: #1e40af; background: rgba(37,99,235,0.08); }
+        .planning-flow a.active { color: #fff; background: linear-gradient(135deg,#2563eb,#1d4ed8); }
         .planning-pagination {
             padding: 0.7rem 0.85rem; background: #fff;
-            border: 1px solid rgba(148,163,184,0.16); border-radius: 8px;
+            border: 1px solid rgba(37,99,235,0.14); border-radius: 12px;
             box-shadow: 0 10px 28px rgba(15,23,42,0.045);
         }
         @media (max-width: 991.98px) {
@@ -59,35 +59,111 @@
         [data-bs-theme="dark"] .planning-flow { background: #1f2937; border-color: rgba(148,163,184,0.14); }
         [data-bs-theme="dark"] .planning-flow a { color: #cbd5e1; }
         [data-bs-theme="dark"] .planning-flow a:hover { color: #f8fafc; background: rgba(148,163,184,0.12); }
-        [data-bs-theme="dark"] .planning-flow a.active { background: #64748b; }
+        [data-bs-theme="dark"] .planning-flow a.active { background: linear-gradient(135deg,#2563eb,#1d4ed8); }
         [data-bs-theme="dark"] .planning-pagination { background: #1f2937; border-color: rgba(148,163,184,0.14); }
         [data-bs-theme="dark"] .planning-pagination .page-link { background: transparent; color: #cbd5e1; }
-        [data-bs-theme="dark"] .planning-pagination .page-item.active .page-link { background: #64748b; color: #fff; }
+        [data-bs-theme="dark"] .planning-pagination .page-item.active .page-link { background: #2563eb; color: #fff; }
     </style>
 </head>
 <body>
+<a class="skip-link" href="#mainContent">Saltar al contenido principal</a>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 <div class="wrapper">
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>ULEAM</h5>
-            <small>Sistema de Gestión</small>
+            <div class="sidebar-brand-inner">
+                <img src="{% static 'core/img/logo.png' %}" alt="" class="sidebar-brand-logo">
+                <div>
+                    <h5 class="mb-0">ULEAM</h5>
+                    <small>Gestión académica</small>
+                </div>
+            </div>
         </div>
-        <nav class="sidebar-nav">
+        <div class="sidebar-search">
+            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="sidebarSearch" placeholder="Buscar una opción" aria-label="Buscar en el menú">
+            <button type="button" id="sidebarSearchClear" title="Limpiar búsqueda" aria-label="Limpiar búsqueda"><i class="fas fa-xmark"></i></button>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNavigation" aria-label="Navegación principal">
             {% block sidebar_menu %}{% endblock %}
             <hr class="mx-3 my-2" style="border-color:var(--sidebar-border);">
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_catalogos' %} active{% endif %}" href="{% url 'core:modulo_catalogos' %}"><i class="fas fa-database"></i> M1 · Catálogos</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_docentes' %} active{% endif %}" href="{% url 'core:modulo_docentes' %}"><i class="fas fa-chalkboard-teacher"></i> M2 · Docentes</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-shield-alt"></i> M3 · Seguridad</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_curriculo' %} active{% endif %}" href="{% url 'core:modulo_curriculo' %}"><i class="fas fa-book-open"></i> M4 · Currículo</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_planificacion' %} active{% endif %}" href="{% url 'core:modulo_planificacion' %}"><i class="fas fa-calendar-check"></i> M5 · Planificación</a></div>
-            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacion_operativa' %} active{% endif %}" href="{% url 'planificacion:planificacion_operativa' %}"><i class="fas fa-table-cells fa-fw"></i> Planificación Operativa</a></div>
-            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacionasignaciondocente_list' %} active{% endif %}" href="{% url 'planificacion:planificacionasignaciondocente_list' %}"><i class="fas fa-users fa-fw"></i> Asignaciones</a></div>
-            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacionmatrizf4_list' %} active{% endif %}" href="{% url 'planificacion:planificacionmatrizf4_list' %}"><i class="fas fa-layer-group fa-fw"></i> Matriz F4</a></div>
-            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'planificacion_consolidada_docentes' %} active{% endif %}" href="{% url 'planificacion:planificacion_consolidada_docentes' %}"><i class="fas fa-clipboard-list fa-fw"></i> Consolidado</a></div>
-            <div class="nav-item ps-4"><a class="nav-link{% if active_section == 'reporte_horas_docentes' %} active{% endif %}" href="{% url 'planificacion:reporte_horas_docentes' %}"><i class="fas fa-chart-bar fa-fw"></i> Reporte</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_auditoria' %} active{% endif %}" href="{% url 'core:modulo_auditoria' %}"><i class="fas fa-history"></i> M6 · Auditoría</a></div>
-            <div class="nav-item"><a class="nav-link{% if active_section == 'modulo_restricciones' %} active{% endif %}" href="{% url 'core:modulo_restricciones' %}"><i class="fas fa-exclamation-triangle"></i> M7 · Restricciones</a></div>
+            <div class="nav-module">Módulos institucionales</div>
+
+            <details class="nav-group" data-nav-group="catalogos"{% if request.resolver_match.namespace == 'catalogos' or active_section == 'modulo_catalogos' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-database"></i><span>M1 · Catálogos</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_catalogos' %} active{% endif %}" href="{% url 'core:modulo_catalogos' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link" href="{% url 'catalogos:catalogocarrera_list' %}"><i class="fas fa-building-columns"></i><span>Carreras</span></a>
+                    <a class="nav-link" href="{% url 'catalogos:catalogoperiodoacademico_list' %}"><i class="fas fa-calendar-days"></i><span>Períodos</span></a>
+                    <a class="nav-link" href="{% url 'catalogos:catalogomodalidadcontratacion_list' %}"><i class="fas fa-file-signature"></i><span>Modalidades</span></a>
+                    <a class="nav-link" href="{% url 'catalogos:catalogocampoconocimiento_list' %}"><i class="fas fa-diagram-project"></i><span>Campos de conocimiento</span></a>
+                    <a class="nav-link" href="{% url 'catalogos:limitehorario_list' %}"><i class="fas fa-gauge-high"></i><span>Límites horarios</span></a>
+                </div>
+            </details>
+
+            <details class="nav-group" data-nav-group="docentes"{% if request.resolver_match.namespace == 'docentes' or active_section == 'modulo_docentes' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-chalkboard-teacher"></i><span>M2 · Docentes</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_docentes' %} active{% endif %}" href="{% url 'core:modulo_docentes' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link" href="{% url 'docentes:docentefcacc_list' %}"><i class="fas fa-address-card"></i><span>Todos los docentes</span></a>
+                    <a class="nav-link" href="{% url 'docentes:docentetituloacademico_list' %}"><i class="fas fa-user-graduate"></i><span>Títulos académicos</span></a>
+                    <a class="nav-link" href="{% url 'docentes:docentecampoafinidad_list' %}"><i class="fas fa-link"></i><span>Campos de afinidad</span></a>
+                    <a class="nav-link" href="{% url 'docentes:docenteasignacioncarreraperiodo_list' %}"><i class="fas fa-building-user"></i><span>Carrera por período</span></a>
+                </div>
+            </details>
+
+            <details class="nav-group" data-nav-group="seguridad"{% if request.resolver_match.namespace == 'seguridad' or active_section == 'modulo_seguridad' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-shield-halved"></i><span>M3 · Seguridad</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link" href="{% url 'seguridad:seguridadrol_list' %}"><i class="fas fa-key"></i><span>Roles</span></a>
+                    <a class="nav-link" href="{% url 'seguridad:seguridadusuario_list' %}"><i class="fas fa-user-lock"></i><span>Usuarios de seguridad</span></a>
+                    <a class="nav-link" href="{% url 'seguridad:seguridadusuariorol_list' %}"><i class="fas fa-user-check"></i><span>Asignación de roles</span></a>
+                </div>
+            </details>
+
+            <details class="nav-group" data-nav-group="curriculo"{% if request.resolver_match.namespace == 'curriculo' or active_section == 'modulo_curriculo' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-book-open"></i><span>M4 · Currículo</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_curriculo' %} active{% endif %}" href="{% url 'core:modulo_curriculo' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link" href="{% url 'curriculo:curriculoasignatura_list' %}"><i class="fas fa-book"></i><span>Asignaturas</span></a>
+                    <a class="nav-link" href="{% url 'curriculo:curriculoasignaturacampo_list' %}"><i class="fas fa-code-branch"></i><span>Asignatura–campo</span></a>
+                    <a class="nav-link" href="{% url 'curriculo:relacionposgradocampo_list' %}"><i class="fas fa-graduation-cap"></i><span>Posgrado–campo</span></a>
+                </div>
+            </details>
+
+            <details class="nav-group" data-nav-group="planificacion"{% if request.resolver_match.namespace == 'planificacion' or request.resolver_match.namespace == 'reportes' or active_section == 'modulo_planificacion' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-calendar-check"></i><span>M5 · Planificación</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_planificacion' %} active{% endif %}" href="{% url 'core:modulo_planificacion' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link{% if active_section == 'planificacion_operativa' %} active{% endif %}" href="{% url 'planificacion:planificacion_operativa' %}"><i class="fas fa-table-cells"></i><span>Planificación operativa</span></a>
+                    <a class="nav-link{% if active_section == 'planificacion_paralelos_matriz' %} active{% endif %}" href="{% url 'planificacion:planificacion_paralelos_matriz' %}"><i class="fas fa-grip"></i><span>Matriz de paralelos</span></a>
+                    <a class="nav-link{% if active_section == 'planificacionasignaciondocente_list' %} active{% endif %}" href="{% url 'planificacion:planificacionasignaciondocente_list' %}"><i class="fas fa-users"></i><span>Asignaciones</span></a>
+                    <a class="nav-link" href="{% url 'planificacion:planificaciondemandaacademica_list' %}"><i class="fas fa-list-check"></i><span>Demanda académica</span></a>
+                    <a class="nav-link" href="{% url 'planificacion:planificacionactividaddocente_list' %}"><i class="fas fa-puzzle-piece"></i><span>Actividades docentes</span></a>
+                    <a class="nav-link{% if active_section == 'planificacionmatrizf4_list' %} active{% endif %}" href="{% url 'planificacion:planificacionmatrizf4_list' %}"><i class="fas fa-layer-group"></i><span>Matriz F4</span></a>
+                    <a class="nav-link{% if active_section == 'planificacion_consolidada_docentes' %} active{% endif %}" href="{% url 'planificacion:planificacion_consolidada_docentes' %}"><i class="fas fa-clipboard-list"></i><span>Consolidado docente</span></a>
+                    <a class="nav-link{% if active_section == 'reporte_horas_docentes' %} active{% endif %}" href="{% url 'planificacion:reporte_horas_docentes' %}"><i class="fas fa-chart-column"></i><span>Control de horas</span></a>
+                    <a class="nav-link" href="{% url 'reportes:reporte_resumen_horas' %}"><i class="fas fa-file-excel"></i><span>Reportes y exportación</span></a>
+                </div>
+            </details>
+
+            <details class="nav-group" data-nav-group="auditoria"{% if request.resolver_match.namespace == 'auditoria' or active_section == 'modulo_auditoria' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-clock-rotate-left"></i><span>M6 · Auditoría</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_auditoria' %} active{% endif %}" href="{% url 'core:modulo_auditoria' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link" href="{% url 'auditoria:auditoriaregistrocambios_list' %}"><i class="fas fa-clock-rotate-left"></i><span>Registro de cambios</span></a>
+                </div>
+            </details>
+
+            <details class="nav-group" data-nav-group="restricciones"{% if request.resolver_match.namespace == 'restricciones' or active_section == 'modulo_restricciones' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-triangle-exclamation"></i><span>M7 · Restricciones</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_restricciones' %} active{% endif %}" href="{% url 'core:modulo_restricciones' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link" href="{% url 'restricciones:limitacion_list' %}"><i class="fas fa-ban"></i><span>Limitaciones</span></a>
+                    <a class="nav-link" href="{% url 'restricciones:historiallimitacion_list' %}"><i class="fas fa-clock"></i><span>Historial</span></a>
+                </div>
+            </details>
         </nav>
         <div class="sidebar-footer">
             <button id="themeToggle" type="button">
@@ -117,7 +193,7 @@
                 </ul>
             </div>
         </header>
-        <main class="content-area">
+        <main class="content-area" id="mainContent" tabindex="-1">
             {% if messages %}
                 {% for msg in messages %}
                     <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2" role="alert">
@@ -184,7 +260,7 @@
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'core/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
 <script>
     document.getElementById('sidebarToggle')?.addEventListener('click', function(){
         document.getElementById('sidebar').classList.toggle('show');
@@ -196,10 +272,10 @@
     });
     document.addEventListener('input', function(e) {
         const t = e.target;
-        if (t.matches('input.form-control:not([type="file"]):not([type="date"]):not([type="email"]):not([type="checkbox"]):not([type="radio"]), textarea.form-control')) {
+        if (t.matches('[data-uppercase="true"]')) {
             const start = t.selectionStart;
             t.value = t.value.toUpperCase();
-            t.setSelectionRange(start, start);
+            if (typeof t.setSelectionRange === 'function') t.setSelectionRange(start, start);
         }
     });
     const t=document.getElementById('themeToggle'),h=document.documentElement,i=document.getElementById('themeIcon'),l=document.getElementById('themeLabel');
@@ -242,6 +318,113 @@
             sizeBtns.forEach(b => b.classList.replace('btn-secondary','btn-outline-secondary'));
             sizeBtns[1]?.classList.replace('btn-outline-secondary','btn-secondary');
             if(fontSelect) fontSelect.value = "'Segoe UI', system-ui, -apple-system, sans-serif";
+        });
+    })();
+
+    (function(){
+        const navigation = document.getElementById('sidebarNavigation');
+        const search = document.getElementById('sidebarSearch');
+        const clearSearch = document.getElementById('sidebarSearchClear');
+        if (!navigation) return;
+
+        const groups = Array.from(navigation.querySelectorAll('.nav-group'));
+        const links = Array.from(navigation.querySelectorAll('a.nav-link[href]'));
+        const normalizePath = value => {
+            try {
+                const path = new URL(value, window.location.origin).pathname;
+                return decodeURIComponent(path).replace(/\/+$/, '') || '/';
+            } catch (_) {
+                return '';
+            }
+        };
+
+        const currentPath = normalizePath(window.location.href);
+        const matchingLinks = links
+            .filter(link => {
+                const linkPath = normalizePath(link.href);
+                return linkPath && (currentPath === linkPath || currentPath.startsWith(linkPath + '/'));
+            })
+            .sort((a, b) => normalizePath(b.href).length - normalizePath(a.href).length);
+        const activeLink = matchingLinks[0] || navigation.querySelector('a.nav-link.active');
+        if (activeLink) {
+            links.forEach(link => {
+                link.classList.toggle('active', link === activeLink);
+                if (link === activeLink) link.setAttribute('aria-current', 'page');
+                else link.removeAttribute('aria-current');
+            });
+        }
+
+        const activeGroup = activeLink?.closest('.nav-group');
+        const savedGroup = localStorage.getItem('sidebar-open-group');
+        if (activeGroup) {
+            groups.forEach(group => { group.open = group === activeGroup; });
+            localStorage.setItem('sidebar-open-group', activeGroup.dataset.navGroup || '');
+        } else if (savedGroup) {
+            groups.forEach(group => { group.open = group.dataset.navGroup === savedGroup; });
+        }
+
+        groups.forEach(group => {
+            group.addEventListener('toggle', function(){
+                if (!this.open || search?.value.trim()) return;
+                groups.forEach(other => { if (other !== this) other.open = false; });
+                localStorage.setItem('sidebar-open-group', this.dataset.navGroup || '');
+            });
+        });
+
+        const saveScroll = () => sessionStorage.setItem('sidebar-scroll-top', String(navigation.scrollTop));
+        navigation.addEventListener('scroll', saveScroll, {passive: true});
+        links.forEach(link => link.addEventListener('click', saveScroll));
+        window.addEventListener('pagehide', saveScroll);
+
+        const savedScroll = Number(sessionStorage.getItem('sidebar-scroll-top') || 0);
+        requestAnimationFrame(() => {
+            navigation.scrollTop = savedScroll;
+            if (!activeLink) return;
+            const navRect = navigation.getBoundingClientRect();
+            const linkRect = activeLink.getBoundingClientRect();
+            if (linkRect.top < navRect.top || linkRect.bottom > navRect.bottom) {
+                activeLink.scrollIntoView({block: 'nearest'});
+            }
+        });
+
+        const restoreAccordion = () => {
+            const groupToOpen = activeGroup?.dataset.navGroup || localStorage.getItem('sidebar-open-group');
+            groups.forEach(group => {
+                group.hidden = false;
+                group.querySelectorAll('.nav-submenu .nav-link').forEach(link => { link.hidden = false; });
+                group.open = Boolean(groupToOpen && group.dataset.navGroup === groupToOpen);
+            });
+            navigation.querySelectorAll(':scope > .nav-item').forEach(item => { item.hidden = false; });
+        };
+
+        const filterNavigation = () => {
+            const query = (search?.value || '').trim().toLocaleLowerCase('es');
+            search?.parentElement.classList.toggle('has-value', Boolean(query));
+            if (!query) {
+                restoreAccordion();
+                return;
+            }
+            groups.forEach(group => {
+                const summaryText = group.querySelector('.nav-group-toggle')?.textContent.toLocaleLowerCase('es') || '';
+                let hasMatch = summaryText.includes(query);
+                group.querySelectorAll('.nav-submenu .nav-link').forEach(link => {
+                    const match = link.textContent.toLocaleLowerCase('es').includes(query);
+                    link.hidden = !match && !summaryText.includes(query);
+                    hasMatch = hasMatch || match;
+                });
+                group.hidden = !hasMatch;
+                group.open = hasMatch;
+            });
+            navigation.querySelectorAll(':scope > .nav-item').forEach(item => {
+                item.hidden = !item.textContent.toLocaleLowerCase('es').includes(query);
+            });
+        };
+
+        search?.addEventListener('input', filterNavigation);
+        clearSearch?.addEventListener('click', function(){
+            search.value = '';
+            filterNavigation();
+            search.focus();
         });
     })();
 </script>

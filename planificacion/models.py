@@ -28,7 +28,6 @@ class CatalogoActividadComplementaria(models.Model):
 class PlanificacionActividadDocente(models.Model):
     id_actividad_docente = models.BigAutoField(primary_key=True)
     id_docente = models.ForeignKey('docentes.DocenteFcacc', on_delete=models.RESTRICT, db_column='id_docente')
-    id_carrera = models.ForeignKey('catalogos.CatalogoCarrera', on_delete=models.RESTRICT, db_column='id_carrera')
     id_periodo = models.ForeignKey('catalogos.CatalogoPeriodoAcademico', on_delete=models.RESTRICT, db_column='id_periodo')
     id_actividad = models.ForeignKey(CatalogoActividadComplementaria, on_delete=models.RESTRICT, db_column='id_actividad')
     horas_asignadas = models.PositiveSmallIntegerField(default=0)
@@ -168,7 +167,6 @@ class CargaHistorial(models.Model):
     estado = models.CharField(max_length=20, default='COMPLETADO', db_column='estado')
 
     class Meta:
-        managed = False
         db_table = 'carga_historial'
         verbose_name = 'Historial de Carga'
         verbose_name_plural = 'M8 · Cargas de Datos'

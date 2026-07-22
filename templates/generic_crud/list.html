@@ -6,27 +6,33 @@
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
-    <h4 class="fw-bold mb-0">{{ model_verbose_plural|default:model_name }}</h4>
+    <div class="page-eyebrow mb-1">Gestión de registros</div>
+    <h4 class="fw-bold mb-1">{{ model_verbose_plural|default:model_name }}</h4>
+    <p class="text-muted small mb-0">Consulta, filtra y administra la información disponible.</p>
   </div>
-  <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo</a>
+  <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo registro</a>
 </div>
 
 {% if search_fields %}
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body py-2">
     <form method="get" id="searchForm" class="row g-2 align-items-center">
-      <div class="col-md-5 position-relative">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar..." value="{{ search_value }}" id="searchInput" aria-label="Buscar registros">
-        <div id="searchSpinner" class="spinner-border spinner-border-sm position-absolute end-0 top-50 translate-middle-y me-2 d-none" role="status"></div>
+      <div class="col-lg-6 col-md-7 position-relative">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-transparent"><i class="fas fa-magnifying-glass text-muted"></i></span>
+          <input type="search" name="q" class="form-control" placeholder="Buscar en {{ model_verbose_plural|default:model_name|lower }}..." value="{{ search_value }}" id="searchInput" aria-label="Buscar registros">
+          {% if search_value %}<a href="?cant={{ cant }}" class="btn btn-outline-secondary" title="Limpiar búsqueda" aria-label="Limpiar búsqueda"><i class="fas fa-xmark"></i></a>{% endif %}
+        </div>
       </div>
       <div class="col-auto">
         <label class="small fw-semibold me-1 text-muted">Mostrar</label>
         <select name="cant" class="form-select form-select-sm d-inline-block w-auto" id="cantSelect">
           <option value="10" {% if cant == 10 %}selected{% endif %}>10</option>
-          <option value="20" {% if cant == 20 %}selected{% endif %}>20</option>
+          <option value="25" {% if cant == 25 %}selected{% endif %}>25</option>
           <option value="50" {% if cant == 50 %}selected{% endif %}>50</option>
+          <option value="100" {% if cant == 100 %}selected{% endif %}>100</option>
         </select>
       </div>
       <div class="col-auto">
@@ -40,7 +46,7 @@
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+      <table class="table table-hover align-middle mb-0 data-table">
         <thead class="table-light">
           <tr>
             {% for f in fields %}<th class="ps-3">{{ f.verbose_name|default:f.name }}</th>{% endfor %}
@@ -58,8 +64,10 @@
                 <img src="{{ obj|getattr:f.name.url }}" alt="Foto" class="rounded" style="width:40px;height:40px;object-fit:cover;">
               {% elif f.name in bool_fields %}
                 {% if obj|getattr:f.name %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}
+              {% elif f.name in datetime_fields %}
+                <span title="{{ obj|getattr:f.name|date:'d/m/Y H:i'|default:'' }}">{{ obj|getattr:f.name|date:'d/m/Y H:i'|default:'—' }}</span>
               {% elif f.name in date_fields %}
-                <span title="{{ obj|getattr:f.name|date:'d/m/Y H:i'|default:'' }}">{{ obj|getattr:f.name|date:'d/m/Y'|default:'—' }}</span>
+                <span title="{{ obj|getattr:f.name|date:'d/m/Y'|default:'' }}">{{ obj|getattr:f.name|date:'d/m/Y'|default:'—' }}</span>
               {% else %}
                 <span title="{{ obj|getattr:f.name|default:'' }}">{{ obj|getattr:f.name|default:'—'|truncatechars:50 }}</span>
               {% endif %}
@@ -77,8 +85,19 @@
           {% empty %}
           <tr>
             <td colspan="{{ fields|length|add:1 }}" class="text-center py-4">
-              <div class="text-muted mb-2">No hay registros</div>
-              <a href="{% url create_url %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>
+              <div class="empty-state">
+                {% if search_value %}
+                <i class="fas fa-magnifying-glass"></i>
+                <div class="fw-semibold text-body mb-1">No se encontraron coincidencias</div>
+                <div class="small mb-3">Prueba con otro término o limpia la búsqueda actual.</div>
+                <a href="?cant={{ cant }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-xmark me-1"></i>Limpiar búsqueda</a>
+                {% else %}
+                <i class="far fa-folder-open"></i>
+                <div class="fw-semibold text-body mb-1">Todavía no hay registros</div>
+                <div class="small mb-3">Crea el primer registro para comenzar a trabajar en este módulo.</div>
+                <a href="{% url create_url %}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -93,13 +112,17 @@
   <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
     <ul class="pagination pagination-sm mb-0">
       {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value|urlencode }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
       {% endif %}
-      {% for p in paginator.page_range %}
-      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
+      {% for p in elided_page_range %}
+      {% if p == paginator.ELLIPSIS %}
+      <li class="page-item disabled"><span class="page-link">{{ p }}</span></li>
+      {% else %}
+      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value|urlencode }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
+      {% endif %}
       {% endfor %}
       {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value|urlencode }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
       {% endif %}
     </ul>
     <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
@@ -121,8 +144,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const searchForm = document.getElementById('searchForm');
 
   if (searchInput) {
-    searchInput.focus();
-    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
     let debounceTimer;
     let currentValue = searchInput.value;
     searchInput.addEventListener('input', function() {

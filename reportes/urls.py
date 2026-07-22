@@ -12,5 +12,7 @@ urlpatterns = [
     path('exportar/carga-docente/', views.export_carga_docente_excel, name='export_carga_docente'),
     path('exportar/malla/', views.export_malla_excel, name='export_malla'),
     path('exportar/resumen-horas/', views.export_resumen_horas_excel, name='export_resumen_horas'),
+    path('exportar/planificacion-general/', views.export_planificacion_general_excel, name='export_planificacion_general'),
+    path('exportar/planificacion-detallada/', views.export_planificacion_detallada_excel, name='export_planificacion_detallada'),
 
 ]

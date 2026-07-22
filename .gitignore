@@ -1,15 +1,3 @@
-<<<<<<< HEAD
-*.pyc
-__pycache__/
-*.pyo
-.env
-db.sqlite3
-media/documentos/*
-!media/documentos/.gitkeep
-.DS_Store
-venv/
-.venv/
-=======
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -228,4 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
->>>>>>> ef34ea392889d84b45fbc6cdf301e70f6f6e31b9
+
+# Fuentes locales y respaldos de importación
+_excel_input/
+backups/*.json

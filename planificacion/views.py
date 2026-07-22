@@ -7,8 +7,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.views.decorators.csrf import csrf_exempt
 from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
+from accounts.decorators import role_required, ROLES_ESCRITURA
 from .forms import PlanificacionAsignacionDocenteForm, PlanificacionActividadDocenteForm, docente_tiene_afinidad
 from .models import (
     CatalogoActividadComplementaria, PlanificacionActividadDocente,
@@ -204,8 +204,6 @@ def _build_docente_workload_map(periodo_id=None, carrera_id=None):
     actividades_qs = PlanificacionActividadDocente.objects.select_related('id_actividad')
     if periodo_id:
         actividades_qs = actividades_qs.filter(id_periodo_id=periodo_id)
-    if carrera_id:
-        actividades_qs = actividades_qs.filter(id_carrera_id=carrera_id)
     for row in actividades_qs.values('id_docente_id', 'id_actividad__tipo_actividad').annotate(
         total_horas=Sum('horas_asignadas')
     ):
@@ -955,7 +953,7 @@ class CatalogoActividadComplementariaDeleteView(CrudDeleteView):
 
 class PlanificacionActividadDocenteListView(CrudListView):
     model = PlanificacionActividadDocente
-    select_related_fields = ('id_docente', 'id_carrera', 'id_periodo', 'id_actividad')
+    select_related_fields = ('id_docente', 'id_periodo', 'id_actividad')
 
 
 class PlanificacionActividadDocenteCreateView(CrudCreateView):
@@ -2180,7 +2178,7 @@ def api_teacher_load(request):
 
 
 @login_required
-@csrf_exempt
+@role_required(*ROLES_ESCRITURA)
 def api_crear_asignacion(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST requerido'}, status=405)
