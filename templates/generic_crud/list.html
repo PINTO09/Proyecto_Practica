@@ -12,7 +12,7 @@
     <h4 class="fw-bold mb-1">{{ model_verbose_plural|default:model_name }}</h4>
     <p class="text-muted small mb-0">Consulta, filtra y administra la información disponible.</p>
   </div>
-  <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo registro</a>
+  {% if can_change_records %}<a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo registro</a>{% endif %}
 </div>
 
 {% if show_planning_flow %}{% include 'planificacion/_planning_flow.html' %}{% endif %}
@@ -76,12 +76,12 @@
             </td>
             {% endfor %}
             <td class="pe-3 text-end text-nowrap">
-              <a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar {{ obj|truncatechars:30 }}" aria-label="Editar registro">
+              {% if can_change_records %}<a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar {{ obj|truncatechars:30 }}" aria-label="Editar registro">
                 <i class="fas fa-pencil-alt"></i>
               </a>
               <a href="{% url delete_url pk=obj.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar {{ obj|truncatechars:30 }}" aria-label="Eliminar registro">
                 <i class="fas fa-trash-alt"></i>
-              </a>
+              </a>{% endif %}
             </td>
           </tr>
           {% empty %}
@@ -97,7 +97,7 @@
                 <i class="far fa-folder-open"></i>
                 <div class="fw-semibold text-body mb-1">Todavía no hay registros</div>
                 <div class="small mb-3">Crea el primer registro para comenzar a trabajar en este módulo.</div>
-                <a href="{% url create_url %}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>
+                {% if can_change_records %}<a href="{% url create_url %}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>{% endif %}
                 {% endif %}
               </div>
             </td>

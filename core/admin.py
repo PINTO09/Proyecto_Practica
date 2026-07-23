@@ -7,6 +7,7 @@ from .models import (
     Usuario, Docente, Carrera, Dedicacion, Licencia,
     Modalidad, Periodo, TipoPublicacion, Curso, Titulo,
     Pais, Publicacion, DocenteTransaccional, CursoDocente,
+    UsuarioAlcanceCarrera, EventoSeguridad,
 )
 
 
@@ -90,12 +91,12 @@ class UsuarioAdmin(UserAdmin):
     model = Usuario
     form = UsuarioChangeForm
     add_form = UsuarioCreationForm
-    list_display = ['cedula', 'is_staff', 'is_superuser', 'is_active', 'last_login']
-    list_filter = ['is_staff', 'is_superuser', 'is_active', 'groups']
+    list_display = ['cedula', 'is_staff', 'is_superuser', 'is_active', 'debe_cambiar_password', 'last_login']
+    list_filter = ['is_staff', 'is_superuser', 'is_active', 'debe_cambiar_password', 'groups']
     fieldsets = (
         (None, {'fields': ('cedula', 'password')}),
         ('Permisos', {
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
+            'fields': ('is_active', 'debe_cambiar_password', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
         }),
         ('Fechas', {'fields': ('last_login', 'date_joined')}),
     )
@@ -110,6 +111,27 @@ class UsuarioAdmin(UserAdmin):
     ordering = ('cedula',)
     filter_horizontal = ('groups', 'user_permissions')
     date_hierarchy = 'date_joined'
+
+
+@admin.register(UsuarioAlcanceCarrera)
+class UsuarioAlcanceCarreraAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'carrera', 'activo', 'asignado_por', 'asignado_el')
+    list_filter = ('activo', 'carrera')
+    search_fields = ('usuario__cedula', 'carrera__nombre_carrera')
+
+
+@admin.register(EventoSeguridad)
+class EventoSeguridadAdmin(admin.ModelAdmin):
+    list_display = ('tipo', 'usuario_afectado', 'actor', 'fecha', 'direccion_ip')
+    list_filter = ('tipo', 'fecha')
+    search_fields = ('usuario_afectado__cedula', 'actor__cedula', 'detalle')
+    readonly_fields = ('tipo', 'usuario_afectado', 'actor', 'fecha', 'direccion_ip', 'detalle')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Docente)

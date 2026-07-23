@@ -171,12 +171,23 @@ class CatalogoTipoCursoCapacitacion(models.Model):
 
 
 class CatalogoPeriodoAcademico(models.Model):
+    ESTADOS_PLANIFICACION = (
+        ('BORRADOR', 'Borrador'),
+        ('EN_REVISION', 'En revisión'),
+        ('APROBADO', 'Aprobado'),
+        ('CERRADO', 'Cerrado'),
+    )
+
     id_periodo = models.AutoField(primary_key=True, db_column='id_periodo')
     codigo_periodo = models.CharField(max_length=10, unique=True, db_column='codigo_periodo')
     nombre_periodo = models.CharField(max_length=20, db_column='nombre_periodo')
     periodo_activo = models.BooleanField(default=False, db_column='periodo_activo')
     fecha_inicio_periodo = models.DateField(null=True, blank=True, db_column='fecha_inicio_periodo')
     fecha_fin_periodo = models.DateField(null=True, blank=True, db_column='fecha_fin_periodo')
+    estado_planificacion = models.CharField(
+        max_length=15, choices=ESTADOS_PLANIFICACION, default='BORRADOR',
+        db_column='estado_planificacion',
+    )
 
     class Meta:
         managed = False

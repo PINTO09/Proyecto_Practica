@@ -89,7 +89,7 @@
             <hr class="mx-3 my-2" style="border-color:var(--sidebar-border);">
             <div class="nav-module">Módulos institucionales</div>
 
-            <details class="nav-group" data-nav-group="catalogos"{% if request.resolver_match.namespace == 'catalogos' or active_section == 'modulo_catalogos' %} open{% endif %}>
+            {% if module_access.catalogos %}<details class="nav-group" data-nav-group="catalogos"{% if request.resolver_match.namespace == 'catalogos' or active_section == 'modulo_catalogos' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-database"></i><span>M1 · Catálogos</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_catalogos' %} active{% endif %}" href="{% url 'core:modulo_catalogos' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
@@ -99,9 +99,9 @@
                     <a class="nav-link" href="{% url 'catalogos:catalogocampoconocimiento_list' %}"><i class="fas fa-diagram-project"></i><span>Campos de conocimiento</span></a>
                     <a class="nav-link" href="{% url 'catalogos:limitehorario_list' %}"><i class="fas fa-gauge-high"></i><span>Límites horarios</span></a>
                 </div>
-            </details>
+            </details>{% endif %}
 
-            <details class="nav-group" data-nav-group="docentes"{% if request.resolver_match.namespace == 'docentes' or active_section == 'modulo_docentes' %} open{% endif %}>
+            {% if module_access.docentes %}<details class="nav-group" data-nav-group="docentes"{% if request.resolver_match.namespace == 'docentes' or active_section == 'modulo_docentes' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-chalkboard-teacher"></i><span>M2 · Docentes</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_docentes' %} active{% endif %}" href="{% url 'core:modulo_docentes' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
@@ -110,19 +110,9 @@
                     <a class="nav-link" href="{% url 'docentes:docentecampoafinidad_list' %}"><i class="fas fa-link"></i><span>Campos de afinidad</span></a>
                     <a class="nav-link" href="{% url 'docentes:docenteasignacioncarreraperiodo_list' %}"><i class="fas fa-building-user"></i><span>Carrera por período</span></a>
                 </div>
-            </details>
+            </details>{% endif %}
 
-            <details class="nav-group" data-nav-group="seguridad"{% if request.resolver_match.namespace == 'seguridad' or active_section == 'modulo_seguridad' %} open{% endif %}>
-                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-shield-halved"></i><span>M3 · Seguridad</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
-                <div class="nav-submenu">
-                    <a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
-                    <a class="nav-link" href="{% url 'seguridad:seguridadrol_list' %}"><i class="fas fa-key"></i><span>Roles</span></a>
-                    <a class="nav-link" href="{% url 'seguridad:seguridadusuario_list' %}"><i class="fas fa-user-lock"></i><span>Usuarios de seguridad</span></a>
-                    <a class="nav-link" href="{% url 'seguridad:seguridadusuariorol_list' %}"><i class="fas fa-user-check"></i><span>Asignación de roles</span></a>
-                </div>
-            </details>
-
-            <details class="nav-group" data-nav-group="curriculo"{% if request.resolver_match.namespace == 'curriculo' or active_section == 'modulo_curriculo' %} open{% endif %}>
+            {% if module_access.curriculo %}<details class="nav-group" data-nav-group="curriculo"{% if request.resolver_match.namespace == 'curriculo' or active_section == 'modulo_curriculo' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-book-open"></i><span>M4 · Currículo</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_curriculo' %} active{% endif %}" href="{% url 'core:modulo_curriculo' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
@@ -130,39 +120,34 @@
                     <a class="nav-link" href="{% url 'curriculo:curriculoasignaturacampo_list' %}"><i class="fas fa-code-branch"></i><span>Asignatura–campo</span></a>
                     <a class="nav-link" href="{% url 'curriculo:relacionposgradocampo_list' %}"><i class="fas fa-graduation-cap"></i><span>Posgrado–campo</span></a>
                 </div>
-            </details>
+            </details>{% endif %}
 
-            <details class="nav-group" data-nav-group="planificacion"{% if request.resolver_match.namespace == 'planificacion' or request.resolver_match.namespace == 'reportes' or active_section == 'modulo_planificacion' %} open{% endif %}>
+            {% if module_access.planificacion %}<details class="nav-group" data-nav-group="planificacion"{% if request.resolver_match.namespace == 'planificacion' or request.resolver_match.namespace == 'reportes' or active_section == 'modulo_planificacion' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-calendar-check"></i><span>M5 · Planificación</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
-                    <a class="nav-link{% if active_section == 'modulo_planificacion' %} active{% endif %}" href="{% url 'core:modulo_planificacion' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
-                    <a class="nav-link{% if active_section == 'planificacion_operativa' %} active{% endif %}" href="{% url 'planificacion:planificacion_operativa' %}"><i class="fas fa-table-cells"></i><span>Planificación operativa</span></a>
-                    <a class="nav-link{% if active_section == 'planificacion_paralelos_matriz' %} active{% endif %}" href="{% url 'planificacion:planificacion_paralelos_matriz' %}"><i class="fas fa-grip"></i><span>Matriz de paralelos</span></a>
-                    <a class="nav-link{% if active_section == 'planificacionasignaciondocente_list' %} active{% endif %}" href="{% url 'planificacion:planificacionasignaciondocente_list' %}"><i class="fas fa-users"></i><span>Asignaciones</span></a>
-                    <a class="nav-link" href="{% url 'planificacion:planificaciondemandaacademica_list' %}"><i class="fas fa-list-check"></i><span>Demanda académica</span></a>
-                    <a class="nav-link" href="{% url 'planificacion:planificacionactividaddocente_list' %}"><i class="fas fa-puzzle-piece"></i><span>Actividades docentes</span></a>
-                    <a class="nav-link{% if active_section == 'planificacionmatrizf4_list' %} active{% endif %}" href="{% url 'planificacion:planificacionmatrizf4_list' %}"><i class="fas fa-layer-group"></i><span>Matriz F4</span></a>
-                    <a class="nav-link{% if active_section == 'planificacion_consolidada_docentes' %} active{% endif %}" href="{% url 'planificacion:planificacion_consolidada_docentes' %}"><i class="fas fa-clipboard-list"></i><span>Consolidado docente</span></a>
-                    <a class="nav-link{% if active_section == 'centro_reportes' %} active{% endif %}" href="{% url 'reportes:centro_reportes' %}"><i class="fas fa-file-excel"></i><span>Reportes y exportaciones</span></a>
+                    <a class="nav-link{% if active_section == 'planificacion_operativa' or active_section == 'planificacion_paralelos_matriz' or active_section == 'planificacionasignaciondocente_list' or active_section == 'planificaciondemandaacademica_list' or active_section == 'asignacion_inteligente' %} active{% endif %}" href="{% url 'planificacion:planificacion_operativa' %}"><i class="fas fa-table-cells"></i><span>Planificación</span></a>
+                    <a class="nav-link{% if active_section == 'planificacionactividaddocente_list' or active_section == 'planificacion_consolidada_docentes' %} active{% endif %}" href="{% url 'planificacion:planificacion_consolidada_docentes' %}"><i class="fas fa-clipboard-list"></i><span>Carga y actividades</span></a>
+                    <a class="nav-link{% if active_section == 'planificacionaulahorario_list' %} active{% endif %}" href="{% url 'planificacion:planificacionaulahorario_list' %}"><i class="fas fa-calendar-days"></i><span>Horarios</span></a>
+                    <a class="nav-link{% if active_section == 'centro_reportes' or active_section == 'control_calidad' %} active{% endif %}" href="{% url 'reportes:centro_reportes' %}"><i class="fas fa-file-excel"></i><span>Reportes y control</span></a>
                 </div>
-            </details>
+            </details>{% endif %}
 
-            <details class="nav-group" data-nav-group="auditoria"{% if request.resolver_match.namespace == 'auditoria' or active_section == 'modulo_auditoria' %} open{% endif %}>
+            {% if module_access.auditoria %}<details class="nav-group" data-nav-group="auditoria"{% if request.resolver_match.namespace == 'auditoria' or active_section == 'modulo_auditoria' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-clock-rotate-left"></i><span>M6 · Auditoría</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_auditoria' %} active{% endif %}" href="{% url 'core:modulo_auditoria' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
                     <a class="nav-link" href="{% url 'auditoria:auditoriaregistrocambios_list' %}"><i class="fas fa-clock-rotate-left"></i><span>Registro de cambios</span></a>
                 </div>
-            </details>
+            </details>{% endif %}
 
-            <details class="nav-group" data-nav-group="restricciones"{% if request.resolver_match.namespace == 'restricciones' or active_section == 'modulo_restricciones' %} open{% endif %}>
+            {% if module_access.restricciones %}<details class="nav-group" data-nav-group="restricciones"{% if request.resolver_match.namespace == 'restricciones' or active_section == 'modulo_restricciones' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-triangle-exclamation"></i><span>M7 · Restricciones</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_restricciones' %} active{% endif %}" href="{% url 'core:modulo_restricciones' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
                     <a class="nav-link" href="{% url 'restricciones:limitacion_list' %}"><i class="fas fa-ban"></i><span>Limitaciones</span></a>
                     <a class="nav-link" href="{% url 'restricciones:historiallimitacion_list' %}"><i class="fas fa-clock"></i><span>Historial</span></a>
                 </div>
-            </details>
+            </details>{% endif %}
         </nav>
         <div class="sidebar-footer">
             <button id="themeToggle" type="button">
@@ -182,8 +167,8 @@
             </button>
             <div class="topbar-user dropdown">
                 <button class="btn btn-light btn-sm dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
-                    <span class="avatar">{{ request.user.cedula|first|upper }}</span>
-                    <small>{{ request.user.cedula }}</small>
+                    {% if profile_photo_url %}<img src="{{ profile_photo_url }}" alt="Foto de perfil" class="avatar" style="object-fit:cover;">{% else %}<span class="avatar">{{ profile_display_name|default:request.user.cedula|first|upper }}</span>{% endif %}
+                    <small>{% firstof profile_display_name request.user.cedula %}</small>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                     <li><a class="dropdown-item" href="{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}"><i class="fas fa-user me-2"></i>Mi Perfil</a></li>

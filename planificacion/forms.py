@@ -5,51 +5,20 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum
 
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo
-from docentes.models import DocenteCampoAfinidad
 from catalogos.models import LimiteHorario, CatalogoCarrera, CatalogoPeriodoAcademico
 
 from .models import (
     PlanificacionAsignacionDocente, PlanificacionActividadDocente,
-    PlanificacionDemandaAcademica,
+    PlanificacionAulaHorario, PlanificacionDemandaAcademica,
+)
+from .services import (
+    add_form_errors, docente_tiene_afinidad, parallel_labels,
+    validate_assignment_business_rules,
 )
 
 
 def _parallel_labels(total):
-    labels = []
-    for index in range(max(total, 0)):
-        label = ''
-        current = index
-        while current >= 0:
-            label = chr(65 + (current % 26)) + label
-            current = (current // 26) - 1
-        labels.append(label)
-    return labels
-
-
-def docente_tiene_afinidad(docente, asignatura):
-    campos_asignatura = set(
-        CurriculoAsignaturaCampo.objects.filter(id_asignatura=asignatura)
-        .values_list('id_campo_id', flat=True)
-    )
-    if not campos_asignatura:
-        return False
-    campos_docente = set(
-        DocenteCampoAfinidad.objects.filter(id_docente=docente)
-        .values_list('id_campo_id', flat=True)
-    )
-    if campos_asignatura & campos_docente:
-        return True
-
-    from docentes.models import DocenteTituloAcademico
-    from curriculo.models import RelacionPosgradoCampo
-
-    posgrados = DocenteTituloAcademico.objects.filter(
-        id_docente=docente, id_posgrado__isnull=False,
-    ).values_list('id_posgrado_id', flat=True)
-    return RelacionPosgradoCampo.objects.filter(
-        id_posgrado_id__in=posgrados,
-        id_campo_id__in=campos_asignatura,
-    ).exists()
+    return parallel_labels(total)
 
 
 class PlanificacionAsignacionDocenteForm(forms.ModelForm):
@@ -63,12 +32,13 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         fields = (
             'id_periodo', 'id_carrera', 'nivel_semestre_asignado',
             'id_asignatura', 'paralelo_asignado', 'id_campo',
-            'id_docente', 'horas_clase', 'comision_servicio',
+            'id_docente', 'horas_clase', 'semanas_planificadas', 'comision_servicio',
         )
         widgets = {
             'comision_servicio': forms.Textarea(attrs={'rows': 2}),
             'nivel_semestre_asignado': forms.Select(choices=[('', '--- Seleccione ---')]),
             'horas_clase': forms.NumberInput(attrs={'min': 0}),
+            'semanas_planificadas': forms.NumberInput(attrs={'min': 1, 'max': 30}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -156,6 +126,21 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         if carrera and not es_actividad:
             es_actividad = carrera.es_actividad
 
+        if not es_actividad and all((asignatura, carrera, periodo, docente, campo, nivel, paralelo)):
+            errors = validate_assignment_business_rules(
+                docente=docente,
+                asignatura=asignatura,
+                carrera=carrera,
+                periodo=periodo,
+                campo=campo,
+                nivel=nivel,
+                paralelo=paralelo,
+                horas_clase=cleaned.get('horas_clase'),
+                instance=self.instance,
+            )
+            add_form_errors(self, errors)
+            return cleaned
+
         if asignatura and carrera and asignatura.id_carrera_id != carrera.id_carrera:
             self.add_error('id_carrera', 'La carrera no corresponde a la asignatura seleccionada.')
         if asignatura and nivel and asignatura.nivel_semestre != nivel:
@@ -238,4 +223,45 @@ class PlanificacionActividadDocenteForm(forms.ModelForm):
                 'horas_asignadas',
                 f'La carga complementaria sería {total}h y supera el límite de {limite.horas_complementarias_maximas}h.',
             )
+        from .views import _build_docente_workload_map
+        workload = _build_docente_workload_map(periodo_id=periodo.id_periodo).get(docente.id_docente, {})
+        actual_total = workload.get('total_horas', 0) or 0
+        if self.instance.pk:
+            actual_total -= self.instance.horas_asignadas or 0
+        nuevo_total = actual_total + horas
+        maximo_total = (limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)
+        if nuevo_total > maximo_total:
+            self.add_error(
+                'horas_asignadas',
+                f'La carga total sería {nuevo_total}h y supera el límite contractual de {maximo_total}h.',
+            )
         return cleaned
+
+
+class PlanificacionAulaHorarioForm(forms.ModelForm):
+    turno_horario = forms.ChoiceField(choices=(
+        ('MANANA', 'Mañana'), ('TARDE', 'Tarde'), ('NOCHE', 'Noche'),
+    ))
+
+    class Meta:
+        model = PlanificacionAulaHorario
+        fields = (
+            'id_periodo', 'id_asignacion', 'nombre_aula', 'turno_horario',
+            'dia_semana', 'hora_inicio', 'hora_fin', 'nivel_asignado',
+        )
+        widgets = {
+            'hora_inicio': forms.TimeInput(attrs={'type': 'time'}),
+            'hora_fin': forms.TimeInput(attrs={'type': 'time'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        periodo_id = self.data.get('id_periodo') or getattr(self.instance, 'id_periodo_id', None)
+        asignaciones = PlanificacionAsignacionDocente.objects.select_related(
+            'id_docente', 'id_asignatura', 'id_carrera',
+        ).order_by('id_carrera__nombre_carrera', 'id_asignatura__nombre_asignatura', 'paralelo_asignado')
+        if periodo_id:
+            asignaciones = asignaciones.filter(id_periodo_id=periodo_id)
+        self.fields['id_asignacion'].queryset = asignaciones
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'

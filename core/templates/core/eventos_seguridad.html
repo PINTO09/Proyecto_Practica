@@ -1,0 +1,13 @@
+{% extends 'core/base_dashboard.html' %}
+{% block title %}Eventos de seguridad{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' with active_section='usuarios' %}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div><h4 class="fw-bold mb-1"><i class="fas fa-shield-halved text-primary me-2"></i>Eventos de seguridad</h4><p class="text-muted mb-0">Últimos 250 eventos relacionados con cuentas y credenciales.</p></div>
+  <a href="{% url 'core:usuarios_list' %}" class="btn btn-outline-primary">Volver a usuarios</a>
+</div>
+<div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th class="ps-3">Fecha</th><th>Evento</th><th>Usuario</th><th>Realizado por</th><th>IP</th><th class="pe-3">Detalle</th></tr></thead>
+  <tbody>{% for event in eventos %}<tr><td class="ps-3 text-nowrap">{{ event.fecha|date:"d/m/Y H:i" }}</td><td><span class="badge bg-primary-subtle text-primary">{{ event.get_tipo_display }}</span></td><td>{{ event.usuario_afectado.cedula|default:"—" }}</td><td>{{ event.actor.cedula|default:"Sistema" }}</td><td>{{ event.direccion_ip|default:"—" }}</td><td class="pe-3">{{ event.detalle|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6" class="text-center text-muted py-4">Todavía no existen eventos registrados.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

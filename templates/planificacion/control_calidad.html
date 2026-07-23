@@ -1,0 +1,47 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}Control de calidad - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="fas fa-shield-halved me-2 text-primary"></i>Control de calidad</h4>
+    <p class="text-muted mb-0 mt-1">Revisión automática de la planificación registrada en la base de datos.</p>
+  </div>
+  <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-outline-primary"><i class="fas fa-table-cells me-1"></i>Planificación operativa</a>
+</div>
+
+{% include 'planificacion/_planning_flow.html' %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card border-0 shadow-sm text-center py-3"><div class="text-muted small text-uppercase fw-semibold">Observaciones</div><h3 class="fw-bold mb-0 text-primary">{{ summary.total }}</h3></div></div>
+  <div class="col-md-4"><div class="card border-0 shadow-sm text-center py-3"><div class="text-muted small text-uppercase fw-semibold">Errores bloqueantes</div><h3 class="fw-bold mb-0 text-danger">{{ summary.errors }}</h3></div></div>
+  <div class="col-md-4"><div class="card border-0 shadow-sm text-center py-3"><div class="text-muted small text-uppercase fw-semibold">Pendientes</div><h3 class="fw-bold mb-0 text-warning">{{ summary.warnings }}</h3></div></div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4"><div class="card-body">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-md-5"><label class="form-label fw-semibold small">Periodo</label><select name="periodo" class="form-select" onchange="this.form.submit()">{% for periodo in periodos %}<option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>{{ periodo.nombre_periodo }}{% if periodo.periodo_activo %} · Activo{% endif %}</option>{% endfor %}</select></div>
+    <div class="col-md-5"><label class="form-label fw-semibold small">Tipo de observación</label><select name="severidad" class="form-select" onchange="this.form.submit()"><option value="">Todas</option><option value="error" {% if severidad == 'error' %}selected{% endif %}>Errores bloqueantes</option><option value="warning" {% if severidad == 'warning' %}selected{% endif %}>Pendientes</option></select></div>
+    <div class="col-md-2 d-grid"><a href="{% url 'planificacion:control_calidad' %}" class="btn btn-outline-secondary">Limpiar</a></div>
+  </form>
+</div></div>
+
+<div class="card border-0 shadow-sm"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table table-hover align-middle mb-0">
+    <thead class="table-light"><tr><th class="ps-3">Estado</th><th>Categoría</th><th>Registro</th><th class="pe-3">Detalle</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="ps-3">{% if row.severity == 'error' %}<span class="badge bg-danger">Bloqueante</span>{% else %}<span class="badge bg-warning text-dark">Pendiente</span>{% endif %}</td>
+        <td class="fw-semibold">{{ row.category }}</td><td>{{ row.title }}</td><td class="text-muted pe-3">{{ row.detail }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="text-center py-5"><i class="fas fa-circle-check fa-2x text-success mb-2"></i><div class="fw-semibold">La planificación no presenta observaciones</div><div class="text-muted small">Todos los controles internos fueron superados.</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+{% include 'planificacion/_pagination.html' %}
+{% endblock %}

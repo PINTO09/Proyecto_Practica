@@ -1,6 +1,8 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.conf import settings
+from django.utils import timezone
 
 validate_10_digits = RegexValidator(
     r'^\d{10}$',
@@ -26,6 +28,16 @@ class UsuarioManager(BaseUserManager):
 class Usuario(AbstractUser):
     username = None
     cedula = models.CharField('Cédula', max_length=10, unique=True, validators=[validate_10_digits])
+    debe_cambiar_password = models.BooleanField(
+        'Debe cambiar la contraseña', default=False,
+        help_text='Obliga al usuario a definir una contraseña personal en su próximo acceso.',
+    )
+    credenciales_emitidas_el = models.DateTimeField(null=True, blank=True)
+    password_cambiado_el = models.DateTimeField(null=True, blank=True)
+    credenciales_emitidas_por = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='credenciales_emitidas',
+    )
     USERNAME_FIELD = 'cedula'
     REQUIRED_FIELDS = []
 
@@ -37,6 +49,67 @@ class Usuario(AbstractUser):
 
     def __str__(self):
         return self.cedula
+
+
+class UsuarioAlcanceCarrera(models.Model):
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='alcances_carrera',
+    )
+    carrera = models.ForeignKey(
+        'catalogos.CatalogoCarrera', on_delete=models.CASCADE,
+        related_name='usuarios_autorizados',
+    )
+    activo = models.BooleanField(default=True)
+    asignado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='alcances_asignados',
+    )
+    asignado_el = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('usuario', 'carrera'), name='uq_usuario_alcance_carrera'
+            ),
+        ]
+        verbose_name = 'Alcance de carrera'
+        verbose_name_plural = 'Alcances de carrera'
+
+    def __str__(self):
+        return f'{self.usuario} · {self.carrera}'
+
+
+class EventoSeguridad(models.Model):
+    TIPOS = [
+        ('CREAR_CUENTA', 'Creación de cuenta'),
+        ('EDITAR_CUENTA', 'Edición de cuenta'),
+        ('EMITIR_CLAVE', 'Emisión de contraseña temporal'),
+        ('CAMBIAR_CLAVE', 'Cambio de contraseña'),
+        ('ACTIVAR', 'Activación de cuenta'),
+        ('DESACTIVAR', 'Desactivación de cuenta'),
+        ('LOGIN_FALLIDO', 'Inicio de sesión fallido'),
+    ]
+    tipo = models.CharField(max_length=30, choices=TIPOS)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='eventos_seguridad_realizados',
+    )
+    usuario_afectado = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='eventos_seguridad_recibidos',
+    )
+    fecha = models.DateTimeField(auto_now_add=True)
+    direccion_ip = models.GenericIPAddressField(null=True, blank=True)
+    detalle = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ('-fecha',)
+        verbose_name = 'Evento de seguridad'
+        verbose_name_plural = 'Eventos de seguridad'
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} · {self.fecha:%Y-%m-%d %H:%M}'
 
 
 class Pais(models.Model):

@@ -1,42 +1,94 @@
 {% extends 'core/base_dashboard.html' %}
 {% load static %}
 
-{% block title %}Mi Perfil{% endblock %}
-
+{% block title %}Mi perfil{% endblock %}
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' with active_section='perfil' %}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold mb-0"><i class="fas fa-user-circle me-2 text-primary"></i>Mi Perfil</h4>
+  <div>
+    <h4 class="fw-bold mb-0"><i class="fas fa-user-circle me-2 text-primary"></i>Mi perfil</h4>
+    <p class="text-muted mb-0 mt-1">Tu cuenta y ficha docente en un solo lugar.</p>
+  </div>
 </div>
-<div class="row g-4">
+
+{% if fcacc_error %}<div class="alert alert-danger">{{ fcacc_error }}</div>{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="row g-4">
     <div class="col-lg-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-                <div class="avatar-xl mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center" style="width:100px;height:100px;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;font-size:2.5rem;font-weight:700;">
-                    {{ perfil_cedula|default:request.user.cedula|first|upper }}
-                </div>
-                <h5 class="fw-bold">{{ perfil_docente.apellidos_nombres|default:"" }}</h5>
-                <p class="text-muted mb-0">{{ perfil_cedula|default:request.user.cedula }}</p>
-            </div>
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center p-4">
+          {% if docente_fcacc.foto %}
+          <img id="profilePhotoPreview" src="{{ docente_fcacc.foto.url }}" alt="Fotografía de {{ docente_fcacc.nombres_completos }}" class="rounded-circle shadow-sm mb-3" style="width:150px;height:150px;object-fit:cover;">
+          {% else %}
+          <div id="profilePhotoFallback" class="avatar-xl mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center" style="width:150px;height:150px;background:linear-gradient(135deg,#2563eb,#0f3d91);color:#fff;font-size:3.5rem;font-weight:700;">
+            {{ docente_fcacc.nombres_completos|default:request.user.cedula|first|upper }}
+          </div>
+          <img id="profilePhotoPreview" alt="Vista previa de fotografía" class="rounded-circle shadow-sm mb-3 d-none" style="width:150px;height:150px;object-fit:cover;">
+          {% endif %}
+          <h5 class="fw-bold mb-1">{{ docente_fcacc.nombres_completos|default:request.user.cedula }}</h5>
+          <p class="text-muted small">{{ request.user.groups.first.name|default:"Sin rol" }}</p>
+          <div class="text-start mt-4">
+            <label class="form-label fw-semibold" for="{{ form.foto.id_for_label }}">Fotografía de perfil</label>
+            {{ form.foto }}
+            <div class="form-text">JPG, PNG o WEBP; máximo 5 MB y 4096 × 4096 px.</div>
+            {% if form.foto.errors %}<div class="text-danger small mt-1">{{ form.foto.errors|striptags }}</div>{% endif %}
+          </div>
         </div>
+      </div>
     </div>
+
     <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3"><h5 class="mb-0 fw-semibold"><i class="fas fa-id-card me-2 text-primary"></i>Datos</h5></div>
-            <div class="card-body p-4">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Usuario</dt>
-                    <dd class="col-sm-8">{{ request.user.cedula }}</dd>
-                    <dt class="col-sm-4">Email</dt>
-                    <dd class="col-sm-8">{{ request.user.email|default:"—" }}</dd>
-                    <dt class="col-sm-4">Rol</dt>
-                    <dd class="col-sm-8">{{ request.user.groups.first.name|default:"Sin grupo" }}</dd>
-                    <dt class="col-sm-4">Superusuario</dt>
-                    <dd class="col-sm-8">{% if request.user.is_superuser %}Sí{% else %}No{% endif %}</dd>
-                </dl>
-            </div>
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3"><h5 class="mb-0 fw-semibold"><i class="fas fa-shield-halved me-2 text-primary"></i>Cuenta institucional</h5></div>
+        <div class="card-body">
+          <div class="row g-3 small">
+            <div class="col-md-6"><span class="text-muted d-block">Documento</span><strong>{{ docente_fcacc.get_tipo_documento_display|default:"Cédula" }} · {{ request.user.cedula }}</strong></div>
+            <div class="col-md-6"><span class="text-muted d-block">Rol</span><strong>{{ request.user.groups.first.name|default:"Sin rol" }}</strong></div>
+            <div class="col-md-6"><span class="text-muted d-block">Modalidad</span><strong>{{ docente_fcacc.id_modalidad|default:"Sin asignar" }}</strong></div>
+            <div class="col-md-6"><span class="text-muted d-block">Dedicación</span><strong>{{ docente_fcacc.id_dedicacion|default:"Sin asignar" }}</strong></div>
+          </div>
         </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3"><h5 class="mb-0 fw-semibold"><i class="fas fa-pen me-2 text-primary"></i>Información personal</h5></div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            {% for field in form %}{% if field.name != 'foto' %}
+            <div class="{% if field.name == 'nombres_completos' or field.name == 'unidad_organica' %}col-12{% else %}col-md-6{% endif %}">
+              <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
+            </div>
+            {% endif %}{% endfor %}
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <a href="{% url 'core:dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-floppy-disk me-1"></i>Guardar perfil</button>
+          </div>
+        </div>
+      </div>
     </div>
-</div>
+  </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('{{ form.foto.id_for_label }}');
+  const preview = document.getElementById('profilePhotoPreview');
+  const fallback = document.getElementById('profilePhotoFallback');
+  if (!input || !preview) return;
+  input.addEventListener('change', () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    preview.src = URL.createObjectURL(file);
+    preview.classList.remove('d-none');
+    if (fallback) fallback.classList.add('d-none');
+  });
+});
+</script>
 {% endblock %}

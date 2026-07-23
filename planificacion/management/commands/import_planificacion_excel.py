@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 import re
 import unicodedata
+import warnings
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -25,6 +26,7 @@ from planificacion.models import (
     PlanificacionDemandaAcademica,
     PlanificacionMatrizF4,
 )
+from planificacion.services import docente_tiene_afinidad
 
 
 def _normalize_text(value):
@@ -55,6 +57,21 @@ def _sheet_rows(path, sheet_name):
     finally:
         workbook.close()
     return rows
+
+
+def _column_indexes(rows, *columns):
+    """Resuelve columnas por encabezado y tolera cambios de posición en el Excel."""
+    if not rows:
+        raise CommandError('La hoja no contiene encabezados.')
+    header = {_normalize_text(value): index for index, value in enumerate(rows[0]) if value is not None}
+    result = []
+    for column in columns:
+        aliases = column if isinstance(column, (tuple, list)) else (column,)
+        index = next((header.get(_normalize_text(alias)) for alias in aliases if _normalize_text(alias) in header), None)
+        if index is None:
+            raise CommandError(f'Falta la columna requerida: {" / ".join(aliases)}')
+        result.append(index)
+    return result
 
 
 def _valid_level(value):
@@ -159,6 +176,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        warnings.filterwarnings('ignore', message='Data Validation extension is not supported.*')
+        warnings.filterwarnings('ignore', message='DateTimeField DocenteFcacc.fecha_creacion_registro received a naive datetime.*')
         base_dir = Path(options["base_dir"] or Path(__file__).resolve().parents[3] / "_excel_input")
         dry_run = options["dry_run"]
         sync_assignments = options["sync_asignaciones"]
@@ -179,42 +198,27 @@ class Command(BaseCommand):
         subject_detail_rows = _sheet_rows(main_book, "DET_ASIG")
         teacher_rows = _sheet_rows(main_book, "MDOCENTES")
         teacher_field_rows = _sheet_rows(docente_book, "DET_DOCENTE")
-        demand_sources = [
-            ("FCACC-PLANIFICACION.xlsx", _sheet_rows(main_book, "ASIGNACION"), 1, 3, 4, 5, 9, 11),
-            (
-                "PLANIFICACION_ADMINISTRACION.xlsx",
-                _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_ADMINISTRACION.xlsx", "ASIGNACION"),
-                0, 2, 3, 4, 9, 13,
-            ),
-            (
-                "PLANIFICACION_COMERCIO.xlsx",
-                _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_COMERCIO.xlsx", "ASIGNACION"),
-                0, 2, 3, 4, 9, 13,
-            ),
-            (
-                "PLANIFICACION_CONTABILIDAD.xlsx",
-                _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_CONTABILIDAD.xlsx", "ASIGNACION"),
-                0, 2, 3, 4, 9, 13,
-            ),
-        ]
-        assignment_sources = [
-            ("FCACC-PLANIFICACION.xlsx", _sheet_rows(main_book, "ASIGNACION"), 1, 3, 4, 5, 7, 11, 12, 22),
-            (
-                "PLANIFICACION_ADMINISTRACION.xlsx",
-                _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_ADMINISTRACION.xlsx", "ASIGNACION"),
-                0, 2, 3, 4, 5, 7, 14, 16,
-            ),
-            (
-                "PLANIFICACION_COMERCIO.xlsx",
-                _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_COMERCIO.xlsx", "ASIGNACION"),
-                0, 2, 3, 4, 5, 7, 14, 16,
-            ),
-            (
-                "PLANIFICACION_CONTABILIDAD.xlsx",
-                _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_CONTABILIDAD.xlsx", "ASIGNACION"),
-                0, 2, 3, 4, 5, 7, 14, 16,
-            ),
-        ]
+        source_rows = {
+            "FCACC-PLANIFICACION.xlsx": _sheet_rows(main_book, "ASIGNACION"),
+            "PLANIFICACION_ADMINISTRACION.xlsx": _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_ADMINISTRACION.xlsx", "ASIGNACION"),
+            "PLANIFICACION_COMERCIO.xlsx": _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_COMERCIO.xlsx", "ASIGNACION"),
+            "PLANIFICACION_CONTABILIDAD.xlsx": _sheet_rows(base_dir / "OneDrive_1" / "PLANIFICACION_CONTABILIDAD.xlsx", "ASIGNACION"),
+        }
+        demand_sources = []
+        assignment_sources = []
+        for source_name, rows in source_rows.items():
+            total_hours_name = 'HORAS' if source_name == 'FCACC-PLANIFICACION.xlsx' else 'HORAS_SEMANAS'
+            demand_sources.append((
+                source_name, rows,
+                *_column_indexes(rows, 'CARRERA', 'NIVEL', 'PARALELO', 'ASIGNATURA', total_hours_name, 'TOTAL'),
+            ))
+            assignment_sources.append((
+                source_name, rows,
+                *_column_indexes(
+                    rows, 'CARRERA', 'NIVEL', 'PARALELO', 'ASIGNATURA', 'CAMPO',
+                    'HORAS', 'NOMBRE_DOCENT', 'CEDULA_DOCENTE',
+                ),
+            ))
 
         tipo_docente_default = CatalogoTipoDocente.objects.filter(codigo_tipo_docente="TITULAR").first()
         if not tipo_docente_default:
@@ -264,6 +268,10 @@ class Command(BaseCommand):
                     "fecha_fin_periodo": date(2026, 9, 30),
                 },
             )
+            if not dry_run and periodo.estado_planificacion not in ('BORRADOR', 'EN_REVISION'):
+                raise CommandError(
+                    f'El periodo {periodo} está {periodo.get_estado_planificacion_display()} y no admite importaciones.'
+                )
 
             for row in career_rows[1:]:
                 if not row or not row[0] or not row[1]:
@@ -535,6 +543,9 @@ class Command(BaseCommand):
                     if not field:
                         skipped_assignments += 1
                         continue
+                    if nivel >= 4 and not docente_tiene_afinidad(docente, subject):
+                        skipped_assignments += 1
+                        continue
 
                     paralelo = _clean_text(row[paralelo_idx]) if len(row) > paralelo_idx else ""
                     paralelo = (paralelo or "A")[:3]
@@ -556,16 +567,17 @@ class Command(BaseCommand):
 
             for item in assignment_bucket.values():
                 _, created = PlanificacionAsignacionDocente.objects.update_or_create(
-                    id_docente=item["docente"],
                     id_asignatura=item["subject"],
+                    id_carrera=item["id_carrera"],
                     id_periodo=item["periodo"],
                     paralelo_asignado=item["paralelo"],
                     defaults={
-                        "id_carrera": item["id_carrera"],
+                        "id_docente": item["docente"],
                         "id_campo": item["id_campo"],
                         "nivel_semestre_asignado": item["nivel_semestre_asignado"],
                         "horas_clase": item["horas_clase"],
                         "horas_complementarias": item["horas_complementarias"],
+                        "semanas_planificadas": 16,
                     },
                 )
                 if created:

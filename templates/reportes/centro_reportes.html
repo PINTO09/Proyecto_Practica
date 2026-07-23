@@ -10,9 +10,10 @@
     <h4 class="fw-bold mb-1"><i class="fas fa-file-export me-2 text-primary"></i>Reportes de planificación</h4>
     <p class="text-muted mb-0">Consulta la carga consolidada y descarga archivos Excel con los mismos filtros.</p>
   </div>
-  <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}?{{ export_query }}" class="btn btn-outline-primary">
-    <i class="fas fa-table-list me-1"></i>Ver carga docente
-  </a>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'planificacion:control_calidad' %}" class="btn btn-outline-primary"><i class="fas fa-shield-halved me-1"></i>Revisar calidad</a>
+    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}?{{ export_query }}" class="btn btn-outline-primary"><i class="fas fa-table-list me-1"></i>Ver carga docente</a>
+  </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}

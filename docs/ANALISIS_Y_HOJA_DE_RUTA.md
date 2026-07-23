@@ -275,3 +275,48 @@ Validación con el período activo `2026-2`: 76 docentes con carga, 1.062 horas 
 clase y 111 de actividades. Las dos identidades contables se cumplieron en todos
 los casos: las tres clases de docencia suman el total de clase, y clase más
 actividades suma el total general.
+
+## 12. Acceso institucional y tipos de usuario
+
+El sistema no ofrece registro público. Administradores y autoridades emiten
+cuentas identificadas por cédula desde una única administración basada en
+`core.Usuario`. Las tablas `seguridad_usuario*` permanecen únicamente como
+legado de la base para compatibilidad histórica y ya no tienen rutas de edición
+en la aplicación.
+
+La creación busca la cédula en el registro docente, permite asignar un rol y,
+para coordinadores, exige al menos una carrera. Se genera una contraseña
+temporal aleatoria que solo se muestra una vez y debe reemplazarse en el primer
+ingreso. Las cuentas pueden desactivarse, reactivarse o recibir una nueva clave
+temporal sin eliminar su historial.
+
+La matriz de autorización se evalúa en el servidor:
+
+- Administrador: acceso completo y administración técnica.
+- Autoridad: gestión académica, usuarios y supervisión.
+- Coordinador: escritura en Planificación limitada a sus carreras.
+- Funcionario: consulta y reportes sin escritura.
+- Docente: autoservicio de su información, sin módulos administrativos.
+
+Los accesos directos mediante URL respetan la misma matriz. Se agregaron
+limitación de intentos de inicio de sesión, sesión máxima de ocho horas,
+validadores reforzados, cookies protegidas y registro de creación, edición,
+bloqueo, restablecimiento, cambio de contraseña e intentos fallidos. Los
+archivos de credenciales y el script con usuarios de demostración se retiraron
+del repositorio.
+
+## 13. Perfil docente unificado
+
+“Mi perfil” y “Ficha docente” se consolidaron en una única pantalla respaldada
+por `DocenteFcacc`. La ruta antigua se conserva como redirección para no romper
+marcadores, pero ya no aparece como opción duplicada en el menú.
+
+La ficha permite actualizar nombres, fecha de nacimiento, unidad orgánica,
+correo institucional, celular, tipo de sangre y fotografía. El correo y el
+teléfono se sincronizan con la cuenta local para evitar valores contradictorios.
+Modalidad, dedicación, documento y rol se muestran como información
+institucional de solo lectura.
+
+Las fotografías aceptadas son JPG, PNG y WEBP, con un máximo de 5 MB y 4096 ×
+4096 píxeles. El servidor valida el contenido real del archivo y elimina la
+imagen anterior después de confirmar correctamente un reemplazo.

@@ -5,14 +5,13 @@
     </a>
 </div>
 
-<details class="nav-group" data-nav-group="mi-espacio"{% if active_section == 'perfil' or active_section == 'mi_docente' or active_section == 'titulos' or active_section == 'publicaciones' or active_section == 'cursos' or active_section == 'documentos' %} open{% endif %}>
+<details class="nav-group" data-nav-group="mi-espacio"{% if active_section == 'perfil' or active_section == 'titulos' or active_section == 'publicaciones' or active_section == 'cursos' or active_section == 'documentos' %} open{% endif %}>
     <summary class="nav-group-toggle">
         <span class="nav-group-label"><i class="fas fa-user-circle"></i><span>Mi espacio</span></span>
         <i class="fas fa-chevron-right nav-group-chevron" aria-hidden="true"></i>
     </summary>
     <div class="nav-submenu">
         <a class="nav-link{% if active_section == 'perfil' %} active{% endif %}" href="{% url 'core:mi_perfil' %}"><i class="fas fa-user"></i><span>Mi perfil</span></a>
-        <a class="nav-link{% if active_section == 'mi_docente' %} active{% endif %}" href="{% url 'core:mi_docente' %}"><i class="fas fa-id-card"></i><span>Ficha docente</span></a>
         <a class="nav-link{% if active_section == 'titulos' %} active{% endif %}" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i><span>Mis títulos</span></a>
         <a class="nav-link{% if active_section == 'publicaciones' %} active{% endif %}" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i><span>Publicaciones</span></a>
         <a class="nav-link{% if active_section == 'cursos' %} active{% endif %}" href="{% url 'core:mis_cursos' %}"><i class="fas fa-graduation-cap"></i><span>Cursos</span></a>
@@ -20,7 +19,7 @@
     </div>
 </details>
 
-{% if request.user.is_superuser or request.user.groups.first.name|default:'' == 'Administrador' or request.user.groups.first.name|default:'' == 'Autoridad' or request.user.groups.first.name|default:'' == 'Coordinador' %}
+{% if request.user.is_superuser or request.user.groups.first.name|default:'' == 'Administrador' or request.user.groups.first.name|default:'' == 'Autoridad' %}
 <details class="nav-group" data-nav-group="usuarios"{% if active_section == 'usuarios' or role_name %} open{% endif %}>
     <summary class="nav-group-toggle">
         <span class="nav-group-label"><i class="fas fa-users-gear"></i><span>Usuarios</span></span>
@@ -31,6 +30,7 @@
         <a class="nav-link{% if role_name == 'Autoridad' %} active{% endif %}" href="{% url 'core:usuarios_autoridad' %}"><i class="fas fa-user-shield"></i><span>Autoridades</span></a>
         <a class="nav-link{% if role_name == 'Coordinador' %} active{% endif %}" href="{% url 'core:usuarios_coordinador' %}"><i class="fas fa-user-tie"></i><span>Coordinadores</span></a>
         <a class="nav-link{% if role_name == 'Funcionario' %} active{% endif %}" href="{% url 'core:usuarios_funcionario' %}"><i class="fas fa-briefcase"></i><span>Funcionarios</span></a>
+        <a class="nav-link" href="{% url 'core:eventos_seguridad' %}"><i class="fas fa-shield-halved"></i><span>Eventos de seguridad</span></a>
         {% if request.user.is_superuser %}<a class="nav-link" href="{% url 'admin:index' %}"><i class="fas fa-screwdriver-wrench"></i><span>Administración técnica</span></a>{% endif %}
     </div>
 </details>

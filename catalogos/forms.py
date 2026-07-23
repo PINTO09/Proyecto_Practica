@@ -1,7 +1,20 @@
 from django import forms
 from django.db import transaction
 
-from .models import CatalogoModalidadContratacion, LimiteHorario
+from .models import CatalogoModalidadContratacion, CatalogoPeriodoAcademico, LimiteHorario
+
+
+class CatalogoPeriodoAcademicoForm(forms.ModelForm):
+    class Meta:
+        model = CatalogoPeriodoAcademico
+        fields = (
+            'codigo_periodo', 'nombre_periodo', 'periodo_activo',
+            'fecha_inicio_periodo', 'fecha_fin_periodo',
+        )
+        widgets = {
+            'fecha_inicio_periodo': forms.DateInput(attrs={'type': 'date'}),
+            'fecha_fin_periodo': forms.DateInput(attrs={'type': 'date'}),
+        }
 
 
 class ModalidadContratacionForm(forms.ModelForm):

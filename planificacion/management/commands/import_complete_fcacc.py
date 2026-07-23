@@ -317,6 +317,10 @@ class Command(BaseCommand):
                     "fecha_fin_periodo": date(2026, 9, 30),
                 },
             )
+            if not dry_run and periodo.estado_planificacion not in ('BORRADOR', 'EN_REVISION'):
+                raise CommandError(
+                    f'El periodo {periodo} está {periodo.get_estado_planificacion_display()} y no admite importaciones.'
+                )
 
             steps_results = {}
 

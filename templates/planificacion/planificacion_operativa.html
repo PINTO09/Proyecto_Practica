@@ -10,14 +10,48 @@
     <h4 class="fw-bold mb-0"><i class="fas fa-table-cells-large me-2 text-primary"></i>Planificación Operativa</h4>
     <p class="text-muted mb-0 mt-1">Vista de trabajo por asignatura y paralelo para construir asignaciones reales dentro del sistema.</p>
   </div>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap justify-content-end">
+    {% if periodo_seleccionado %}
+      <span class="badge bg-primary-subtle text-primary border align-self-center px-3 py-2">{{ periodo_seleccionado.get_estado_planificacion_display }}</span>
+      {% if periodo_seleccionado.estado_planificacion == 'BORRADOR' %}
+      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="EN_REVISION"><button class="btn btn-outline-primary">Enviar a revisión</button></form>
+      {% elif periodo_seleccionado.estado_planificacion == 'EN_REVISION' %}
+      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="BORRADOR"><button class="btn btn-outline-secondary">Volver a borrador</button></form>
+      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="APROBADO"><button class="btn btn-success">Aprobar</button></form>
+      {% elif periodo_seleccionado.estado_planificacion == 'APROBADO' %}
+      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="EN_REVISION"><button class="btn btn-outline-warning">Reabrir revisión</button></form>
+      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="CERRADO"><button class="btn btn-dark">Cerrar</button></form>
+      {% endif %}
+      {% if periodos_origen and periodo_seleccionado.estado_planificacion == 'BORRADOR' %}
+      <form method="post" action="{% url 'planificacion:copiar_planificacion_periodo' periodo_seleccionado.id_periodo %}" class="d-flex gap-1">
+        {% csrf_token %}
+        <select name="origen" class="form-select" required><option value="">Copiar desde…</option>{% for periodo in periodos_origen %}<option value="{{ periodo.id_periodo }}">{{ periodo.nombre_periodo }}</option>{% endfor %}</select>
+        <button class="btn btn-outline-primary" type="submit" title="Copiar demanda, asignaciones y actividades"><i class="fas fa-copy"></i></button>
+      </form>
+      {% endif %}
+    {% endif %}
     <a href="{% url 'planificacion:planificaciondemandaacademica_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Demanda</a>
+    <a href="{% url 'planificacion:planificacion_paralelos_matriz' %}" class="btn btn-outline-secondary" title="Vista matricial por nivel y paralelo"><i class="fas fa-grip me-1"></i>Matriz</a>
+    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary" title="Listado técnico de asignaciones"><i class="fas fa-list me-1"></i>Detalle</a>
+    <a href="{% url 'planificacion:asignacion_inteligente' %}" class="btn btn-outline-primary" title="Recomendaciones por afinidad y carga"><i class="fas fa-wand-magic-sparkles me-1"></i>Recomendar</a>
   </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
 
 {% include 'planificacion/_limit_config_alert.html' %}
+
+{% if demandas_sin_campo or docentes_sobrecargados %}
+<div class="alert alert-warning border-0 shadow-sm">
+  <div class="fw-bold mb-2"><i class="fas fa-triangle-exclamation me-1"></i>Observaciones que impiden aprobar el período</div>
+  {% for demanda in demandas_sin_campo %}
+    <div class="small">Asignatura sin campo: <strong>{{ demanda.id_asignatura.nombre_asignatura }}</strong> · {{ demanda.id_carrera.nombre_carrera }}</div>
+  {% endfor %}
+  {% for item in docentes_sobrecargados %}
+    <div class="small">Docente sobrecargado: <strong>{{ item.docente.nombres_completos }}</strong> · {{ item.total }}/{{ item.limite }}h</div>
+  {% endfor %}
+</div>
+{% endif %}
 
 <div class="row g-3 mb-4">
   <div class="col-md-3 col-6">

@@ -15,16 +15,19 @@
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
-                    <tr><th>Cédula</th><th>Email</th><th>Grupo</th><th>Activo</th><th>Staff</th><th class="text-end">Acciones</th></tr>
+                    <tr><th>Usuario</th><th>Rol y alcance</th><th>Estado</th><th>Último acceso</th><th class="text-end">Acciones</th></tr>
                 </thead>
                 <tbody>
                     {% for u in usuarios %}
                     <tr>
-                        <td class="fw-medium">{{ u.cedula }}</td>
-                        <td>{{ u.email|default:"—" }}</td>
-                        <td>{{ u.groups.first.name|default:"—" }}</td>
-                        <td>{% if u.is_active %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}</td>
-                        <td>{% if u.is_staff %}<span class="badge bg-info">Sí</span>{% else %}No{% endif %}</td>
+                        <td><div class="fw-semibold">{{ u.docente_fcacc.nombres_completos|default:u.cedula }}</div><div class="small text-muted">{{ u.cedula }} · {{ u.email|default:"Sin correo" }}</div></td>
+                        <td><span class="badge bg-primary-subtle text-primary">{{ u.groups.first.name|default:"Sin rol" }}</span>
+                            {% for scope in u.alcances_carrera.all %}{% if scope.activo %}<div class="small text-muted mt-1">{{ scope.carrera.nombre_carrera }}</div>{% endif %}{% endfor %}
+                        </td>
+                        <td>{% if u.is_active %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}
+                            {% if u.debe_cambiar_password %}<div><span class="badge bg-warning text-dark mt-1">Clave temporal</span></div>{% endif %}
+                        </td>
+                        <td>{{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
                         <td class="text-end">
                             <a href="{% url 'core:usuario_editar' usuario_id=u.pk %}" class="btn btn-sm btn-outline-warning" title="Editar usuario">
                                 <i class="fas fa-pencil-alt"></i>

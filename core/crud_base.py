@@ -5,6 +5,29 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
+from accounts.decorators import can_access_module, allowed_career_ids
+
+
+def _scope_queryset_by_career(queryset, user):
+    career_ids = allowed_career_ids(user)
+    if career_ids is None:
+        return queryset
+    field_names = {field.name for field in queryset.model._meta.get_fields()}
+    for candidate in ('id_carrera', 'carrera'):
+        if candidate in field_names:
+            return queryset.filter(**{f'{candidate}_id__in': career_ids})
+    return queryset
+
+
+def _limit_career_form_fields(form, user):
+    career_ids = allowed_career_ids(user)
+    if career_ids is None:
+        return
+    for field in form.fields.values():
+        queryset = getattr(field, 'queryset', None)
+        if queryset is not None and queryset.model._meta.label_lower == 'catalogos.catalogocarrera':
+            field.queryset = queryset.filter(pk__in=career_ids)
 
 
 def _get_seguridad_user(user):
@@ -135,7 +158,17 @@ def _audit_log(request, instance, action, old_values=None):
     )
 
 
-class CrudListView(LoginRequiredMixin, ListView):
+class RoleAccessMixin:
+    access_action = 'view'
+
+    def dispatch(self, request, *args, **kwargs):
+        module = self.model._meta.app_label
+        if not can_access_module(request.user, module, self.access_action):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+
+class CrudListView(LoginRequiredMixin, RoleAccessMixin, ListView):
     paginate_by = 25
     allowed_page_sizes = (10, 25, 50, 100)
     template_name = 'generic_crud/list.html'
@@ -149,7 +182,7 @@ class CrudListView(LoginRequiredMixin, ListView):
         return self.paginate_by
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = _scope_queryset_by_career(super().get_queryset(), self.request.user)
         pk_field = self.model._meta.pk
         if pk_field:
             qs = qs.order_by(pk_field.column)
@@ -203,6 +236,9 @@ class CrudListView(LoginRequiredMixin, ListView):
         ctx['delete_url'] = f'{app}:{name}_delete'
         ctx['search_value'] = self.request.GET.get('q', '')
         ctx['search_fields'] = self.get_search_fields()
+        ctx['can_change_records'] = can_access_module(
+            getattr(self.request, 'user', None), app, 'change'
+        )
         raw_cant = self.request.GET.get('cant', self.paginate_by)
         try:
             ctx['cant'] = int(raw_cant)
@@ -217,13 +253,15 @@ class CrudListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class CrudCreateView(LoginRequiredMixin, CreateView):
+class CrudCreateView(LoginRequiredMixin, RoleAccessMixin, CreateView):
+    access_action = 'change'
     fields = '__all__'
     template_name = 'generic_crud/form.html'
     autofill_rules = {}
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
+        _limit_career_form_fields(form, self.request.user)
         codigo_field, _ = _find_codigo_nombre_fields(self.model)
         if codigo_field and codigo_field.name in form.fields:
             form.fields[codigo_field.name].required = False
@@ -254,10 +292,19 @@ class CrudCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class CrudUpdateView(LoginRequiredMixin, UpdateView):
+class CrudUpdateView(LoginRequiredMixin, RoleAccessMixin, UpdateView):
+    access_action = 'change'
     fields = '__all__'
     template_name = 'generic_crud/form.html'
     autofill_rules = {}
+
+    def get_queryset(self):
+        return _scope_queryset_by_career(super().get_queryset(), self.request.user)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        _limit_career_form_fields(form, self.request.user)
+        return form
 
     def get_success_url(self):
         return reverse_lazy(f'{self.model._meta.app_label}:{self.model._meta.model_name}_list')
@@ -282,8 +329,12 @@ class CrudUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class CrudDeleteView(LoginRequiredMixin, DeleteView):
+class CrudDeleteView(LoginRequiredMixin, RoleAccessMixin, DeleteView):
+    access_action = 'change'
     template_name = 'generic_crud/confirm_delete.html'
+
+    def get_queryset(self):
+        return _scope_queryset_by_career(super().get_queryset(), self.request.user)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

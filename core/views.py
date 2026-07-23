@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.contrib import messages
@@ -8,10 +8,18 @@ from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, ProgrammingError, OperationalError, transaction
 from django.urls import reverse
 from django.apps import apps
+from django.core.cache import cache
+from django.utils import timezone
+import secrets
+import string
 
-from .forms import LoginForm, UsuarioCreateForm, UsuarioEditForm, DocenteFcaccForm
+from .forms import (
+    LoginForm, UsuarioCreateForm, UsuarioEditForm, DocenteFcaccForm,
+    CambioPasswordObligatorioForm,
+)
 from .models import (
     Docente, DocenteTransaccional, Titulo, Publicacion, Curso,
+    UsuarioAlcanceCarrera, EventoSeguridad,
 )
 from catalogos.models import (
     CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoTipoDocente,
@@ -26,17 +34,61 @@ from curriculo.models import CurriculoAsignatura
 from planificacion.models import (
     PlanificacionAsignacionDocente, PlanificacionMatrizF4,
 )
-from seguridad.models import SeguridadUsuario
 from auditoria.models import AuditoriaRegistroCambios
 from restricciones.models import Limitacion
 from accounts.decorators import (
     role_required, ROLES_ADMIN, ROLES_ADMIN_AUTORIDAD,
     ROLES_ADMIN_AUTORIDAD_COORDINADOR, ROLES_ESCRITURA,
-    ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE,
-    funcionario_readonly,
+    ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE, DOCENTE,
+    funcionario_readonly, can_access_module, module_permission_required,
 )
 
 Usuario = get_user_model()
+
+
+def _client_ip(request):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    return (forwarded.split(',')[0].strip() if forwarded else request.META.get('REMOTE_ADDR')) or None
+
+
+def _security_event(request, event_type, target=None, detail=''):
+    EventoSeguridad.objects.create(
+        tipo=event_type,
+        actor=request.user if request.user.is_authenticated else None,
+        usuario_afectado=target,
+        direccion_ip=_client_ip(request),
+        detalle=detail[:255],
+    )
+
+
+def _temporary_password(length=14):
+    alphabet = string.ascii_letters + string.digits + '!@#$%'
+    while True:
+        value = ''.join(secrets.choice(alphabet) for _ in range(length))
+        if (any(c.islower() for c in value) and any(c.isupper() for c in value)
+                and any(c.isdigit() for c in value) and any(c in '!@#$%' for c in value)):
+            return value
+
+
+def _set_role_and_scope(user, role, careers, actor):
+    from django.contrib.auth.models import Group
+    managed_roles = [ADMIN, AUTORIDAD, COORDINADOR, FUNCIONARIO, DOCENTE, USUARIO, ESTUDIANTE]
+    user.groups.remove(*Group.objects.filter(name__in=managed_roles))
+    group, _ = Group.objects.get_or_create(name=role)
+    user.groups.add(group)
+    user.is_staff = role == ADMIN
+    user.save(update_fields=['is_staff'])
+    UsuarioAlcanceCarrera.objects.filter(usuario=user).update(activo=False)
+    if role == COORDINADOR:
+        for career in careers:
+            scope, _ = UsuarioAlcanceCarrera.objects.get_or_create(
+                usuario=user, carrera=career,
+                defaults={'asignado_por': actor},
+            )
+            scope.activo = True
+            scope.asignado_por = actor
+            scope.asignado_el = timezone.now()
+            scope.save()
 
 
 def landing_view(request):
@@ -54,18 +106,29 @@ def login_view(request):
         if form.is_valid():
             cedula = form.cleaned_data['cedula']
             password = form.cleaned_data['password']
+            throttle_key = f'login-attempts:{_client_ip(request)}:{cedula}'
+            attempts = cache.get(throttle_key, 0)
+            if attempts >= 5:
+                form.add_error(None, 'Cuenta temporalmente bloqueada por varios intentos. Inténtalo en 15 minutos.')
+                return render(request, 'core/login.html', {'form': form}, status=429)
             user = authenticate(request, cedula=cedula, password=password)
             if user is not None:
+                cache.delete(throttle_key)
                 login(request, user)
+                if user.debe_cambiar_password:
+                    return redirect('core:cambiar_password_obligatorio')
                 if user.groups.filter(name=ESTUDIANTE).exists():
                     return redirect('core:dashboard')
                 if user.is_superuser or user.groups.filter(
-                    name__in=[ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO]
+                    name__in=[ADMIN, AUTORIDAD, COORDINADOR, DOCENTE, USUARIO, FUNCIONARIO]
                 ).exists():
                     return redirect('core:dashboard')
                 logout(request)
                 form.add_error(None, 'No tienes un rol asignado. Contacta al administrador.')
             else:
+                cache.set(throttle_key, attempts + 1, timeout=15 * 60)
+                target = Usuario.objects.filter(cedula=cedula).first()
+                _security_event(request, 'LOGIN_FALLIDO', target, 'Credenciales incorrectas')
                 form.add_error(None, 'Cédula o contraseña incorrectos')
     else:
         form = LoginForm()
@@ -76,7 +139,10 @@ def login_view(request):
 @login_required
 def dashboard_view(request):
     usuario = request.user
-    context = {'active_section': 'dashboard', 'db_ready': False}
+    context = {
+        'active_section': 'dashboard', 'db_ready': False,
+        'institutional_dashboard': can_access_module(usuario, 'planificacion', 'view'),
+    }
 
     def db_stats():
         try:
@@ -88,7 +154,7 @@ def dashboard_view(request):
                 'total_titulos': DocenteTituloAcademico.objects.count(),
                 'total_publicaciones_fcacc': DocentePublicacionAcademica.objects.count(),
                 'total_cursos_capacitacion': DocenteCursoCapacitacion.objects.count(),
-                'total_usuarios_sistema': SeguridadUsuario.objects.count(),
+                'total_usuarios_sistema': Usuario.objects.count(),
                 'total_asignaturas': CurriculoAsignatura.objects.count(),
                 'total_asignaciones_docentes': PlanificacionAsignacionDocente.objects.count(),
                 'total_matriz_f4': PlanificacionMatrizF4.objects.count(),
@@ -106,13 +172,14 @@ def dashboard_view(request):
     slug_modulos = [
         ('catalogos', 'Catálogos', 'fa-database', '#0d6efd', 'rgba(13,110,253,0.1)'),
         ('docentes', 'Docentes', 'fa-chalkboard-teacher', '#0d6efd', 'rgba(13,110,253,0.1)'),
-        ('seguridad', 'Seguridad', 'fa-shield-alt', '#dc3545', 'rgba(220,53,69,0.1)'),
         ('curriculo', 'Currículo', 'fa-book-open', '#6f42c1', 'rgba(111,66,193,0.1)'),
         ('planificacion', 'Planificación', 'fa-calendar-check', '#ffc107', 'rgba(255,193,7,0.1)'),
         ('auditoria', 'Auditoría', 'fa-history', '#6c757d', 'rgba(108,117,125,0.1)'),
         ('restricciones', 'Restricciones', 'fa-exclamation-triangle', '#dc3545', 'rgba(220,53,69,0.1)'),
     ]
     for slug, nombre, icono, color, bg_color in slug_modulos:
+        if not can_access_module(request.user, slug, 'view'):
+            continue
         info = MODULOS.get(slug)
         if info:
             modulos_acceso.append({
@@ -180,8 +247,30 @@ def logout_view(request):
 
 
 @login_required
-@funcionario_readonly
+def cambiar_password_obligatorio_view(request):
+    if not request.user.debe_cambiar_password:
+        return redirect('core:dashboard')
+    form = CambioPasswordObligatorioForm(request.user, request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()
+        user.debe_cambiar_password = False
+        user.password_cambiado_el = timezone.now()
+        user.save(update_fields=['debe_cambiar_password', 'password_cambiado_el'])
+        update_session_auth_hash(request, user)
+        _security_event(request, 'CAMBIAR_CLAVE', user, 'Contraseña temporal reemplazada')
+        messages.success(request, 'Tu contraseña se actualizó correctamente.')
+        return redirect('core:dashboard')
+    return render(request, 'core/cambiar_password_obligatorio.html', {'form': form})
+
+
+@login_required
 def mi_docente_view(request):
+    """Compatibilidad con marcadores antiguos; la ficha única vive en Perfil."""
+    return redirect('core:mi_perfil')
+
+
+@login_required
+def mi_perfil_view(request):
     usuario = request.user
     docente_fcacc = None
     fcacc_error = None
@@ -213,43 +302,47 @@ def mi_docente_view(request):
     local_docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if request.method == 'POST':
         try:
-            form = DocenteFcaccForm(request.POST, instance=docente_fcacc, user=usuario, local_docente=local_docente)
+            form = DocenteFcaccForm(
+                request.POST, request.FILES, instance=docente_fcacc,
+                user=usuario, local_docente=local_docente,
+            )
             if form.is_valid():
-                form.save()
-                messages.success(request, 'Datos del docente actualizados correctamente.')
-                return redirect('core:mi_docente')
+                previous_photo = docente_fcacc.foto.name if docente_fcacc and docente_fcacc.foto else ''
+                photo_storage = docente_fcacc.foto.storage if docente_fcacc and docente_fcacc.foto else None
+                with transaction.atomic():
+                    docente_fcacc = form.save()
+                    local_docente, _ = Docente.objects.get_or_create(
+                        cedula=usuario.cedula,
+                        defaults={'apellidos_nombres': docente_fcacc.nombres_completos},
+                    )
+                    local_docente.apellidos_nombres = docente_fcacc.nombres_completos
+                    local_docente.telefono = docente_fcacc.numero_celular
+                    local_docente.correo = docente_fcacc.correo_institucional
+                    local_docente.save(update_fields=['apellidos_nombres', 'telefono', 'correo'])
+                    if usuario.email != (docente_fcacc.correo_institucional or ''):
+                        usuario.email = docente_fcacc.correo_institucional or ''
+                        usuario.save(update_fields=['email'])
+                    current_photo = docente_fcacc.foto.name if docente_fcacc.foto else ''
+                    if previous_photo and previous_photo != current_photo and photo_storage:
+                        transaction.on_commit(
+                            lambda name=previous_photo, storage=photo_storage: storage.delete(name)
+                        )
+                messages.success(request, 'Perfil actualizado correctamente.')
+                return redirect('core:mi_perfil')
         except (ProgrammingError, OperationalError):
             messages.error(request, 'No se pudo guardar la información porque la tabla FCACC no está disponible.')
-            form = DocenteFcaccForm(request.POST, user=usuario, local_docente=local_docente)
+            form = DocenteFcaccForm(
+                request.POST, request.FILES, user=usuario, local_docente=local_docente
+            )
     else:
         form = DocenteFcaccForm(instance=docente_fcacc, user=usuario, local_docente=local_docente)
 
-    return render(request, 'core/mi_docente.html', {
+    return render(request, 'core/mi_perfil.html', {
         'form': form,
         'docente_fcacc': docente_fcacc,
         'fcacc_error': fcacc_error,
-        'active_section': 'mi_docente',
+        'active_section': 'perfil',
     })
-
-
-@login_required
-@funcionario_readonly
-def mi_perfil_view(request):
-    from .forms import DocentePerfilForm
-    usuario = request.user
-    docente, created = Docente.objects.get_or_create(
-        cedula=usuario.cedula,
-        defaults={'apellidos_nombres': f'Usuario {usuario.cedula}'}
-    )
-    if request.method == 'POST':
-        form = DocentePerfilForm(request.POST, instance=docente)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Perfil actualizado correctamente.')
-            return redirect('core:mi_perfil')
-    else:
-        form = DocentePerfilForm(instance=docente)
-    return render(request, 'core/mi_perfil.html', {'form': form, 'docente': docente, 'active_section': 'perfil'})
 
 
 @login_required
@@ -265,7 +358,7 @@ def mis_titulos_view(request):
 
 
 @login_required
-@role_required(*ROLES_ESCRITURA)
+@module_permission_required('self_service', 'change')
 def crear_titulo_view(request):
     from .forms import TituloForm
     usuario = request.user
@@ -299,7 +392,7 @@ def mis_publicaciones_view(request):
 
 
 @login_required
-@role_required(*ROLES_ESCRITURA)
+@module_permission_required('self_service', 'change')
 def crear_publicacion_view(request):
     from .forms import PublicacionForm
     usuario = request.user
@@ -348,7 +441,7 @@ def mis_cursos_view(request):
 
 
 @login_required
-@role_required(*ROLES_ESCRITURA)
+@module_permission_required('self_service', 'change')
 def subir_documento_view(request):
     from .forms import DocumentoForm
     usuario = request.user
@@ -370,7 +463,15 @@ def subir_documento_view(request):
 
 
 def _require_admin(user):
-    if not (user.is_superuser or user.groups.filter(name__in=[ADMIN, AUTORIDAD, COORDINADOR]).exists()):
+    if not (user.is_superuser or user.groups.filter(name__in=[ADMIN, AUTORIDAD]).exists()):
+        raise PermissionDenied
+    return True
+
+
+def _can_manage_target(actor, target):
+    if actor.is_superuser:
+        return True
+    if target.is_superuser or target.groups.filter(name=ADMIN).exists():
         raise PermissionDenied
     return True
 
@@ -384,11 +485,22 @@ def usuarios_list_view(request):
 def usuarios_por_rol_view(request, rol=None):
     if not _require_admin(request.user):
         return
-    usuarios = Usuario.objects.prefetch_related('groups').order_by('-date_joined')
+    usuarios = Usuario.objects.prefetch_related(
+        'groups', 'alcances_carrera__carrera'
+    ).order_by('-date_joined')
     title = 'Usuarios del Sistema'
     if rol:
         usuarios = usuarios.filter(groups__name=rol)
         title = f'Usuarios - {rol}'
+    usuarios = list(usuarios)
+    docentes_por_cedula = {
+        item.cedula_docente: item
+        for item in DocenteFcacc.objects.filter(
+            cedula_docente__in=[user.cedula for user in usuarios]
+        )
+    }
+    for user in usuarios:
+        user.docente_fcacc = docentes_por_cedula.get(user.cedula)
     return render(request, 'core/usuarios_list.html', {
         'usuarios': usuarios,
         'active_section': 'usuarios',
@@ -402,28 +514,40 @@ def usuario_crear_view(request):
     if not _require_admin(request.user):
         return
     if request.method == 'POST':
-        form = UsuarioCreateForm(request.POST)
+        form = UsuarioCreateForm(request.POST, actor=request.user)
         if form.is_valid():
             try:
                 from django.contrib.auth.models import Group
                 with transaction.atomic():
-                    user = form.save()
+                    temporary_password = _temporary_password()
+                    user = form.save(commit=False)
+                    user.set_password(temporary_password)
+                    user.debe_cambiar_password = True
+                    user.credenciales_emitidas_el = timezone.now()
+                    user.credenciales_emitidas_por = request.user
+                    user.save()
                     Docente.objects.get_or_create(
                         cedula=user.cedula,
-                        defaults={'apellidos_nombres': f'Usuario {user.cedula}'},
+                        defaults={'apellidos_nombres': f'Usuario {user.cedula}', 'correo': user.email},
                     )
-                    group, _ = Group.objects.get_or_create(name=form.cleaned_data['rol'])
-                    user.groups.add(group)
+                    _set_role_and_scope(
+                        user, form.cleaned_data['rol'], form.cleaned_data['carreras'], request.user
+                    )
+                    _security_event(request, 'CREAR_CUENTA', user, f'Rol: {form.cleaned_data["rol"]}')
+                    _security_event(request, 'EMITIR_CLAVE', user, 'Contraseña temporal inicial')
             except DatabaseError:
                 form.add_error(
                     None,
                     'No fue posible crear el usuario. Verifique que las migraciones estén aplicadas e inténtelo nuevamente.',
                 )
             else:
-                messages.success(request, f'Usuario {user.cedula} creado correctamente.')
-                return redirect('core:usuarios_list')
+                return render(request, 'core/credencial_temporal.html', {
+                    'usuario_obj': user,
+                    'temporary_password': temporary_password,
+                    'new_account': True,
+                })
     else:
-        form = UsuarioCreateForm()
+        form = UsuarioCreateForm(actor=request.user)
     return render(request, 'core/usuario_form.html', {
         'form': form,
         'accion': 'Crear',
@@ -436,25 +560,88 @@ def usuario_editar_view(request, usuario_id):
     if not _require_admin(request.user):
         return
     usuario = get_object_or_404(Usuario, pk=usuario_id)
+    _can_manage_target(request.user, usuario)
     if request.method == 'POST':
-        form = UsuarioEditForm(request.POST, instance=usuario)
+        form = UsuarioEditForm(request.POST, instance=usuario, actor=request.user)
         if form.is_valid():
+            if usuario == request.user and not form.cleaned_data.get('is_active'):
+                form.add_error('is_active', 'No puedes desactivar tu propia cuenta.')
+                return render(request, 'core/usuario_form.html', {
+                    'form': form, 'usuario': usuario, 'accion': 'Editar',
+                    'active_section': 'usuarios',
+                })
+            previous_active = usuario.is_active
             user = form.save()
             rol = form.cleaned_data.get('rol')
             if rol:
-                from django.contrib.auth.models import Group
-                user.groups.remove(*Group.objects.filter(name__in=[ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO]))
-                group, _ = Group.objects.get_or_create(name=rol)
-                user.groups.add(group)
+                _set_role_and_scope(user, rol, form.cleaned_data['carreras'], request.user)
+            event_type = 'EDITAR_CUENTA'
+            if previous_active != user.is_active:
+                event_type = 'ACTIVAR' if user.is_active else 'DESACTIVAR'
+            _security_event(request, event_type, user, f'Rol: {rol}')
             messages.success(request, f'Usuario {usuario.cedula} actualizado.')
             return redirect('core:usuarios_list')
     else:
-        form = UsuarioEditForm(instance=usuario)
+        form = UsuarioEditForm(instance=usuario, actor=request.user)
     return render(request, 'core/usuario_form.html', {
         'form': form,
         'usuario': usuario,
         'accion': 'Editar',
         'active_section': 'usuarios',
+    })
+
+
+@login_required
+def eventos_seguridad_view(request):
+    _require_admin(request.user)
+    eventos = EventoSeguridad.objects.select_related(
+        'actor', 'usuario_afectado'
+    ).all()[:250]
+    return render(request, 'core/eventos_seguridad.html', {
+        'eventos': eventos,
+        'active_section': 'usuarios',
+        'title': 'Eventos de seguridad',
+    })
+
+
+@login_required
+def usuario_restablecer_password_view(request, usuario_id):
+    _require_admin(request.user)
+    if request.method != 'POST':
+        raise PermissionDenied
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    _can_manage_target(request.user, usuario)
+    temporary_password = _temporary_password()
+    usuario.set_password(temporary_password)
+    usuario.debe_cambiar_password = True
+    usuario.credenciales_emitidas_el = timezone.now()
+    usuario.credenciales_emitidas_por = request.user
+    usuario.save(update_fields=[
+        'password', 'debe_cambiar_password', 'credenciales_emitidas_el',
+        'credenciales_emitidas_por',
+    ])
+    _security_event(request, 'EMITIR_CLAVE', usuario, 'Restablecimiento administrativo')
+    return render(request, 'core/credencial_temporal.html', {
+        'usuario_obj': usuario,
+        'temporary_password': temporary_password,
+        'new_account': False,
+    })
+
+
+@login_required
+def api_usuario_docente(request):
+    _require_admin(request.user)
+    cedula = (request.GET.get('cedula') or '').strip()
+    if len(cedula) != 10 or not cedula.isdigit():
+        return JsonResponse({'found': False, 'error': 'Cédula inválida'}, status=400)
+    docente = DocenteFcacc.objects.filter(cedula_docente=cedula).first()
+    if not docente:
+        return JsonResponse({'found': False})
+    return JsonResponse({
+        'found': True,
+        'nombre': docente.nombres_completos,
+        'email': docente.correo_institucional or '',
+        'activo': docente.docente_activo,
     })
 
 
@@ -496,15 +683,6 @@ MODULOS = {
             ('Publicaciones Académicas', 'DocentePublicacionAcademica'),
         ],
     },
-    'seguridad': {
-        'nombre': 'Seguridad',
-        'icono': 'fa-shield-alt',
-        'modelos': [
-            ('Roles', 'SeguridadRol'),
-            ('Usuarios', 'SeguridadUsuario'),
-            ('Usuario-Rol', 'SeguridadUsuarioRol'),
-        ],
-    },
     'curriculo': {
         'nombre': 'Currículo',
         'icono': 'fa-book-open',
@@ -519,14 +697,10 @@ MODULOS = {
         'icono': 'fa-calendar-check',
         'descripcion': 'Flujo principal para construir, revisar y controlar la planificacion docente.',
         'acciones': [
-            ('Demanda académica', 'planificacion:planificaciondemandaacademica_list', 'fa-list-check', 'Definir materias, niveles y número de paralelos requeridos.'),
-            ('Planificación operativa', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Asignar docentes por materia, paralelo y período.'),
-            ('Matriz de paralelos', 'planificacion:planificacion_paralelos_matriz', 'fa-grip', 'Detectar visualmente paralelos asignados y pendientes.'),
-            ('Asignaciones', 'planificacion:planificacionasignaciondocente_list', 'fa-users', 'Revisar y ajustar las asignaciones docentes registradas.'),
-            ('Actividades docentes', 'planificacion:planificacionactividaddocente_list', 'fa-puzzle-piece', 'Registrar horas complementarias sin usar pseudo-carreras.'),
-            ('Matriz F4', 'planificacion:planificacionmatrizf4_list', 'fa-layer-group', 'Consultar actividades, investigación y otras horas docentes.'),
-            ('Carga docente', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Controlar en una sola vista la carga, disponibilidad y cumplimiento por docente.'),
-            ('Reportes y exportaciones', 'reportes:centro_reportes', 'fa-file-excel', 'Aplicar filtros y descargar archivos generales, detallados o de apoyo.'),
+            ('Planificación', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Gestionar demanda, paralelos, recomendaciones y asignaciones desde un solo flujo.'),
+            ('Carga y actividades', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revisar la carga docente y registrar las actividades complementarias.'),
+            ('Horarios', 'planificacion:planificacionaulahorario_list', 'fa-calendar-days', 'Organizar aulas, días y horas sin cruces de docente o espacio.'),
+            ('Reportes y control', 'reportes:centro_reportes', 'fa-file-excel', 'Validar la planificación y descargar reportes generales o detallados.'),
         ],
         'modelos': [],
     },
@@ -583,6 +757,8 @@ def modulo_view(request, slug):
     info = MODULOS.get(slug)
     if not info:
         return redirect('core:dashboard')
+    if not can_access_module(request.user, slug, 'view'):
+        raise PermissionDenied
 
     modelos_con_stats = []
     for label, class_name in info['modelos']:
@@ -628,6 +804,8 @@ def api_modelo_info(request):
     pk = request.GET.get('pk')
     if not all([app_label, model_name, pk]):
         return JsonResponse({'error': 'app, model y pk requeridos'}, status=400)
+    if not can_access_module(request.user, app_label, 'view'):
+        raise PermissionDenied
     try:
         Model = apps.get_model(app_label, model_name)
         obj = Model.objects.get(pk=pk)

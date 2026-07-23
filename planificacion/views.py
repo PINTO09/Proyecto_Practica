@@ -3,14 +3,21 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.core.paginator import Paginator
-from django.db.models import Sum, Q, Prefetch
+from django.db import transaction
+from django.db.models import Sum, Q, Prefetch, F
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core.management import call_command
-from django.core.management.base import CommandError
+from django.core.exceptions import PermissionDenied, ValidationError
 from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
-from accounts.decorators import role_required, ROLES_ESCRITURA
-from .forms import PlanificacionAsignacionDocenteForm, PlanificacionActividadDocenteForm, docente_tiene_afinidad
+from accounts.decorators import (
+    ADMIN, has_role, role_required, ROLES_ESCRITURA,
+    module_permission_required, allowed_career_ids,
+)
+from .forms import PlanificacionAsignacionDocenteForm, PlanificacionActividadDocenteForm, PlanificacionAulaHorarioForm
+from .services import (
+    assert_periodo_editable, docente_tiene_afinidad, normalize_parallel,
+    validate_assignment_business_rules,
+)
 from .models import (
     CatalogoActividadComplementaria, PlanificacionActividadDocente,
     PlanificacionDemandaAcademica, PlanificacionAsignacionDocente,
@@ -18,11 +25,10 @@ from .models import (
 )
 from docentes.models import DocenteFcacc, DocenteCampoAfinidad, DocenteTituloAcademico
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo, RelacionPosgradoCampo
-from catalogos.models import CatalogoCampoConocimiento, CatalogoCarrera, CatalogoDedicacionHoraria, CatalogoModalidadContratacion, LimiteHorario
+from catalogos.models import CatalogoCampoConocimiento, CatalogoCarrera, CatalogoDedicacionHoraria, CatalogoModalidadContratacion, CatalogoPeriodoAcademico, LimiteHorario
 import re
 import unicodedata
 import warnings
-from io import StringIO
 
 from django.conf import settings
 from openpyxl import load_workbook
@@ -38,6 +44,39 @@ F4_ACTIVITY_CAREER_CODES = {
     'FCACC-8-PRAC',
     'FCACC-8-TITU',
 }
+
+
+class PeriodEditableDeleteMixin:
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        try:
+            assert_periodo_editable(self.object.id_periodo)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+            return redirect(f'{self.model._meta.app_label}:{self.model._meta.model_name}_list')
+        return super().post(request, *args, **kwargs)
+
+
+class AdminOnlyMixin:
+    def dispatch(self, request, *args, **kwargs):
+        if not has_role(request.user, ADMIN):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+
+def _ensure_career_access(request, carrera_id):
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None and carrera_id and int(carrera_id) not in permitted:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+    return permitted
+
+
+def _scope_careers(queryset, request):
+    permitted = allowed_career_ids(request.user)
+    if permitted is None:
+        return queryset
+    return queryset.filter(id_carrera__in=permitted)
 
 
 def _build_parallel_label(index):
@@ -719,7 +758,7 @@ class PlanificacionDemandaAcademicaUpdateView(PlanningFlowContextMixin, CrudUpda
     model = PlanificacionDemandaAcademica
     planning_active_section = 'planificaciondemandaacademica_list'
 
-class PlanificacionDemandaAcademicaDeleteView(CrudDeleteView):
+class PlanificacionDemandaAcademicaDeleteView(PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionDemandaAcademica
 
 
@@ -746,10 +785,14 @@ class PlanificacionAsignacionDocenteListView(LenientPaginationMixin, CrudListVie
 
         periodo_id = self.request.GET.get('periodo')
         carrera_id = self.request.GET.get('carrera')
+        permitted = _ensure_career_access(self.request, carrera_id)
         docente_id = self.request.GET.get('docente')
         nivel = self.request.GET.get('nivel')
         estado = self.request.GET.get('estado')
         search = (self.request.GET.get('q') or '').strip()
+
+        if permitted is not None:
+            qs = qs.filter(id_carrera_id__in=permitted)
 
         if periodo_id:
             qs = qs.filter(id_periodo_id=periodo_id)
@@ -833,7 +876,7 @@ class PlanificacionAsignacionDocenteListView(LenientPaginationMixin, CrudListVie
             'filter_querystring': _filter_querystring(self.request),
             'rows': rows,
             'periodos': CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo'),
-            'carreras': CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera'),
+            'carreras': _scope_careers(CatalogoCarrera.objects.filter(carrera_activa=True), self.request).order_by('nombre_carrera'),
             'docentes': DocenteFcacc.objects.filter(docente_activo=True).order_by('nombres_completos'),
             'level_options': list(range(1, 9)),
             'periodo_id': int(periodo_id) if periodo_id else None,
@@ -866,7 +909,13 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
     }
 
     def get_form(self, form_class=None):
-        return _style_form_fields(super().get_form(form_class))
+        form = _style_form_fields(super().get_form(form_class))
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            form.fields['id_asignatura'].queryset = form.fields['id_asignatura'].queryset.filter(
+                id_carrera_id__in=permitted
+            )
+        return form
 
     def form_valid(self, form):
         docente = form.cleaned_data.get('id_docente')
@@ -908,6 +957,7 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
         if subj_id:
             try:
                 subj = CurriculoAsignatura.objects.get(id_asignatura=subj_id)
+                _ensure_career_access(self.request, subj.id_carrera_id)
                 initial['id_asignatura'] = subj
                 initial['id_carrera'] = subj.id_carrera
                 initial['nivel_semestre_asignado'] = subj.nivel_semestre
@@ -930,12 +980,12 @@ class PlanificacionAsignacionDocenteCreateView(CrudCreateView):
         ctx['back_url'] = 'planificacion:planificacionasignaciondocente_list'
         subject_data = {
             str(s.id_asignatura): {'n': s.nivel_semestre, 'c': s.id_carrera_id, 'a': s.es_actividad}
-            for s in CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad')
+            for s in _scope_careers(CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad'), self.request)
         }
         ctx['subject_data_json'] = json.dumps(subject_data)
         career_data = {
             str(c.id_carrera): {'a': c.es_actividad}
-            for c in CatalogoCarrera.objects.only('id_carrera', 'es_actividad')
+            for c in _scope_careers(CatalogoCarrera.objects.only('id_carrera', 'es_actividad'), self.request)
         }
         ctx['career_data_json'] = json.dumps(career_data)
         docente_id = self.request.POST.get('id_docente') or self.request.GET.get('docente')
@@ -973,7 +1023,13 @@ class PlanificacionAsignacionDocenteUpdateView(CrudUpdateView):
     template_name = 'planificacion/asignaciondocente_form.html'
 
     def get_form(self, form_class=None):
-        return _style_form_fields(super().get_form(form_class))
+        form = _style_form_fields(super().get_form(form_class))
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            form.fields['id_asignatura'].queryset = form.fields['id_asignatura'].queryset.filter(
+                id_carrera_id__in=permitted
+            )
+        return form
 
     def form_valid(self, form):
         docente = form.cleaned_data.get('id_docente')
@@ -1007,33 +1063,33 @@ class PlanificacionAsignacionDocenteUpdateView(CrudUpdateView):
         )
         subject_data = {
             str(s.id_asignatura): {'n': s.nivel_semestre, 'c': s.id_carrera_id, 'a': s.es_actividad}
-            for s in CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad')
+            for s in _scope_careers(CurriculoAsignatura.objects.only('id_asignatura', 'nivel_semestre', 'id_carrera_id', 'es_actividad'), self.request)
         }
         ctx['subject_data_json'] = json.dumps(subject_data)
         career_data = {
             str(c.id_carrera): {'a': c.es_actividad}
-            for c in CatalogoCarrera.objects.only('id_carrera', 'es_actividad')
+            for c in _scope_careers(CatalogoCarrera.objects.only('id_carrera', 'es_actividad'), self.request)
         }
         ctx['career_data_json'] = json.dumps(career_data)
         return ctx
 
-class PlanificacionAsignacionDocenteDeleteView(CrudDeleteView):
+class PlanificacionAsignacionDocenteDeleteView(PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionAsignacionDocente
 
 
-class CatalogoActividadComplementariaListView(CrudListView):
+class CatalogoActividadComplementariaListView(AdminOnlyMixin, CrudListView):
     model = CatalogoActividadComplementaria
 
 
-class CatalogoActividadComplementariaCreateView(CrudCreateView):
+class CatalogoActividadComplementariaCreateView(AdminOnlyMixin, CrudCreateView):
     model = CatalogoActividadComplementaria
 
 
-class CatalogoActividadComplementariaUpdateView(CrudUpdateView):
+class CatalogoActividadComplementariaUpdateView(AdminOnlyMixin, CrudUpdateView):
     model = CatalogoActividadComplementaria
 
 
-class CatalogoActividadComplementariaDeleteView(CrudDeleteView):
+class CatalogoActividadComplementariaDeleteView(AdminOnlyMixin, CrudDeleteView):
     model = CatalogoActividadComplementaria
 
 
@@ -1042,12 +1098,40 @@ class PlanificacionActividadDocenteListView(PlanningFlowContextMixin, CrudListVi
     select_related_fields = ('id_docente', 'id_periodo', 'id_actividad')
     planning_active_section = 'planificacionactividaddocente_list'
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            qs = qs.filter(
+                id_docente__docenteasignacioncarreraperiodo__id_carrera_id__in=permitted,
+                id_docente__docenteasignacioncarreraperiodo__id_periodo_id=F('id_periodo_id'),
+            ).distinct()
+        return qs
+
 
 class PlanificacionActividadDocenteCreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionActividadDocente
     fields = None
     form_class = PlanificacionActividadDocenteForm
     planning_active_section = 'planificacionactividaddocente_list'
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            form.fields['id_docente'].queryset = form.fields['id_docente'].queryset.filter(
+                docenteasignacioncarreraperiodo__id_carrera_id__in=permitted
+            ).distinct()
+        return form
+
+    def form_valid(self, form):
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None and not form.cleaned_data['id_docente'].docenteasignacioncarreraperiodo_set.filter(
+            id_carrera_id__in=permitted, id_periodo=form.cleaned_data['id_periodo']
+        ).exists():
+            form.add_error('id_docente', 'El docente no pertenece a una carrera autorizada en este período.')
+            return self.form_invalid(form)
+        return super().form_valid(form)
 
 
 class PlanificacionActividadDocenteUpdateView(PlanningFlowContextMixin, CrudUpdateView):
@@ -1056,26 +1140,64 @@ class PlanificacionActividadDocenteUpdateView(PlanningFlowContextMixin, CrudUpda
     form_class = PlanificacionActividadDocenteForm
     planning_active_section = 'planificacionactividaddocente_list'
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            qs = qs.filter(
+                id_docente__docenteasignacioncarreraperiodo__id_carrera_id__in=permitted,
+                id_docente__docenteasignacioncarreraperiodo__id_periodo_id=F('id_periodo_id'),
+            ).distinct()
+        return qs
 
-class PlanificacionActividadDocenteDeleteView(CrudDeleteView):
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            form.fields['id_docente'].queryset = form.fields['id_docente'].queryset.filter(
+                docenteasignacioncarreraperiodo__id_carrera_id__in=permitted
+            ).distinct()
+        return form
+
+    def form_valid(self, form):
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None and not form.cleaned_data['id_docente'].docenteasignacioncarreraperiodo_set.filter(
+            id_carrera_id__in=permitted, id_periodo=form.cleaned_data['id_periodo']
+        ).exists():
+            form.add_error('id_docente', 'El docente no pertenece a una carrera autorizada en este período.')
+            return self.form_invalid(form)
+        return super().form_valid(form)
+
+
+class PlanificacionActividadDocenteDeleteView(PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionActividadDocente
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            qs = qs.filter(
+                id_docente__docenteasignacioncarreraperiodo__id_carrera_id__in=permitted,
+                id_docente__docenteasignacioncarreraperiodo__id_periodo_id=F('id_periodo_id'),
+            ).distinct()
+        return qs
 
-class PlanificacionRepartoHorasListView(CrudListView):
+
+class PlanificacionRepartoHorasListView(AdminOnlyMixin, CrudListView):
     model = PlanificacionRepartoHoras
 
 
-class PlanificacionRepartoHorasCreateView(CrudCreateView):
+class PlanificacionRepartoHorasCreateView(AdminOnlyMixin, CrudCreateView):
     model = PlanificacionRepartoHoras
 
-class PlanificacionRepartoHorasUpdateView(CrudUpdateView):
+class PlanificacionRepartoHorasUpdateView(AdminOnlyMixin, CrudUpdateView):
     model = PlanificacionRepartoHoras
 
-class PlanificacionRepartoHorasDeleteView(CrudDeleteView):
+class PlanificacionRepartoHorasDeleteView(AdminOnlyMixin, PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionRepartoHoras
 
 
-class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationMixin, CrudListView):
+class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, LenientPaginationMixin, CrudListView):
     planning_active_section = 'planificacionmatrizf4_list'
     model = PlanificacionMatrizF4
     template_name = 'planificacion/planificacionmatrizf4_list.html'
@@ -1091,9 +1213,13 @@ class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationM
 
         periodo_id = self.request.GET.get('periodo')
         carrera_id = self.request.GET.get('carrera')
+        permitted = _ensure_career_access(self.request, carrera_id)
         docente_id = self.request.GET.get('docente')
         tipo = self.request.GET.get('tipo')
         search = (self.request.GET.get('q') or '').strip()
+
+        if permitted is not None:
+            qs = qs.filter(id_carrera_id__in=permitted)
 
         if periodo_id:
             qs = qs.filter(id_periodo_id=periodo_id)
@@ -1157,7 +1283,7 @@ class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationM
             'limit_config': _build_limit_config_state(),
             'filter_querystring': _filter_querystring(self.request),
             'periodos': CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo'),
-            'carreras': CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera'),
+            'carreras': _scope_careers(CatalogoCarrera.objects.filter(carrera_activa=True), self.request).order_by('nombre_carrera'),
             'docentes': DocenteFcacc.objects.filter(docente_activo=True).order_by('nombres_completos'),
             'tipos': tipos,
             'periodo_id': int(self.request.GET['periodo']) if self.request.GET.get('periodo') else None,
@@ -1175,7 +1301,7 @@ class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationM
         return ctx
 
 
-class PlanificacionMatrizF4CreateView(PlanningFlowContextMixin, CrudCreateView):
+class PlanificacionMatrizF4CreateView(AdminOnlyMixin, PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionMatrizF4
     planning_active_section = 'planificacionmatrizf4_list'
 
@@ -1206,7 +1332,7 @@ class PlanificacionMatrizF4CreateView(PlanningFlowContextMixin, CrudCreateView):
         ctx['form_subtitle'] = 'Registra actividades, investigación u otras horas que suman a la carga docente.'
         return ctx
 
-class PlanificacionMatrizF4UpdateView(PlanningFlowContextMixin, CrudUpdateView):
+class PlanificacionMatrizF4UpdateView(AdminOnlyMixin, PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionMatrizF4
     planning_active_section = 'planificacionmatrizf4_list'
 
@@ -1242,27 +1368,36 @@ class PlanificacionMatrizF4UpdateView(PlanningFlowContextMixin, CrudUpdateView):
         )
         return ctx
 
-class PlanificacionMatrizF4DeleteView(CrudDeleteView):
+class PlanificacionMatrizF4DeleteView(AdminOnlyMixin, PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionMatrizF4
 
 
-class PlanificacionAulaHorarioListView(CrudListView):
+class PlanificacionAulaHorarioListView(PlanningFlowContextMixin, CrudListView):
     model = PlanificacionAulaHorario
+    planning_active_section = 'planificacionaulahorario_list'
+    select_related_fields = ('id_periodo', 'id_asignacion', 'id_asignacion__id_docente', 'id_asignacion__id_asignatura')
 
 
-class PlanificacionAulaHorarioCreateView(CrudCreateView):
+class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionAulaHorario
+    fields = None
+    form_class = PlanificacionAulaHorarioForm
+    planning_active_section = 'planificacionaulahorario_list'
 
-class PlanificacionAulaHorarioUpdateView(CrudUpdateView):
+class PlanificacionAulaHorarioUpdateView(PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionAulaHorario
+    fields = None
+    form_class = PlanificacionAulaHorarioForm
+    planning_active_section = 'planificacionaulahorario_list'
 
-class PlanificacionAulaHorarioDeleteView(CrudDeleteView):
+class PlanificacionAulaHorarioDeleteView(PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionAulaHorario
 
 
 # ——— Reporte: Horas por Docente ———————————————————————————————
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def reporte_horas_docentes(request):
     """Ruta histórica; la carga se consolidó en una sola interfaz."""
     target = reverse('planificacion:planificacion_consolidada_docentes')
@@ -1271,13 +1406,246 @@ def reporte_horas_docentes(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def validacion_excel_planificacion(request):
-    return redirect('planificacion:planificacion_operativa')
+    """Compatibilidad con marcadores antiguos; el sistema ya no depende del Excel."""
+    query = request.GET.urlencode()
+    target = reverse('planificacion:control_calidad')
+    return redirect(f'{target}?{query}' if query else target)
 
 
 @login_required
+@module_permission_required('planificacion', 'change')
 def sincronizar_excel_planificacion(request):
-    return redirect('planificacion:planificacion_operativa')
+    messages.info(
+        request,
+        'Las importaciones Excel son herramientas administrativas opcionales y no forman parte del flujo normal.',
+    )
+    return redirect('planificacion:control_calidad')
+
+
+@login_required
+@module_permission_required('planificacion', 'view')
+def control_calidad_planificacion(request):
+    """Audita la planificación usando exclusivamente la base de datos."""
+    periodos = CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo')
+    periodo_id = request.GET.get('periodo')
+    if not periodo_id:
+        activo = periodos.filter(periodo_activo=True).first()
+        periodo_id = str(activo.id_periodo) if activo else None
+
+    issues = []
+    if periodo_id:
+        demandas = list(PlanificacionDemandaAcademica.objects.filter(
+            id_periodo_id=periodo_id,
+        ).select_related('id_asignatura', 'id_carrera'))
+        asignaciones = list(PlanificacionAsignacionDocente.objects.filter(
+            id_periodo_id=periodo_id,
+        ).select_related('id_asignatura', 'id_carrera', 'id_docente', 'id_campo'))
+        campos_por_asignatura = {}
+        for subject_id, field_id in CurriculoAsignaturaCampo.objects.filter(
+            id_asignatura_id__in=[d.id_asignatura_id for d in demandas],
+        ).values_list('id_asignatura_id', 'id_campo_id'):
+            campos_por_asignatura.setdefault(subject_id, set()).add(field_id)
+
+        asignadas = {
+            (a.id_asignatura_id, a.id_carrera_id, normalize_parallel(a.paralelo_asignado)): a
+            for a in asignaciones
+        }
+        demanda_map = {(d.id_asignatura_id, d.id_carrera_id): d for d in demandas}
+
+        for demanda in demandas:
+            if not campos_por_asignatura.get(demanda.id_asignatura_id):
+                issues.append({
+                    'severity': 'error', 'category': 'Campo de conocimiento',
+                    'title': demanda.id_asignatura.nombre_asignatura,
+                    'detail': f'{demanda.id_carrera.nombre_carrera} · nivel {demanda.id_asignatura.nivel_semestre}: no tiene campo asociado.',
+                })
+            for paralelo in _build_parallel_labels(demanda.numero_paralelos):
+                if (demanda.id_asignatura_id, demanda.id_carrera_id, paralelo) not in asignadas:
+                    issues.append({
+                        'severity': 'warning', 'category': 'Paralelo pendiente',
+                        'title': f'{demanda.id_asignatura.nombre_asignatura} · {paralelo}',
+                        'detail': f'{demanda.id_carrera.nombre_carrera} · nivel {demanda.id_asignatura.nivel_semestre}.',
+                    })
+
+        for item in asignaciones:
+            errors = []
+            demanda = demanda_map.get((item.id_asignatura_id, item.id_carrera_id))
+            if not demanda:
+                errors.append('no existe en la demanda académica')
+            elif normalize_parallel(item.paralelo_asignado) not in _build_parallel_labels(demanda.numero_paralelos):
+                errors.append('el paralelo está fuera de la demanda')
+            if item.id_asignatura.id_carrera_id != item.id_carrera_id:
+                errors.append('la carrera no corresponde a la asignatura')
+            if item.id_asignatura.nivel_semestre != item.nivel_semestre_asignado:
+                errors.append('el nivel no corresponde a la malla')
+            if item.id_campo_id not in campos_por_asignatura.get(item.id_asignatura_id, set()):
+                errors.append('el campo de conocimiento no corresponde')
+            if item.nivel_semestre_asignado >= 4 and not docente_tiene_afinidad(item.id_docente, item.id_asignatura):
+                errors.append('el docente no tiene la afinidad requerida')
+            if item.horas_clase != (item.id_asignatura.horas_semanales_asignatura or 0):
+                errors.append('las horas no coinciden con la malla')
+            if errors:
+                issues.append({
+                    'severity': 'error', 'category': 'Asignación inconsistente',
+                    'title': f'{item.id_docente.nombres_completos} · {item.id_asignatura.nombre_asignatura}',
+                    'detail': '; '.join(errors).capitalize() + '.',
+                })
+
+        workload = _build_docente_workload_map(periodo_id=periodo_id)
+        for docente in DocenteFcacc.objects.filter(id_docente__in=workload).select_related('id_modalidad'):
+            limite = _get_limite_horario_docente(docente)
+            total = workload[docente.id_docente]['total_horas']
+            maximo = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
+            if not limite:
+                issues.append({
+                    'severity': 'error', 'category': 'Límite horario',
+                    'title': docente.nombres_completos,
+                    'detail': 'La modalidad del docente no tiene límites configurados.',
+                })
+            elif total > maximo:
+                issues.append({
+                    'severity': 'error', 'category': 'Sobrecarga docente',
+                    'title': docente.nombres_completos,
+                    'detail': f'Carga asignada: {total}h; límite configurado: {maximo}h.',
+                })
+
+    summary = {
+        'total': len(issues),
+        'errors': sum(1 for issue in issues if issue['severity'] == 'error'),
+        'warnings': sum(1 for issue in issues if issue['severity'] == 'warning'),
+    }
+    severity = request.GET.get('severidad') or ''
+    if severity:
+        issues = [issue for issue in issues if issue['severity'] == severity]
+    _, page_obj, page_rows = _paginate_items(request, issues, 25)
+    return render(request, 'planificacion/control_calidad.html', {
+        'active_section': 'control_calidad', 'show_planning_flow': True,
+        'periodos': periodos, 'periodo_id': int(periodo_id) if periodo_id else None,
+        'severidad': severity, 'rows': page_rows, 'summary': summary,
+        'page_obj': page_obj, 'paginator': page_obj.paginator,
+        'is_paginated': page_obj.has_other_pages(),
+        'filter_querystring': _filter_querystring(request),
+    })
+
+
+@login_required
+@module_permission_required('planificacion', 'change')
+def cambiar_estado_periodo(request, periodo_id):
+    if request.method != 'POST':
+        return redirect('planificacion:planificacion_operativa')
+    periodo = get_object_or_404(CatalogoPeriodoAcademico, pk=periodo_id)
+    nuevo = request.POST.get('estado')
+    transiciones = {
+        'BORRADOR': {'EN_REVISION'},
+        'EN_REVISION': {'BORRADOR', 'APROBADO'},
+        'APROBADO': {'EN_REVISION', 'CERRADO'},
+        'CERRADO': set(),
+    }
+    if nuevo not in transiciones.get(periodo.estado_planificacion, set()):
+        messages.error(request, 'La transición de estado solicitada no está permitida.')
+        return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+
+    if nuevo == 'APROBADO':
+        demandas = PlanificacionDemandaAcademica.objects.filter(id_periodo=periodo)
+        slots = sum(max(0, item.numero_paralelos) for item in demandas)
+        asignadas = PlanificacionAsignacionDocente.objects.filter(id_periodo=periodo).count()
+        sin_campo = demandas.filter(id_asignatura__curriculoasignaturacampo__isnull=True).distinct().count()
+        workload = _build_docente_workload_map(periodo_id=periodo_id)
+        sobrecargados = 0
+        for docente in DocenteFcacc.objects.filter(id_docente__in=workload).select_related('id_modalidad'):
+            limite = _get_limite_horario_docente(docente)
+            maximo = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
+            if not limite or workload[docente.id_docente]['total_horas'] > maximo:
+                sobrecargados += 1
+        errores = []
+        if asignadas < slots:
+            errores.append(f'faltan {slots - asignadas} paralelos por asignar')
+        if sin_campo:
+            errores.append(f'hay {sin_campo} demandas sin campo de conocimiento')
+        if sobrecargados:
+            errores.append(f'hay {sobrecargados} docentes sin límite válido o sobrecargados')
+        if errores:
+            messages.error(request, 'No se puede aprobar: ' + '; '.join(errores) + '.')
+            return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+
+    estado_anterior = periodo.estado_planificacion
+    periodo.estado_planificacion = nuevo
+    periodo.save(update_fields=['estado_planificacion'])
+    try:
+        from core.crud_base import _audit_log
+        _audit_log(request, periodo, 'UPDATE', old_values={'estado_planificacion': estado_anterior})
+    except Exception:
+        pass
+    messages.success(request, f'El periodo pasó a {periodo.get_estado_planificacion_display()}.')
+    return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+
+
+@login_required
+@module_permission_required('planificacion', 'change')
+@transaction.atomic
+def copiar_planificacion_periodo(request, periodo_id):
+    if request.method != 'POST':
+        return redirect('planificacion:planificacion_operativa')
+    destino = get_object_or_404(CatalogoPeriodoAcademico, pk=periodo_id)
+    try:
+        assert_periodo_editable(destino)
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+    origen_id = request.POST.get('origen')
+    if not origen_id:
+        messages.error(request, 'Seleccione el período que desea copiar.')
+        return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+    origen = get_object_or_404(CatalogoPeriodoAcademico, pk=origen_id)
+    if origen.pk == destino.pk:
+        messages.error(request, 'El período de origen y destino deben ser diferentes.')
+        return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+
+    demandas = asignaciones = actividades = f4_creadas = 0
+    for item in PlanificacionDemandaAcademica.objects.filter(id_periodo=origen):
+        _, created = PlanificacionDemandaAcademica.objects.update_or_create(
+            id_asignatura=item.id_asignatura, id_carrera=item.id_carrera, id_periodo=destino,
+            defaults={'proyeccion_estudiantes': item.proyeccion_estudiantes, 'numero_paralelos': item.numero_paralelos},
+        )
+        demandas += int(created)
+    for item in PlanificacionAsignacionDocente.objects.filter(id_periodo=origen):
+        _, created = PlanificacionAsignacionDocente.objects.update_or_create(
+            id_asignatura=item.id_asignatura, id_carrera=item.id_carrera,
+            id_periodo=destino, paralelo_asignado=item.paralelo_asignado,
+            defaults={
+                'id_docente': item.id_docente, 'id_campo': item.id_campo,
+                'nivel_semestre_asignado': item.nivel_semestre_asignado,
+                'horas_clase': item.horas_clase, 'horas_complementarias': 0,
+                'semanas_planificadas': item.semanas_planificadas,
+                'comision_servicio': item.comision_servicio,
+            },
+        )
+        asignaciones += int(created)
+    for item in PlanificacionActividadDocente.objects.filter(id_periodo=origen):
+        _, created = PlanificacionActividadDocente.objects.update_or_create(
+            id_docente=item.id_docente, id_periodo=destino, id_actividad=item.id_actividad,
+            defaults={'horas_asignadas': item.horas_asignadas, 'observaciones': item.observaciones},
+        )
+        actividades += int(created)
+    for item in PlanificacionMatrizF4.objects.filter(id_periodo=origen):
+        _, created = PlanificacionMatrizF4.objects.get_or_create(
+            id_docente=item.id_docente, id_carrera=item.id_carrera, id_periodo=destino,
+            id_grado_afinidad=item.id_grado_afinidad, tipo_actividad=item.tipo_actividad,
+            nombre_asignatura_actividad=item.nombre_asignatura_actividad,
+            nivel_semestre_actividad=item.nivel_semestre_actividad,
+            horas_actividad=item.horas_actividad,
+            numero_paralelos_actividad=item.numero_paralelos_actividad,
+            defaults={'observaciones': item.observaciones},
+        )
+        f4_creadas += int(created)
+    messages.success(
+        request,
+        f'Planificación copiada desde {origen}: {demandas} demandas, {asignaciones} asignaciones, '
+        f'{actividades} actividades y {f4_creadas} registros F4 nuevos.',
+    )
+    return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
 
 
 def _get_existing_assignment(asignatura_id, periodo_id=None):
@@ -1421,20 +1789,22 @@ def _compute_teacher_scores(subject, periodo_id=None):
 # ——— Asignación Inteligente (página de exploración) ——————————
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def asignacion_inteligente(request):
     carrera_id = request.GET.get('carrera')
+    _ensure_career_access(request, carrera_id)
     subject_id = request.GET.get('asignatura')
     periodo_id = request.GET.get('periodo')
     nivel = request.GET.get('nivel')
 
     from catalogos.models import CatalogoCarrera, CatalogoPeriodoAcademico
-    carreras = CatalogoCarrera.objects.filter(carrera_activa=True)
+    carreras = _scope_careers(CatalogoCarrera.objects.filter(carrera_activa=True), request)
     periodos = CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo')
     periodo_activo = periodos.filter(periodo_activo=True).first()
     if not periodo_id and periodo_activo:
         periodo_id = str(periodo_activo.id_periodo)
 
-    qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')
+    qs = _scope_careers(CurriculoAsignatura.objects.select_related('id_carrera'), request).order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')
     if carrera_id:
         qs = qs.filter(id_carrera_id=carrera_id)
     if subject_id:
@@ -1442,7 +1812,7 @@ def asignacion_inteligente(request):
     if nivel:
         qs = qs.filter(nivel_semestre=nivel)
 
-    subj_qs = CurriculoAsignatura.objects.select_related('id_carrera').order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')
+    subj_qs = _scope_careers(CurriculoAsignatura.objects.select_related('id_carrera'), request).order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')
     if carrera_id:
         subj_qs = subj_qs.filter(id_carrera_id=carrera_id)
     if nivel:
@@ -1489,11 +1859,13 @@ def asignacion_inteligente(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def planificacion_paralelos_matriz(request):
     from catalogos.models import CatalogoCarrera, CatalogoPeriodoAcademico
 
     periodo_id = request.GET.get('periodo')
     carrera_id = request.GET.get('carrera')
+    _ensure_career_access(request, carrera_id)
     nivel = request.GET.get('nivel')
     search = (request.GET.get('q') or '').strip()
 
@@ -1502,11 +1874,11 @@ def planificacion_paralelos_matriz(request):
     if not periodo_id and periodo_activo:
         periodo_id = str(periodo_activo.id_periodo)
 
-    carreras = CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera')
+    carreras = _scope_careers(CatalogoCarrera.objects.filter(carrera_activa=True), request).order_by('nombre_carrera')
 
-    demanda_qs = PlanificacionDemandaAcademica.objects.select_related(
+    demanda_qs = _scope_careers(PlanificacionDemandaAcademica.objects.select_related(
         'id_asignatura', 'id_carrera', 'id_periodo',
-    ).order_by('id_asignatura__nivel_semestre', 'id_asignatura__nombre_asignatura')
+    ), request).order_by('id_asignatura__nivel_semestre', 'id_asignatura__nombre_asignatura')
 
     if periodo_id:
         demanda_qs = demanda_qs.filter(id_periodo_id=periodo_id)
@@ -1515,7 +1887,7 @@ def planificacion_paralelos_matriz(request):
     if nivel:
         demanda_qs = demanda_qs.filter(id_asignatura__nivel_semestre=nivel)
 
-    nivel_qs = PlanificacionDemandaAcademica.objects.all()
+    nivel_qs = _scope_careers(PlanificacionDemandaAcademica.objects.all(), request)
     if periodo_id:
         nivel_qs = nivel_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
@@ -1599,6 +1971,7 @@ def planificacion_paralelos_matriz(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def planificacion_operativa(request):
     from catalogos.models import CatalogoCarrera, CatalogoPeriodoAcademico
 
@@ -1606,6 +1979,7 @@ def planificacion_operativa(request):
     periodo_activo = periodos.filter(periodo_activo=True).first()
     periodo_id = request.GET.get('periodo')
     carrera_id = request.GET.get('carrera')
+    _ensure_career_access(request, carrera_id)
     nivel = request.GET.get('nivel')
     estado = request.GET.get('estado')
     search = (request.GET.get('q') or '').strip()
@@ -1613,22 +1987,22 @@ def planificacion_operativa(request):
     if not periodo_id and periodo_activo:
         periodo_id = str(periodo_activo.id_periodo)
 
-    carreras = CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera')
+    carreras = _scope_careers(CatalogoCarrera.objects.filter(carrera_activa=True), request).order_by('nombre_carrera')
 
-    demanda_qs = PlanificacionDemandaAcademica.objects.select_related(
+    demanda_qs = _scope_careers(PlanificacionDemandaAcademica.objects.select_related(
         'id_asignatura',
         'id_carrera',
         'id_periodo',
-    ).order_by('id_carrera__nombre_carrera', 'id_asignatura__nivel_semestre', 'id_asignatura__nombre_asignatura')
+    ), request).order_by('id_carrera__nombre_carrera', 'id_asignatura__nivel_semestre', 'id_asignatura__nombre_asignatura')
 
     if periodo_id:
         demanda_qs = demanda_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
         demanda_qs = demanda_qs.filter(id_carrera_id=carrera_id)
     # Compute level options BEFORE nivel filter so the dropdown always shows all available levels
-    nivel_qs = PlanificacionDemandaAcademica.objects.filter(
+    nivel_qs = _scope_careers(PlanificacionDemandaAcademica.objects.filter(
         id_asignatura__nivel_semestre__isnull=False,
-    )
+    ), request)
     if periodo_id:
         nivel_qs = nivel_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
@@ -1725,12 +2099,30 @@ def planificacion_operativa(request):
 
     paginator, page_obj, page_rows = _paginate_items(request, rows, 6)
 
+    demandas_sin_campo = [
+        demanda for demanda in demandas
+        if not campos_por_asignatura.get(demanda.id_asignatura_id)
+    ]
+    docentes_sobrecargados = []
+    for docente in DocenteFcacc.objects.filter(id_docente__in=workload_map).select_related('id_modalidad'):
+        limite = _get_limite_horario_docente(docente)
+        carga = workload_map.get(docente.id_docente, _empty_workload())
+        maximo = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
+        if not limite or carga['total_horas'] > maximo:
+            docentes_sobrecargados.append({
+                'docente': docente,
+                'total': carga['total_horas'],
+                'limite': maximo,
+            })
+
     context = {
         'active_section': 'planificacion_operativa',
         'limit_config': _build_limit_config_state(),
         'periodo_activo': periodo_activo,
         'periodos': periodos,
         'periodo_id': int(periodo_id) if periodo_id else None,
+        'periodo_seleccionado': periodos.filter(pk=periodo_id).first() if periodo_id else None,
+        'periodos_origen': periodos.exclude(pk=periodo_id) if periodo_id else periodos.none(),
         'carreras': carreras,
         'carrera_id': int(carrera_id) if carrera_id else None,
         'nivel': int(nivel) if nivel else None,
@@ -1746,11 +2138,14 @@ def planificacion_operativa(request):
         'total_parallel_slots': total_parallel_slots,
         'assigned_parallel_slots': assigned_parallel_slots,
         'pending_parallel_slots': max(0, total_parallel_slots - assigned_parallel_slots),
+        'demandas_sin_campo': demandas_sin_campo,
+        'docentes_sobrecargados': docentes_sobrecargados,
     }
     return render(request, 'planificacion/planificacion_operativa.html', context)
 
 
 @login_required
+@module_permission_required('planificacion', 'change')
 def asignar_docente_operativa(request):
     if request.method != 'POST':
         return redirect('planificacion:planificacion_operativa')
@@ -1759,6 +2154,7 @@ def asignar_docente_operativa(request):
     docente_id = request.POST.get('docente')
     asignatura_id = request.POST.get('asignatura')
     carrera_id = request.POST.get('carrera')
+    _ensure_career_access(request, carrera_id)
     periodo_id = request.POST.get('periodo')
     campo_id = request.POST.get('campo')
     paralelo = _excel_clean_text(request.POST.get('paralelo'))[:3]
@@ -1774,6 +2170,8 @@ def asignar_docente_operativa(request):
     try:
         docente = DocenteFcacc.objects.select_related('id_dedicacion').get(id_docente=docente_id)
         asignatura = CurriculoAsignatura.objects.get(id_asignatura=asignatura_id)
+        carrera = CatalogoCarrera.objects.get(id_carrera=carrera_id)
+        periodo = CatalogoPeriodoAcademico.objects.get(id_periodo=periodo_id)
         nivel_int = int(nivel)
         if campo_id:
             campo = CatalogoCampoConocimiento.objects.get(id_campo=campo_id)
@@ -1782,7 +2180,11 @@ def asignar_docente_operativa(request):
             campo = campo_rel.id_campo if campo_rel else None
         if campo is None:
             raise CatalogoCampoConocimiento.DoesNotExist
-    except (DocenteFcacc.DoesNotExist, CurriculoAsignatura.DoesNotExist, CatalogoCampoConocimiento.DoesNotExist, ValueError):
+    except (
+        DocenteFcacc.DoesNotExist, CurriculoAsignatura.DoesNotExist,
+        CatalogoCarrera.DoesNotExist, CatalogoPeriodoAcademico.DoesNotExist,
+        CatalogoCampoConocimiento.DoesNotExist, ValueError,
+    ):
         messages.error(request, 'No se encontro alguno de los datos necesarios para asignar el paralelo.')
         return redirect(next_url)
 
@@ -1812,6 +2214,16 @@ def asignar_docente_operativa(request):
             existing = candidate
             break
 
+    horas = horas or asignatura.horas_semanales_asignatura or 0
+    rule_errors = validate_assignment_business_rules(
+        docente=docente, asignatura=asignatura, carrera=carrera,
+        periodo=periodo, campo=campo, nivel=nivel_int, paralelo=paralelo,
+        horas_clase=horas, instance=existing,
+    )
+    if rule_errors:
+        messages.error(request, ' '.join(dict.fromkeys(rule_errors.values())))
+        return redirect(next_url)
+
     snapshot = _build_asignacion_limit_snapshot(
         docente=docente,
         periodo=periodo_id,
@@ -1837,7 +2249,7 @@ def asignar_docente_operativa(request):
         'id_docente': docente,
         'id_campo': campo,
         'nivel_semestre_asignado': nivel_int,
-        'horas_clase': horas or asignatura.horas_semanales_asignatura or 0,
+        'horas_clase': horas,
         'horas_complementarias': complementarias,
     }
     if existing:
@@ -1863,11 +2275,13 @@ def asignar_docente_operativa(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def planificacion_consolidada_docentes(request):
     from catalogos.models import CatalogoCarrera, CatalogoPeriodoAcademico
 
     periodo_id = request.GET.get('periodo')
     carrera_id = request.GET.get('carrera')
+    permitted_careers = _ensure_career_access(request, carrera_id)
     estado = request.GET.get('estado')
     search = (request.GET.get('q') or '').strip()
 
@@ -1876,7 +2290,7 @@ def planificacion_consolidada_docentes(request):
     if not periodo_id and periodo_activo:
         periodo_id = str(periodo_activo.id_periodo)
 
-    carreras = CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera')
+    carreras = _scope_careers(CatalogoCarrera.objects.filter(carrera_activa=True), request).order_by('nombre_carrera')
     docentes_qs = DocenteFcacc.objects.filter(docente_activo=True).select_related(
         'id_dedicacion'
     ).order_by('nombres_completos')
@@ -1888,6 +2302,8 @@ def planificacion_consolidada_docentes(request):
         'id_periodo',
         'id_campo',
     )
+    if permitted_careers is not None:
+        assignments_qs = assignments_qs.filter(id_carrera_id__in=permitted_careers)
     if periodo_id:
         assignments_qs = assignments_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
@@ -1899,6 +2315,8 @@ def planificacion_consolidada_docentes(request):
         'id_periodo',
         'id_grado_afinidad',
     )
+    if permitted_careers is not None:
+        f4_qs = f4_qs.filter(id_carrera_id__in=permitted_careers)
     if periodo_id:
         f4_qs = f4_qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
@@ -2026,12 +2444,14 @@ def planificacion_consolidada_docentes(request):
 # ——— AJAX: endpoints para auto-fill ————————————————————————
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def api_asignatura_info(request):
     asignatura_id = request.GET.get('id')
     if not asignatura_id:
         return JsonResponse({'error': 'id requerido'}, status=400)
     try:
         subj = CurriculoAsignatura.objects.select_related('id_carrera').get(id_asignatura=asignatura_id)
+        _ensure_career_access(request, subj.id_carrera_id)
         campo = CurriculoAsignaturaCampo.objects.filter(id_asignatura=subj).select_related('id_campo').first()
         existing = _get_existing_assignment(subj.id_asignatura)
         niveles = sorted(CurriculoAsignatura.objects.filter(
@@ -2055,6 +2475,7 @@ def api_asignatura_info(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def api_recommendations(request):
     """Return top teacher recommendations for a subject as JSON."""
     asignatura_id = request.GET.get('asignatura')
@@ -2063,6 +2484,7 @@ def api_recommendations(request):
         return JsonResponse({'error': 'asignatura requerida'}, status=400)
     try:
         subj = CurriculoAsignatura.objects.get(id_asignatura=asignatura_id)
+        _ensure_career_access(request, subj.id_carrera_id)
     except CurriculoAsignatura.DoesNotExist:
         return JsonResponse({'error': 'no encontrada'}, status=404)
 
@@ -2124,6 +2546,7 @@ def api_recommendations(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def api_validar_horas_disponibles(request):
     docente_id = request.GET.get('id_docente')
     periodo_id = request.GET.get('id_periodo')
@@ -2160,6 +2583,7 @@ def api_validar_horas_disponibles(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def api_check_affinity(request):
     asignatura_id = request.GET.get('asignatura')
     docente_id = request.GET.get('docente')
@@ -2167,6 +2591,7 @@ def api_check_affinity(request):
         return JsonResponse({'error': 'asignatura y docente requeridos'}, status=400)
     try:
         asignatura = CurriculoAsignatura.objects.get(pk=asignatura_id)
+        _ensure_career_access(request, asignatura.id_carrera_id)
         docente = DocenteFcacc.objects.get(pk=docente_id)
     except CurriculoAsignatura.DoesNotExist:
         return JsonResponse({'error': 'Asignatura no encontrada.'}, status=404)
@@ -2183,9 +2608,11 @@ def api_check_affinity(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def api_paralelos_disponibles(request):
     asignatura_id = request.GET.get('asignatura')
     carrera_id = request.GET.get('carrera')
+    _ensure_career_access(request, carrera_id)
     periodo_id = request.GET.get('periodo')
     if not all([asignatura_id, carrera_id, periodo_id]):
         return JsonResponse({'paralelos': [], 'message': 'Seleccione asignatura, carrera y período.'})
@@ -2201,6 +2628,7 @@ def api_paralelos_disponibles(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'view')
 def api_teacher_load(request):
     docente_id = request.GET.get('docente')
     periodo_id = request.GET.get('periodo')
@@ -2230,6 +2658,7 @@ def api_teacher_load(request):
 
 
 @login_required
+@module_permission_required('planificacion', 'change')
 @role_required(*ROLES_ESCRITURA)
 def api_crear_asignacion(request):
     if request.method != 'POST':
@@ -2269,10 +2698,20 @@ def api_crear_asignacion(request):
     try:
         docente = DocenteFcacc.objects.select_related('id_dedicacion').get(id_docente=docente_id)
         asignatura = CurriculoAsignatura.objects.get(id_asignatura=asignatura_id)
+        carrera = CatalogoCarrera.objects.get(id_carrera=carrera_id)
+        periodo = CatalogoPeriodoAcademico.objects.get(id_periodo=periodo_id)
+        campo = CatalogoCampoConocimiento.objects.get(id_campo=campo_id)
+        _ensure_career_access(request, carrera.id_carrera)
     except DocenteFcacc.DoesNotExist:
         return JsonResponse({'error': 'Docente no encontrado'}, status=404)
     except CurriculoAsignatura.DoesNotExist:
         return JsonResponse({'error': 'Asignatura no encontrada'}, status=404)
+    except CatalogoCarrera.DoesNotExist:
+        return JsonResponse({'error': 'Carrera no encontrada'}, status=404)
+    except CatalogoPeriodoAcademico.DoesNotExist:
+        return JsonResponse({'error': 'Período no encontrado'}, status=404)
+    except CatalogoCampoConocimiento.DoesNotExist:
+        return JsonResponse({'error': 'Campo de conocimiento no encontrado'}, status=404)
 
     try:
         nivel = int(nivel or asignatura.nivel_semestre)
@@ -2294,6 +2733,15 @@ def api_crear_asignacion(request):
             'error': 'Este paralelo ya tiene un docente asignado en el período actual.',
             'existing': [{'id': e.id_docente_id, 'nombre': e.id_docente.nombres_completos} for e in existing],
         }, status=409)
+
+    horas_clase = horas_clase or asignatura.horas_semanales_asignatura or 0
+    rule_errors = validate_assignment_business_rules(
+        docente=docente, asignatura=asignatura, carrera=carrera,
+        periodo=periodo, campo=campo, nivel=nivel, paralelo=paralelo,
+        horas_clase=horas_clase,
+    )
+    if rule_errors:
+        return JsonResponse({'error': ' '.join(dict.fromkeys(rule_errors.values())), 'fields': rule_errors}, status=400)
 
     snapshot = _build_asignacion_limit_snapshot(
         docente=docente,

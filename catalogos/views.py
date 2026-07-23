@@ -1,5 +1,5 @@
 ﻿from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
-from .forms import ModalidadContratacionForm
+from .forms import CatalogoPeriodoAcademicoForm, ModalidadContratacionForm
 from .models import (
     CatalogoCarrera, CatalogoModalidadContratacion, CatalogoDedicacionHoraria,
     CatalogoTipoDocente, CatalogoTipoLicencia, CatalogoPais, CatalogoTituloPosgrado,
@@ -161,9 +161,13 @@ class CatalogoPeriodoAcademicoListView(CrudListView):
 
 class CatalogoPeriodoAcademicoCreateView(CrudCreateView):
     model = CatalogoPeriodoAcademico
+    fields = None
+    form_class = CatalogoPeriodoAcademicoForm
 
 class CatalogoPeriodoAcademicoUpdateView(CrudUpdateView):
     model = CatalogoPeriodoAcademico
+    fields = None
+    form_class = CatalogoPeriodoAcademicoForm
 
 class CatalogoPeriodoAcademicoDeleteView(CrudDeleteView):
     model = CatalogoPeriodoAcademico

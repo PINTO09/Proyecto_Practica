@@ -15,6 +15,7 @@ from curriculo.models import CurriculoAsignatura
 from catalogos.models import (
     CatalogoCarrera, CatalogoPeriodoAcademico, LimiteHorario,
 )
+from accounts.decorators import module_permission_required, allowed_career_ids
 
 
 THIN_BORDER = Border(
@@ -53,10 +54,16 @@ def _finish_sheet(ws, widths=None):
 def _export_filters(request):
     periodo = (request.GET.get('periodo') or '').strip()
     carrera = (request.GET.get('carrera') or '').strip()
-    return (
+    result = (
         periodo if periodo.isdigit() else None,
         carrera if carrera.isdigit() else None,
     )
+    user = getattr(request, 'user', None)
+    permitted = allowed_career_ids(user) if user is not None else None
+    if permitted is not None and result[1] and int(result[1]) not in permitted:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+    return result
 
 
 def _excel_response(workbook, prefix):
@@ -69,7 +76,7 @@ def _excel_response(workbook, prefix):
     return response
 
 
-def _filtered_assignments(periodo_id=None, carrera_id=None):
+def _filtered_assignments(periodo_id=None, carrera_id=None, user=None):
     qs = PlanificacionAsignacionDocente.objects.select_related(
         'id_docente', 'id_asignatura', 'id_carrera', 'id_periodo', 'id_campo'
     )
@@ -77,17 +84,25 @@ def _filtered_assignments(periodo_id=None, carrera_id=None):
         qs = qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
         qs = qs.filter(id_carrera_id=carrera_id)
+    permitted = allowed_career_ids(user) if user is not None else None
+    if permitted is not None:
+        qs = qs.filter(id_carrera_id__in=permitted)
     return qs
 
 
-def _teacher_ids_for_scope(periodo_id=None, carrera_id=None):
+def _teacher_ids_for_scope(periodo_id=None, carrera_id=None, user=None):
     """Docentes vinculados a la carrera; None significa sin filtro de carrera."""
-    if not carrera_id:
+    permitted = allowed_career_ids(user) if user is not None else None
+    if not carrera_id and permitted is None:
         return None
-    assignment_ids = PlanificacionAsignacionDocente.objects.filter(
-        id_carrera_id=carrera_id,
-    )
-    f4_ids = PlanificacionMatrizF4.objects.filter(id_carrera_id=carrera_id)
+    assignment_ids = PlanificacionAsignacionDocente.objects.all()
+    f4_ids = PlanificacionMatrizF4.objects.all()
+    if carrera_id:
+        assignment_ids = assignment_ids.filter(id_carrera_id=carrera_id)
+        f4_ids = f4_ids.filter(id_carrera_id=carrera_id)
+    if permitted is not None:
+        assignment_ids = assignment_ids.filter(id_carrera_id__in=permitted)
+        f4_ids = f4_ids.filter(id_carrera_id__in=permitted)
     if periodo_id:
         assignment_ids = assignment_ids.filter(id_periodo_id=periodo_id)
         f4_ids = f4_ids.filter(id_periodo_id=periodo_id)
@@ -97,6 +112,7 @@ def _teacher_ids_for_scope(periodo_id=None, carrera_id=None):
 
 
 @login_required
+@module_permission_required('reportes', 'view')
 def centro_reportes(request):
     """Interfaz única para consultar y descargar reportes de planificación."""
     periodo_id, carrera_id = _export_filters(request)
@@ -108,8 +124,8 @@ def centro_reportes(request):
         if active_period:
             periodo_id = str(active_period.id_periodo)
 
-    assignments = _filtered_assignments(periodo_id, carrera_id)
-    teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id)
+    assignments = _filtered_assignments(periodo_id, carrera_id, request.user)
+    teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id, request.user)
     activities = PlanificacionActividadDocente.objects.all()
     f4_rows = PlanificacionMatrizF4.objects.all()
     if periodo_id:
@@ -128,7 +144,10 @@ def centro_reportes(request):
     context = {
         'active_section': 'centro_reportes',
         'periodos': periodos,
-        'carreras': CatalogoCarrera.objects.filter(carrera_activa=True).order_by('nombre_carrera'),
+        'carreras': CatalogoCarrera.objects.filter(
+            carrera_activa=True,
+            **({'id_carrera__in': allowed_career_ids(request.user)} if allowed_career_ids(request.user) is not None else {})
+        ).order_by('nombre_carrera'),
         'periodo_id': int(periodo_id) if periodo_id else None,
         'carrera_id': int(carrera_id) if carrera_id else None,
         'export_query': query,
@@ -144,6 +163,7 @@ def centro_reportes(request):
 # ——— API: Reporte Carga Docente ————————————————————————————
 
 @login_required
+@module_permission_required('reportes', 'view')
 def reporte_carga_docente(request):
     periodo_id = request.GET.get('periodo')
     carrera_id = request.GET.get('carrera')
@@ -164,6 +184,8 @@ def reporte_carga_docente(request):
             'carrera': str(a.id_carrera.nombre_carrera) if a.id_carrera_id else '',
             'periodo': str(a.id_periodo.nombre_periodo) if a.id_periodo_id else '',
             'horas': a.horas_clase,
+            'semanas': a.semanas_planificadas,
+            'horas_periodo': a.horas_clase_periodo,
             'campo': str(a.id_campo.nombre_campo_conocimiento) if a.id_campo_id else '',
         })
     return JsonResponse({'data': data})
@@ -172,6 +194,7 @@ def reporte_carga_docente(request):
 # ——— API: Reporte Resumen Horas (Matriz F4) ————————————————
 
 @login_required
+@module_permission_required('reportes', 'view')
 def reporte_resumen_horas(request):
     periodo_id = request.GET.get('periodo')
     carrera_id = request.GET.get('carrera')
@@ -197,6 +220,7 @@ def reporte_resumen_horas(request):
 # ——— API: Reporte Malla Curricular —————————————————————————
 
 @login_required
+@module_permission_required('reportes', 'view')
 def reporte_malla_curricular(request):
     carrera_id = request.GET.get('carrera')
     qs = CurriculoAsignatura.objects.select_related('id_carrera').all()
@@ -218,6 +242,7 @@ def reporte_malla_curricular(request):
 # ——— API: Reporte Docentes por Formación —————————————————————
 
 @login_required
+@module_permission_required('reportes', 'view')
 def reporte_docentes_formacion(request):
     qs = DocenteTituloAcademico.objects.select_related('id_docente', 'id_posgrado').all()[:500]
     data = []
@@ -236,6 +261,7 @@ def reporte_docentes_formacion(request):
 # ——— API: Reporte Docentes por Campo Conocimiento ——————————
 
 @login_required
+@module_permission_required('reportes', 'view')
 def reporte_docentes_campos(request):
     qs = DocenteCampoAfinidad.objects.select_related('id_docente', 'id_campo').all()[:500]
     data = []
@@ -253,17 +279,18 @@ def reporte_docentes_campos(request):
 # ═══════════════════════════════════════════════════════════════
 
 @login_required
+@module_permission_required('reportes', 'view')
 def export_carga_docente_excel(request):
     periodo_id, carrera_id = _export_filters(request)
     wb = Workbook()
     ws = wb.active
     ws.title = 'Carga Docente'
 
-    headers = ['Docente', 'Cédula', 'Asignatura', 'Carrera', 'Período', 'Horas', 'Campo']
+    headers = ['Docente', 'Cédula', 'Asignatura', 'Carrera', 'Período', 'Horas semanales', 'Semanas', 'Horas período', 'Campo']
     ws.append(headers)
     _style_header(ws, 1, len(headers))
 
-    qs = _filtered_assignments(periodo_id, carrera_id).order_by(
+    qs = _filtered_assignments(periodo_id, carrera_id, request.user).order_by(
         'id_docente__nombres_completos', 'id_asignatura__nombre_asignatura'
     )
     for i, a in enumerate(qs, start=2):
@@ -274,6 +301,8 @@ def export_carga_docente_excel(request):
             str(a.id_carrera.nombre_carrera) if a.id_carrera_id else '',
             str(a.id_periodo.nombre_periodo) if a.id_periodo_id else '',
             a.horas_clase,
+            a.semanas_planificadas,
+            a.horas_clase_periodo,
             str(a.id_campo.nombre_campo_conocimiento) if a.id_campo_id else '',
         ])
         _style_data(ws, i, len(headers))
@@ -281,11 +310,12 @@ def export_carga_docente_excel(request):
     for col_idx in range(1, len(headers) + 1):
         ws.column_dimensions[get_column_letter(col_idx)].width = 22
 
-    _finish_sheet(ws, {1: 36, 2: 14, 3: 36, 4: 30, 5: 22, 7: 30})
+    _finish_sheet(ws, {1: 36, 2: 14, 3: 36, 4: 30, 5: 22, 9: 30})
     return _excel_response(wb, 'asignaciones_docentes')
 
 
 @login_required
+@module_permission_required('reportes', 'view')
 def export_malla_excel(request):
     _, carrera_id = _export_filters(request)
     wb = Workbook()
@@ -301,6 +331,9 @@ def export_malla_excel(request):
     )
     if carrera_id:
         qs = qs.filter(id_carrera_id=carrera_id)
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        qs = qs.filter(id_carrera_id__in=permitted)
     for i, a in enumerate(qs, start=2):
         ws.append([
             str(a.id_carrera.nombre_carrera) if a.id_carrera_id else '',
@@ -319,6 +352,7 @@ def export_malla_excel(request):
 
 
 @login_required
+@module_permission_required('reportes', 'view')
 def export_resumen_horas_excel(request):
     # Compatibilidad con el botón antiguo: el resumen correcto es ahora la
     # planificación general, que incluye clases y todas las actividades.
@@ -326,6 +360,7 @@ def export_resumen_horas_excel(request):
 
 
 @login_required
+@module_permission_required('reportes', 'view')
 def export_planificacion_general_excel(request):
     """Exporta una fila consolidada por docente con su carga total."""
     from planificacion.views import _build_docente_workload_map
@@ -353,7 +388,7 @@ def export_planificacion_general_excel(request):
     docentes = DocenteFcacc.objects.filter(docente_activo=True).select_related(
         'id_modalidad', 'id_dedicacion'
     ).order_by('nombres_completos')
-    teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id)
+    teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id, request.user)
     if teacher_ids is not None:
         docentes = docentes.filter(id_docente__in=teacher_ids)
     for row_number, docente in enumerate(docentes, start=2):
@@ -407,6 +442,7 @@ def export_planificacion_general_excel(request):
 
 
 @login_required
+@module_permission_required('reportes', 'view')
 def export_planificacion_detallada_excel(request):
     """Exporta asignaturas, actividades y Matriz F4 en hojas separadas."""
     from planificacion.views import (
@@ -415,7 +451,7 @@ def export_planificacion_detallada_excel(request):
     )
 
     periodo_id, carrera_id = _export_filters(request)
-    teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id)
+    teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id, request.user)
     wb = Workbook()
 
     assignments = PlanificacionAsignacionDocente.objects.select_related(
@@ -425,11 +461,15 @@ def export_planificacion_detallada_excel(request):
         assignments = assignments.filter(id_periodo_id=periodo_id)
     if carrera_id:
         assignments = assignments.filter(id_carrera_id=carrera_id)
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        assignments = assignments.filter(id_carrera_id__in=permitted)
     ws = wb.active
     ws.title = 'Asignaturas'
     headers = [
         'Docente', 'Cédula', 'Carrera', 'Período', 'Código', 'Asignatura',
-        'Nivel', 'Paralelo', 'Campo', 'Tipo de horas', 'Horas clase',
+        'Nivel', 'Paralelo', 'Campo', 'Tipo de horas', 'Horas semanales',
+        'Semanas', 'Horas período',
     ]
     ws.append(headers)
     _style_header(ws, 1, len(headers))
@@ -451,7 +491,7 @@ def export_planificacion_detallada_excel(request):
             item.id_asignatura.codigo_asignatura, item.id_asignatura.nombre_asignatura,
             item.nivel_semestre_asignado, item.paralelo_asignado,
             item.id_campo.nombre_campo_conocimiento, category_labels[category],
-            item.horas_clase,
+            item.horas_clase, item.semanas_planificadas, item.horas_clase_periodo,
         ])
         _style_data(ws, row_number, len(headers))
         ws.cell(row_number, 10).fill = PatternFill(
@@ -491,6 +531,8 @@ def export_planificacion_detallada_excel(request):
         f4_rows = f4_rows.filter(id_periodo_id=periodo_id)
     if carrera_id:
         f4_rows = f4_rows.filter(id_carrera_id=carrera_id)
+    if permitted is not None:
+        f4_rows = f4_rows.filter(id_carrera_id__in=permitted)
     ws = wb.create_sheet('F4 adicional')
     headers = [
         'Docente', 'Cédula', 'Carrera', 'Período', 'Tipo', 'Detalle',

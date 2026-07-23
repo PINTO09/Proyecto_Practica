@@ -9,6 +9,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login_docente'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('logout/', views.logout_view, name='logout'),
+    path('cambiar-password/', views.cambiar_password_obligatorio_view, name='cambiar_password_obligatorio'),
     path('perfil/', views.mi_perfil_view, name='mi_perfil'),
     path('mi-docente/', views.mi_docente_view, name='mi_docente'),
     path('titulos/', views.mis_titulos_view, name='mis_titulos'),
@@ -22,8 +23,11 @@ urlpatterns = [
     path('usuarios/autoridad/', views.usuarios_por_rol_view, {'rol': 'Autoridad'}, name='usuarios_autoridad'),
     path('usuarios/coordinador/', views.usuarios_por_rol_view, {'rol': 'Coordinador'}, name='usuarios_coordinador'),
     path('usuarios/funcionario/', views.usuarios_por_rol_view, {'rol': 'Funcionario'}, name='usuarios_funcionario'),
+    path('usuarios/eventos-seguridad/', views.eventos_seguridad_view, name='eventos_seguridad'),
     path('usuarios/crear/', views.usuario_crear_view, name='usuario_crear'),
     path('usuarios/<int:usuario_id>/editar/', views.usuario_editar_view, name='usuario_editar'),
+    path('usuarios/<int:usuario_id>/restablecer-password/', views.usuario_restablecer_password_view, name='usuario_restablecer_password'),
+    path('api/usuario-docente/', views.api_usuario_docente, name='api_usuario_docente'),
 
     # Módulos CRUD (7 módulos)
     path('modulo/catalogos/', views.modulo_view, {'slug': 'catalogos'}, name='modulo_catalogos'),
