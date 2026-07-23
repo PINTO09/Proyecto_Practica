@@ -3,6 +3,8 @@
 
 {% block title %}{{ accion }} Título - Gestión Docente{% endblock %}
 
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' with active_section='titulos' %}{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">

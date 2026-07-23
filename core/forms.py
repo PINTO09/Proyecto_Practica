@@ -9,12 +9,14 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.forms import SetPasswordForm
 from .models import (
     Docente, Titulo, Publicacion, DocenteTransaccional, Pais, TipoPublicacion,
+    Modalidad, Dedicacion, Carrera, Periodo, Licencia,
     UsuarioAlcanceCarrera,
 )
 from docentes.models import DocenteFcacc
 from catalogos.models import (
     CatalogoTipoDocente, CatalogoModalidadContratacion, CatalogoDedicacionHoraria,
-    CatalogoCarrera,
+    CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoPais, CatalogoTipoLicencia,
+    CatalogoTipoPublicacion,
 )
 from accounts.decorators import ADMIN, AUTORIDAD, COORDINADOR, FUNCIONARIO, DOCENTE
 from PIL import Image, UnidentifiedImageError
@@ -128,6 +130,64 @@ class DocenteFcaccForm(forms.ModelForm):
         return instance
 
 
+def _seed_core_lookup_tables():
+    if Pais.objects.exists():
+        return
+    for cp in CatalogoPais.objects.all():
+        Pais.objects.get_or_create(
+            pk=cp.id_pais,
+            defaults={'nombre_pais': cp.nombre_pais or ''}
+        )
+    if not Pais.objects.exists():
+        for i, nombre in enumerate([
+            'Ecuador', 'Colombia', 'Perú', 'Bolivia', 'Chile', 'Argentina',
+        ], start=1):
+            Pais.objects.get_or_create(pk=i, defaults={'nombre_pais': nombre})
+    for tp in CatalogoTipoPublicacion.objects.all():
+        TipoPublicacion.objects.get_or_create(
+            pk=tp.id_tipo_publicacion,
+            defaults={'nombre': tp.nombre_tipo_publicacion or tp.codigo_tipo_publicacion or ''}
+        )
+    if not TipoPublicacion.objects.exists():
+        for i, nombre in enumerate([
+            'Artículo científico', 'Libro', 'Capítulo de libro',
+            'Ponencia / Conferencia', 'Tesis', 'Informe técnico',
+        ], start=1):
+            TipoPublicacion.objects.get_or_create(pk=i, defaults={'nombre': nombre})
+    for cl in CatalogoTipoLicencia.objects.all():
+        Licencia.objects.get_or_create(
+            pk=cl.id_licencia,
+            defaults={'nombre_licencia': cl.nombre_licencia or ''}
+        )
+    if not Licencia.objects.exists():
+        for i, nombre in enumerate([
+            'Ninguna', 'Copyright', 'Creative Commons', 'Licencia institucional',
+        ], start=1):
+            Licencia.objects.get_or_create(pk=i, defaults={'nombre_licencia': nombre})
+    for m in CatalogoModalidadContratacion.objects.all():
+        Modalidad.objects.get_or_create(
+            pk=m.id_modalidad,
+            defaults={'nombre_modalidad': m.nombre_modalidad or ''}
+        )
+    for d in CatalogoDedicacionHoraria.objects.all():
+        Dedicacion.objects.get_or_create(
+            pk=d.id_dedicacion,
+            defaults={'nombre_dedicacion': d.nombre_dedicacion or ''}
+        )
+    for c in CatalogoCarrera.objects.all():
+        Carrera.objects.get_or_create(
+            pk=c.id_carrera,
+            defaults={'nombre_carrera': c.nombre_carrera or ''}
+        )
+    first_carrera = Carrera.objects.first()
+    if first_carrera:
+        for p in CatalogoPeriodoAcademico.objects.all():
+            Periodo.objects.get_or_create(
+                pk=p.id_periodo,
+                defaults={'nombre_periodo': str(p), 'id_carrera': first_carrera}
+            )
+
+
 class TituloForm(forms.ModelForm):
     class Meta:
         model = Titulo
@@ -194,6 +254,8 @@ class PublicacionForm(forms.ModelForm):
         self.fields['id_tipo_publicacion'].queryset = TipoPublicacion.objects.all()
         self.fields['id_tipo_publicacion'].empty_label = 'Seleccione un tipo'
         self.fields['fecha'].required = False
+        if not self.instance.pk and not self.is_bound:
+            self.fields['fecha'].initial = timezone.now().date()
 
 
 class DocumentoForm(forms.ModelForm):
@@ -217,15 +279,47 @@ class DocumentoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        _seed_core_lookup_tables()
+        docente_fcacc = kwargs.pop('docente_fcacc', None)
+        cedula_docente = kwargs.pop('cedula_docente', None)
         super().__init__(*args, **kwargs)
-        self.fields['id_modalidad'].empty_label = 'Seleccione'
-        self.fields['id_dedicacion'].empty_label = 'Seleccione'
-        self.fields['id_carrera'].empty_label = 'Seleccione'
-        self.fields['id_periodo'].empty_label = 'Seleccione'
-        self.fields['id_licencia'].empty_label = 'Seleccione'
+        self.fields['id_modalidad'].queryset = Modalidad.objects.all()
+        self.fields['id_modalidad'].empty_label = 'Seleccione modalidad'
+        self.fields['id_dedicacion'].queryset = Dedicacion.objects.all()
+        self.fields['id_dedicacion'].empty_label = 'Seleccione dedicación'
+        self.fields['id_carrera'].queryset = Carrera.objects.all()
+        self.fields['id_carrera'].empty_label = 'Seleccione carrera'
+        self.fields['id_periodo'].queryset = Periodo.objects.all()
+        self.fields['id_periodo'].empty_label = 'Seleccione período'
+        self.fields['id_licencia'].queryset = Licencia.objects.all()
+        self.fields['id_licencia'].empty_label = 'Seleccione licencia'
         for field in self.fields:
             self.fields[field].required = False
         self.fields['adj_archivo'].required = False
+        if not self.instance.pk and not self.is_bound and docente_fcacc:
+            from docentes.models import DocenteFcacc
+            if isinstance(docente_fcacc, DocenteFcacc):
+                modalidad = Modalidad.objects.filter(
+                    nombre_modalidad__icontains=str(docente_fcacc.id_modalidad or '')
+                ).first()
+                if modalidad:
+                    self.fields['id_modalidad'].initial = modalidad.pk
+                dedicacion = Dedicacion.objects.filter(
+                    nombre_dedicacion__icontains=str(docente_fcacc.id_dedicacion or '')
+                ).first()
+                if dedicacion:
+                    self.fields['id_dedicacion'].initial = dedicacion.pk
+                if cedula_docente:
+                    from docentes.models import DocenteAsignacionCarreraPeriodo
+                    asignacion = DocenteAsignacionCarreraPeriodo.objects.filter(
+                        id_docente=docente_fcacc,
+                    ).select_related('id_licencia').first()
+                    if asignacion and asignacion.id_licencia:
+                        lic = Licencia.objects.filter(
+                            pk=asignacion.id_licencia_id
+                        ).first()
+                        if lic:
+                            self.fields['id_licencia'].initial = lic.pk
 
 
 class UsuarioAccessFormMixin(forms.Form):

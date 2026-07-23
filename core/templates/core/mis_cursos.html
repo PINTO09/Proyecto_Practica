@@ -15,16 +15,16 @@
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
-                    <tr><th>Curso</th><th>Institución</th><th>Horas</th><th>Inicio</th><th>Fin</th></tr>
+                    <tr><th>Curso</th><th>Tipo</th><th>Horas</th><th>Inicio</th><th>Fin</th></tr>
                 </thead>
                 <tbody>
                     {% for c in cursos %}
                     <tr>
-                        <td>{{ c.nombre_curso|default:c.nombre_capacitacion }}</td>
-                        <td>{{ c.institucion|default:c.nombre_institucion }}</td>
-                        <td>{{ c.horas|default:c.horas_duracion|default:"—" }}</td>
-                        <td>{{ c.fecha_inicio|default:"—" }}</td>
-                        <td>{{ c.fecha_fin|default:"—" }}</td>
+                        <td>{{ c.nombre_curso }}</td>
+                        <td>{{ c.id_tipo_curso|default:"—" }}</td>
+                        <td>{{ c.hora_total|default:"—" }}</td>
+                        <td>{{ c.fecha_inicio|date:"d/m/Y"|default:"—" }}</td>
+                        <td>{{ c.fecha_final|date:"d/m/Y"|default:"—" }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

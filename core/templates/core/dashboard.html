@@ -3,6 +3,20 @@
 
 {% block title %}Panel de Control - Gestión Docente{% endblock %}
 
+{% block extra_css %}
+<style>
+  .chart-container { position: relative; width: 100%; max-width: 280px; margin: 0 auto; }
+  .chart-center-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+  .chart-center-label h3 { font-size: 1.8rem; font-weight: 800; margin: 0; line-height: 1; }
+  .chart-center-label small { font-size: .75rem; color: #6c757d; }
+  .assignment-row { border-left: 4px solid var(--bs-primary, #0d6efd); transition: background .15s; }
+  .assignment-row:hover { background: rgba(13,110,253,.04); }
+  .upload-card { transition: transform .15s, box-shadow .15s; cursor: pointer; }
+  .upload-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.1); }
+  .free-time-text { font-size: .85rem; }
+</style>
+{% endblock %}
+
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' with active_section='dashboard' %}{% endblock %}
 
 {% block content %}
@@ -98,63 +112,223 @@
 </div>
 {% endif %}
 
-{% if docente_fcacc or ultimos_docentes_fcacc %}
-<div class="row mt-4 g-4">
-  {% if docente_fcacc %}
-  <div class="col-lg-6">
+{# ─── Docente dashboard ───────────────────────────────────────── #}
+{% if docente_fcacc %}
+<div class="row g-4 mt-2">
+  {# ─── Gráfico: clase vs actividades vs libre ─────────────────── #}
+  <div class="col-lg-5">
     <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-semibold"><i class="fas fa-chart-pie me-2 text-primary"></i>Distribución de carga horaria</h5>
+      </div>
+      <div class="card-body text-center">
+        {% if workload.total_horas == 0 and not max_total %}
+        <div class="py-4 text-muted">
+          <i class="fas fa-clock fs-1 d-block mb-2"></i>
+          <p class="mb-0">No hay datos de carga horaria disponibles.</p>
+        </div>
+        {% else %}
+        <div class="chart-container">
+          <canvas id="workloadChart" width="280" height="280"></canvas>
+          <div class="chart-center-label">
+            <h3>{{ workload.total_horas }}</h3>
+            <small>horas ocupadas</small>
+          </div>
+        </div>
+        <div class="row g-2 mt-3 text-center small">
+          <div class="col-6"><span class="d-inline-block rounded-circle me-1" style="width:10px;height:10px;background:#4e73df"></span>Horas clase <strong>{{ workload.horas_clase }}h</strong></div>
+          <div class="col-6"><span class="d-inline-block rounded-circle me-1" style="width:10px;height:10px;background:#1cc88a"></span>Actividades <strong>{{ workload.horas_actividades_total }}h</strong></div>
+          {% if max_total %}
+          <div class="col-12 mt-2 pt-2 border-top free-time-text">
+            <span class="d-inline-block rounded-circle me-1" style="width:10px;height:10px;background:#e74a3b"></span>
+            Tiempo libre: <strong>{{ horas_libres }}h</strong> de {{ max_total }}h
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ─── Paralelos asignados ────────────────────────────────────── #}
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-semibold"><i class="fas fa-chalkboard-teacher me-2 text-primary"></i>Paralelos asignados</h5>
+        {% if periodo_activo %}
+        <span class="badge bg-primary">{{ periodo_activo.nombre_periodo }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if mis_asignaciones_completo %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Asignatura</th>
+                <th>Carrera</th>
+                <th>Paralelo</th>
+                <th>Nivel</th>
+                <th>Horas</th>
+                <th>Campo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in mis_asignaciones_completo %}
+              <tr class="assignment-row">
+                <td class="ps-3 fw-medium">{{ a.id_asignatura.nombre_asignatura }}</td>
+                <td>{{ a.id_carrera.nombre_carrera|truncatechars:20 }}</td>
+                <td><span class="badge bg-secondary">{{ a.paralelo_asignado }}</span></td>
+                <td>{{ a.nivel_semestre_asignado }}</td>
+                <td><strong>{{ a.horas_clase }}h</strong></td>
+                <td>{{ a.id_campo.nombre_campo_conocimiento|truncatechars:15 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="fas fa-inbox fs-1 d-block mb-2"></i>
+          <p class="mb-0">No tienes asignaciones para este período.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ─── Acceso rápido: títulos, publicaciones y documentos ──────── #}
+{% if docente_fcacc %}
+<div class="row g-3 mt-3">
+  <div class="col-md-4">
+    <a href="{% url 'core:crear_titulo' %}" class="text-decoration-none">
+      <div class="card border-0 shadow-sm upload-card h-100">
+        <div class="card-body d-flex align-items-center gap-3 py-3">
+          <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10 flex-shrink-0" style="width:48px;height:48px">
+            <i class="fas fa-award fs-5 text-primary"></i>
+          </div>
+          <div class="min-w-0">
+            <h6 class="mb-1 fw-semibold">Registrar título</h6>
+            <p class="text-muted small mb-0">Títulos de tercer nivel, maestría o doctorado.</p>
+          </div>
+          <i class="fas fa-chevron-right text-muted ms-auto flex-shrink-0"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{% url 'core:crear_publicacion' %}" class="text-decoration-none">
+      <div class="card border-0 shadow-sm upload-card h-100">
+        <div class="card-body d-flex align-items-center gap-3 py-3">
+          <div class="d-flex align-items-center justify-content-center rounded-circle bg-success bg-opacity-10 flex-shrink-0" style="width:48px;height:48px">
+            <i class="fas fa-book fs-5 text-success"></i>
+          </div>
+          <div class="min-w-0">
+            <h6 class="mb-1 fw-semibold">Registrar publicación</h6>
+            <p class="text-muted small mb-0">Artículos, libros, capítulos u otros trabajos.</p>
+          </div>
+          <i class="fas fa-chevron-right text-muted ms-auto flex-shrink-0"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{% url 'core:subir_documento' %}" class="text-decoration-none">
+      <div class="card border-0 shadow-sm upload-card h-100">
+        <div class="card-body d-flex align-items-center gap-3 py-3">
+          <div class="d-flex align-items-center justify-content-center rounded-circle bg-warning bg-opacity-10 flex-shrink-0" style="width:48px;height:48px">
+            <i class="fas fa-folder-open fs-5 text-warning"></i>
+          </div>
+          <div class="min-w-0">
+            <h6 class="mb-1 fw-semibold">Subir documento</h6>
+            <p class="text-muted small mb-0">Certificados, actas, respaldos académicos.</p>
+          </div>
+          <i class="fas fa-chevron-right text-muted ms-auto flex-shrink-0"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{# ─── Información del docente ─────────────────────────────────── #}
+{% if docente_fcacc %}
+<div class="row mt-4 g-4">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
       <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
         <h5 class="mb-0 fw-semibold"><i class="fas fa-user-check me-2 text-primary"></i>Mi información</h5>
         <span class="badge {% if docente_fcacc.docente_activo %}bg-success{% else %}bg-danger{% endif %}">{{ docente_fcacc.docente_activo|yesno:"Activo,Inactivo" }}</span>
       </div>
       <div class="card-body">
         <dl class="row mb-0 small">
-          <dt class="col-sm-4">Cédula</dt>
-          <dd class="col-sm-8">{{ docente_fcacc.cedula_docente|default:request.user.cedula }}</dd>
-          <dt class="col-sm-4">Nombres</dt>
-          <dd class="col-sm-8">{{ docente_fcacc.nombres_completos|default:'Sin registro' }}</dd>
-          <dt class="col-sm-4">Correo</dt>
-          <dd class="col-sm-8">{{ docente_fcacc.correo_institucional|default:'Sin registro' }}</dd>
-          <dt class="col-sm-4">Celular</dt>
-          <dd class="col-sm-8">{{ docente_fcacc.numero_celular|default:'Sin registro' }}</dd>
+          <dt class="col-sm-2">Cédula</dt>
+          <dd class="col-sm-4">{{ docente_fcacc.cedula_docente|default:request.user.cedula }}</dd>
+          <dt class="col-sm-2">Nombres</dt>
+          <dd class="col-sm-4">{{ docente_fcacc.nombres_completos|default:'Sin registro' }}</dd>
+          <dt class="col-sm-2">Correo</dt>
+          <dd class="col-sm-4">{{ docente_fcacc.correo_institucional|default:'Sin registro' }}</dd>
+          <dt class="col-sm-2">Celular</dt>
+          <dd class="col-sm-4">{{ docente_fcacc.numero_celular|default:'Sin registro' }}</dd>
+          <dt class="col-sm-2">Dedicación</dt>
+          <dd class="col-sm-4">{{ docente_fcacc.id_dedicacion|default:'Sin registro' }}</dd>
+          <dt class="col-sm-2">Modalidad</dt>
+          <dd class="col-sm-4">{{ docente_fcacc.id_modalidad|default:'Sin registro' }}</dd>
         </dl>
+        <a href="{% url 'core:mi_perfil' %}" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-edit me-1"></i>Editar perfil</a>
       </div>
     </div>
   </div>
-  {% endif %}
-  {% if ultimos_docentes_fcacc %}
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-header bg-white py-3">
-        <h5 class="mb-0 fw-semibold"><i class="fas fa-clock me-2 text-primary"></i>Últimos docentes</h5>
-      </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0 small">
-            <thead class="table-light">
-              <tr>
-                <th class="ps-3">Cédula</th>
-                <th>Nombres</th>
-                <th>Tipo</th>
-                <th class="pe-3">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for d in ultimos_docentes_fcacc %}
-              <tr>
-                <td class="ps-3 fw-medium">{{ d.cedula_docente }}</td>
-                <td>{{ d.nombres_completos }}</td>
-                <td>{{ d.id_tipo_docente|default:"—" }}</td>
-                <td class="pe-3">{% if d.docente_activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
 </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if docente_fcacc and workload.total_horas > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  var el = document.getElementById('workloadChart');
+  if (!el) return;
+  var ctx = el.getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Horas clase', 'Actividades', 'Tiempo libre'],
+      datasets: [{
+        data: [
+          {{ workload.horas_clase|default:0 }},
+          {{ workload.horas_actividades_total|default:0 }},
+          {{ horas_libres|default:0 }},
+        ],
+        backgroundColor: ['#4e73df', '#1cc88a', '#e74a3b'],
+        borderWidth: 2,
+        borderColor: '#fff',
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '70%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 12, padding: 12, font: { size: 12 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(t) {
+              var total = t.dataset.data.reduce(function(a,b){return a+b}, 0);
+              var pct = total > 0 ? (t.parsed / total * 100).toFixed(1) : 0;
+              return t.label + ': ' + t.parsed + 'h (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}

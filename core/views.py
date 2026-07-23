@@ -229,6 +229,25 @@ def dashboard_view(request):
         try:
             context['mis_asignaciones'] = PlanificacionAsignacionDocente.objects.filter(id_docente=docente_fcacc).select_related('id_asignatura', 'id_periodo')[:5]
             context['mis_publicaciones'] = DocentePublicacionAcademica.objects.filter(id_docente=docente_fcacc).order_by('-id_publicacion')[:5]
+            periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
+            if periodo_activo:
+                from planificacion.views import _build_docente_workload_map, _empty_workload
+                wl = _build_docente_workload_map(periodo_id=periodo_activo.id_periodo).get(docente_fcacc.id_docente)
+                if wl is None:
+                    wl = _empty_workload()
+                from catalogos.models import LimiteHorario
+                limite = LimiteHorario.objects.filter(
+                    id_modalidad=docente_fcacc.id_modalidad, activo=True
+                ).first()
+                max_total = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
+                horas_libres = max(0, max_total - (wl.get('total_horas', 0) or 0))
+                context['workload'] = wl
+                context['periodo_activo'] = periodo_activo
+                context['max_total'] = max_total
+                context['horas_libres'] = horas_libres
+                context['mis_asignaciones_completo'] = PlanificacionAsignacionDocente.objects.filter(
+                    id_docente=docente_fcacc, id_periodo=periodo_activo
+                ).select_related('id_asignatura', 'id_carrera', 'id_campo')
         except (ProgrammingError, OperationalError):
             context['mis_asignaciones'] = []
             context['mis_publicaciones'] = []
@@ -434,7 +453,7 @@ def mis_cursos_view(request):
     else:
         docente = Docente.objects.filter(cedula=usuario.cedula).first()
         if docente:
-            cursos = Curso.objects.filter(cursodocente_set__id_docente=docente).distinct()
+            cursos = Curso.objects.filter(cursodocente__id_docente=docente).distinct()
         else:
             cursos = []
     return render(request, 'core/mis_cursos.html', {'cursos': cursos, 'active_section': 'cursos'})
@@ -449,8 +468,13 @@ def subir_documento_view(request):
         cedula=usuario.cedula,
         defaults={'apellidos_nombres': f'Usuario {usuario.cedula}'}
     )
+    docente_fcacc = None
+    try:
+        docente_fcacc = DocenteFcacc.objects.filter(cedula_docente=usuario.cedula).first()
+    except Exception:
+        pass
     if request.method == 'POST':
-        form = DocumentoForm(request.POST, request.FILES)
+        form = DocumentoForm(request.POST, request.FILES, docente_fcacc=docente_fcacc, cedula_docente=usuario.cedula)
         if form.is_valid():
             doc = form.save(commit=False)
             doc.id_docente = docente
@@ -458,7 +482,7 @@ def subir_documento_view(request):
             messages.success(request, 'Documento subido correctamente.')
             return redirect('core:mis_documentos')
     else:
-        form = DocumentoForm()
+        form = DocumentoForm(docente_fcacc=docente_fcacc, cedula_docente=usuario.cedula)
     return render(request, 'core/form_documento.html', {'form': form, 'accion': 'Subir', 'active_section': 'documentos'})
 
 

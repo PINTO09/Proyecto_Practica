@@ -3,6 +3,8 @@
 
 {% block title %}{{ accion }} Documento - Gestión Docente{% endblock %}
 
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' with active_section='documentos' %}{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
