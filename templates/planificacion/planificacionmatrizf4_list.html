@@ -1,85 +1,102 @@
 {% extends 'core/base_dashboard.html' %}
 {% load static %}
+{% load crud_tags %}
 
 {% block title %}Matriz F4 - ULEAM{% endblock %}
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
+{% block extra_css %}
+<style>
+  .f4-table { font-size: 0.82rem; border-collapse: collapse; width: 100%; min-width: 1800px; }
+  .f4-table th { background: #e9ecef; font-weight: 600; padding: 6px 4px; border: 1px solid #adb5bd; text-align: center; white-space: nowrap; position: sticky; top: 0; z-index: 3; }
+  .f4-table td { padding: 3px 4px; border: 1px solid #dee2e6; vertical-align: middle; }
+  .f4-table .docente-header td { background: #d4edda; font-weight: 600; border-top: 2px solid #28a745; }
+  .f4-table .docente-header + tr td { border-top: none; }
+  .f4-table .docente-header .docente-name { font-size: 0.88rem; }
+  .f4-table .docente-header .docente-meta { font-weight: 400; font-size: 0.78rem; color: #555; }
+  .f4-table tr.activity-row td { background: #fff; }
+  .f4-table tr.activity-row:nth-child(even) td { background: #f8f9fa; }
+  .f4-table .num-col { text-align: center; }
+  .f4-table .hours-col { text-align: center; font-variant-numeric: tabular-nums; }
+  .f4-table .total-col { text-align: center; font-weight: 700; color: #0d6efd; }
+  .f4-table .actions-col { text-align: center; white-space: nowrap; }
+  .f4-table .empty-personal { background: #f8f9fa !important; color: #ccc; }
+  .f4-scroll-wrap { overflow-x: auto; border: 1px solid #adb5bd; border-radius: 4px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat-card { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; text-align: center; }
+  .stat-card .stat-label { font-size: 0.72rem; text-transform: uppercase; color: #6c757d; font-weight: 600; letter-spacing: 0.3px; }
+  .stat-card .stat-value { font-size: 1.4rem; font-weight: 700; margin-top: 2px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
   <div>
-    <h4 class="fw-bold mb-0"><i class="fas fa-layer-group me-2 text-primary"></i>Matriz F4</h4>
-    <p class="text-muted mb-0 mt-1">Actividades, investigación y otras horas que completan la carga docente.</p>
+    <h4 class="fw-bold mb-0"><i class="fas fa-file-excel me-2 text-success"></i>Matriz F4 V1</h4>
+    <p class="text-muted mb-0 mt-1 small">Actividades, investigación y otras horas que completan la carga docente.</p>
   </div>
-  <div class="d-flex gap-2 flex-wrap justify-content-end">
-    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Carga docente</a>
-    <a href="{% url 'reportes:centro_reportes' %}" class="btn btn-outline-secondary"><i class="fas fa-file-export me-1"></i>Reportes</a>
-    <a href="{% url 'reportes:descargar_planificacion_original' %}" class="btn btn-success"><i class="fas fa-download me-1"></i>Descargar MATRIZ F4 V1</a>
-    <a href="{% url 'planificacion:planificacionmatrizf4_create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nueva F4</a>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Carga docente</a>
+    <a href="{% url 'reportes:centro_reportes' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export me-1"></i>Reportes</a>
+    <a href="{% url 'reportes:export_matriz_f4_mkt' %}" class="btn btn-sm btn-success"><i class="fas fa-file-excel me-1"></i>Exportar MKT</a>
+    <a href="{% url 'reportes:descargar_planificacion_original' %}" class="btn btn-sm btn-outline-success"><i class="fas fa-download me-1"></i>MATRIZ F4 V1</a>
+    <a href="{% url 'planificacion:planificacionmatrizf4_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i>Nueva F4</a>
   </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
-
 {% include 'planificacion/_limit_config_alert.html' %}
 
-<div class="row g-3 mb-4">
-  <div class="col-md-4 col-6">
-    <div class="card border-0 shadow-sm text-center py-3">
-      <p class="text-muted small text-uppercase fw-semibold mb-0">Registros F4</p>
-      <h3 class="fw-bold mb-0 text-primary">{{ total_registros }}</h3>
-    </div>
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Registros F4</div>
+    <div class="stat-value text-primary">{{ total_registros }}</div>
   </div>
-  <div class="col-md-4 col-6">
-    <div class="card border-0 shadow-sm text-center py-3">
-      <p class="text-muted small text-uppercase fw-semibold mb-0">Horas F4 consolidadas</p>
-      <h3 class="fw-bold mb-0 text-warning">{{ total_horas }}</h3>
-      {% if horas_duplicadas %}
-      <div class="text-muted small">Registros: {{ total_horas_registros }}h / duplicadas: {{ horas_duplicadas }}h</div>
-      {% endif %}
-    </div>
+  <div class="stat-card">
+    <div class="stat-label">Horas consolidadas</div>
+    <div class="stat-value text-warning">{{ total_horas }}</div>
+    {% if horas_duplicadas %}
+    <div class="small text-muted">Reg: {{ total_horas_registros }}h / Dup: {{ horas_duplicadas }}h</div>
+    {% endif %}
   </div>
-  <div class="col-md-4 col-12">
-    <div class="card border-0 shadow-sm text-center py-3">
-      <p class="text-muted small text-uppercase fw-semibold mb-0">Docentes con F4</p>
-      <h3 class="fw-bold mb-0 text-success">{{ docentes_con_f4 }}</h3>
-    </div>
+  <div class="stat-card">
+    <div class="stat-label">Docentes</div>
+    <div class="stat-value text-success">{{ docentes_con_f4 }}</div>
   </div>
 </div>
 
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-body">
-    <form method="get" class="row g-3 align-items-end">
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold">Periodo</label>
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2 px-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="small fw-semibold mb-0">Periodo</label>
         <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
           <option value="">Todos</option>
-          {% for periodo in periodos %}
-          <option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>
-            {{ periodo.nombre_periodo }}
-          </option>
+          {% for p in periodos %}
+          <option value="{{ p.id_periodo }}" {% if periodo_id == p.id_periodo %}selected{% endif %}>{{ p.nombre_periodo }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold">Carrera</label>
+      <div class="col-auto">
+        <label class="small fw-semibold mb-0">Carrera</label>
         <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
           <option value="">Todas</option>
-          {% for carrera in carreras %}
-          <option value="{{ carrera.id_carrera }}" {% if carrera_id == carrera.id_carrera %}selected{% endif %}>{{ carrera.nombre_carrera }}</option>
+          {% for c in carreras %}
+          <option value="{{ c.id_carrera }}" {% if carrera_id == c.id_carrera %}selected{% endif %}>{{ c.nombre_carrera|truncatechars:20 }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold">Docente</label>
+      <div class="col-auto">
+        <label class="small fw-semibold mb-0">Docente</label>
         <select name="docente" class="form-select form-select-sm" onchange="this.form.submit()">
           <option value="">Todos</option>
-          {% for docente in docentes %}
-          <option value="{{ docente.id_docente }}" {% if docente_id == docente.id_docente %}selected{% endif %}>{{ docente.nombres_completos }}</option>
+          {% for d in docentes %}
+          <option value="{{ d.id_docente }}" {% if docente_id == d.id_docente %}selected{% endif %}>{{ d.nombres_completos|truncatechars:22 }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
-        <label class="form-label small fw-semibold">Tipo</label>
+      <div class="col-auto">
+        <label class="small fw-semibold mb-0">Tipo</label>
         <select name="tipo" class="form-select form-select-sm" onchange="this.form.submit()">
           <option value="">Todos</option>
           {% for item in tipos %}
@@ -87,65 +104,105 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3">
-        <label class="form-label small fw-semibold">Buscar</label>
-        <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm" placeholder="Docente, actividad o tipo">
+      <div class="col-auto">
+        <label class="small fw-semibold mb-0">Buscar</label>
+        <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm" placeholder="Docente, actividad..." style="min-width:160px">
       </div>
-      <div class="col-md-1 d-grid">
+      <div class="col-auto">
         <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i></button>
       </div>
     </form>
   </div>
 </div>
 
-<div class="card border-0 shadow-sm">
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th class="ps-3">Docente</th>
-            <th>Actividad</th>
-            <th>Carrera</th>
-            <th>Periodo</th>
-            <th class="text-center">Nivel</th>
-            <th class="text-center">Horas</th>
-            <th class="text-center">Paralelos</th>
-            <th class="text-center">Total</th>
-            <th>Observaciones</th>
-            <th class="text-end pe-3">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in rows %}
-          <tr>
-            <td class="ps-3">
-              <div class="fw-semibold">{{ row.id_docente.nombres_completos }}</div>
-              <div class="text-muted small">{{ row.id_docente.cedula_docente }}</div>
-            </td>
-            <td>
-              <span class="badge bg-warning-subtle text-dark mb-1">{{ row.tipo_actividad }}</span>
-              <div class="small">{{ row.nombre_asignatura_actividad|default:'Sin detalle' }}</div>
-            </td>
-            <td>{{ row.id_carrera.nombre_carrera }}</td>
-            <td>{{ row.id_periodo.nombre_periodo }}</td>
-            <td class="text-center">{{ row.nivel_semestre_actividad|default:'-' }}</td>
-            <td class="text-center">{{ row.horas_actividad }}</td>
-            <td class="text-center">{{ row.numero_paralelos_actividad }}</td>
-            <td class="text-center fw-bold">{{ row.total_horas_f4 }}</td>
-            <td style="min-width:220px;"><span class="text-muted small">{{ row.observaciones|default:'-'|truncatechars:80 }}</span></td>
-            <td class="text-end pe-3">
-              <a href="{% url 'planificacion:planificacionmatrizf4_update' pk=row.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar"><i class="fas fa-pencil-alt"></i></a>
-              <a href="{% url 'planificacion:planificacionmatrizf4_delete' pk=row.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar"><i class="fas fa-trash-alt"></i></a>
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="10" class="text-center py-4 text-muted">No hay actividades F4 para mostrar</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
+<div class="f4-scroll-wrap">
+  <table class="f4-table">
+    <thead>
+      <tr>
+        <th style="width:32px;">N°</th>
+        <th style="width:90px;">Cédula</th>
+        <th style="width:190px;">Apellidos y Nombres</th>
+        <th style="width:42px;">Sx</th>
+        <th style="width:100px;">Unidad Orgánica</th>
+        <th style="width:60px;">Titular</th>
+        <th style="width:100px;">Categoría</th>
+        <th style="width:130px;">Título 3er nivel</th>
+        <th style="width:130px;">Título 4to nivel</th>
+        <th style="min-width:140px;">Carrera / Tipo Actividad</th>
+        <th style="min-width:160px;">Asignatura / Actividad</th>
+        <th style="width:80px;">Grado Afinidad</th>
+        <th style="width:48px;">Horas</th>
+        <th style="width:52px;">Paral.</th>
+        <th style="width:60px;">Total H</th>
+        <th style="width:60px;">Carga H</th>
+        <th style="width:60px;">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% regroup rows by id_docente as docentes_list %}
+      {% if docentes_list %}
+      {% for grupo in docentes_list %}
+        {% with docente=grupo.grouper %}
+        {% with titulos=titulos_por_docente|dictkey:docente.id_docente carga=carga_por_docente|dictkey:docente.id_docente %}
+        {% for item in grupo.list %}
+        <tr class="{% if forloop.first %}docente-header{% else %}activity-row{% endif %}">
+          {% if forloop.first %}
+          <td class="num-col fw-bold">{{ item.secuencia }}</td>
+          <td><span class="docente-meta">{{ docente.cedula_docente|default:'-' }}</span></td>
+          <td><span class="docente-name">{{ docente.nombres_completos }}</span></td>
+          <td class="num-col"><span class="docente-meta">-</span></td>
+          <td><span class="docente-meta">{{ docente.unidad_organica|default:'-' }}</span></td>
+          <td class="num-col"><span class="docente-meta">-</span></td>
+          <td><span class="docente-meta">{{ docente.id_modalidad|default:'' }} {{ docente.id_dedicacion|default:'' }}</span></td>
+          <td>
+            {% if titulos %}
+            <span class="docente-meta">
+              {% for t in titulos %}{% if t.nivel_titulo < 4 %}{{ t.nombre_titulo }}{% if not forloop.last %}; {% endif %}{% endif %}{% endfor %}
+            </span>
+            {% else %}<span class="docente-meta">-</span>{% endif %}
+          </td>
+          <td>
+            {% if titulos %}
+            <span class="docente-meta">
+              {% for t in titulos %}{% if t.nivel_titulo >= 4 %}{{ t.nombre_titulo }}{% if not forloop.last %}; {% endif %}{% endif %}{% endfor %}
+            </span>
+            {% else %}<span class="docente-meta">-</span>{% endif %}
+          </td>
+          {% else %}
+          <td class="num-col empty-personal"></td>
+          <td class="empty-personal"></td>
+          <td class="empty-personal"></td>
+          <td class="num-col empty-personal"></td>
+          <td class="empty-personal"></td>
+          <td class="num-col empty-personal"></td>
+          <td class="empty-personal"></td>
+          <td class="empty-personal"></td>
+          <td class="empty-personal"></td>
+          {% endif %}
+          <td>
+            <span class="badge bg-warning-subtle text-dark" style="font-size:0.75rem;">{{ item.tipo_actividad }}</span>
+            <div class="small text-muted">{{ item.id_carrera.nombre_carrera|truncatechars:28 }}</div>
+          </td>
+          <td>{{ item.nombre_asignatura_actividad|default:'-' }}</td>
+          <td>{{ item.id_grado_afinidad|default:'-' }}</td>
+          <td class="hours-col">{{ item.horas_actividad }}</td>
+          <td class="hours-col">{{ item.numero_paralelos_actividad }}</td>
+          <td class="total-col">{{ item.total_horas_f4 }}</td>
+          <td class="hours-col">{% if forloop.first %}{{ carga }}{% endif %}</td>
+          <td class="actions-col">
+            <a href="{% url 'planificacion:planificacionmatrizf4_update' pk=item.pk %}" class="btn btn-sm btn-outline-warning border-0 py-0 px-1" title="Editar"><i class="fas fa-pencil-alt fa-xs"></i></a>
+            <a href="{% url 'planificacion:planificacionmatrizf4_delete' pk=item.pk %}" class="btn btn-sm btn-outline-danger border-0 py-0 px-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></a>
+          </td>
+        </tr>
+        {% endfor %}
+        {% endwith %}
+        {% endwith %}
+      {% endfor %}
+      {% else %}
+      <tr><td colspan="17" class="text-center py-4 text-muted">No hay actividades F4 para mostrar</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
 </div>
 
 {% include 'planificacion/_pagination.html' %}

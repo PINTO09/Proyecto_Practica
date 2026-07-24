@@ -20,3 +20,11 @@ def verbose_name(obj):
 @register.filter
 def verbose_name_plural(obj):
     return obj._meta.verbose_name_plural
+
+
+@register.filter
+def dictkey(dct, key):
+    try:
+        return dct.get(key, '')
+    except (AttributeError, TypeError):
+        return ''

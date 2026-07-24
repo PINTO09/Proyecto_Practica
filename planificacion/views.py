@@ -1201,11 +1201,12 @@ class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, Le
     planning_active_section = 'planificacionmatrizf4_list'
     model = PlanificacionMatrizF4
     template_name = 'planificacion/planificacionmatrizf4_list.html'
-    paginate_by = 20
+    paginate_by = 500
 
     def get_queryset(self):
         qs = PlanificacionMatrizF4.objects.select_related(
-            'id_docente',
+            'id_docente__id_modalidad',
+            'id_docente__id_dedicacion',
             'id_carrera',
             'id_periodo',
             'id_grado_afinidad',
@@ -1278,6 +1279,33 @@ class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, Le
             .distinct()
         )
 
+        # Compute sequential N° per docente and enrich rows for Excel-like display
+        from docentes.models import DocenteTituloAcademico
+        docente_ids = set(filtered_qs.values_list('id_docente_id', flat=True))
+
+        titulos_qs = DocenteTituloAcademico.objects.filter(
+            id_docente__in=docente_ids
+        ).order_by('id_docente_id', '-nivel_titulo')
+        titulos_por_docente = {}
+        for t in titulos_qs:
+            titulos_por_docente.setdefault(t.id_docente_id, []).append(t)
+
+        from django.db.models import Sum, F
+        carga_por_docente = dict(
+            PlanificacionMatrizF4.objects.filter(id_docente_id__in=docente_ids)
+            .values('id_docente_id')
+            .annotate(total=Sum(F('horas_actividad') * F('numero_paralelos_actividad')))
+            .values_list('id_docente_id', 'total')
+        )
+
+        docente_actual = None
+        secuencia = 0
+        for row in rows:
+            if row.id_docente_id != docente_actual:
+                secuencia += 1
+                docente_actual = row.id_docente_id
+            row.secuencia = secuencia
+
         ctx.update({
             'active_section': 'planificacionmatrizf4_list',
             'limit_config': _build_limit_config_state(),
@@ -1297,6 +1325,8 @@ class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, Le
             'horas_duplicadas': max(0, total_horas_registros - total_horas_consolidadas),
             'docentes_con_f4': filtered_qs.values('id_docente_id').distinct().count(),
             'rows': rows,
+            'titulos_por_docente': titulos_por_docente,
+            'carga_por_docente': carga_por_docente,
         })
         return ctx
 
