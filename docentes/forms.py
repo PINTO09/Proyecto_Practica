@@ -12,9 +12,9 @@ class DocenteFcaccForm(forms.ModelForm):
         model = DocenteFcacc
         fields = (
             'tipo_documento', 'cedula_docente', 'nombres_completos',
-            'fecha_nacimiento', 'foto', 'id_tipo_docente', 'id_modalidad',
-            'id_dedicacion', 'unidad_organica', 'correo_institucional',
-            'numero_celular', 'tipo_sangre', 'docente_activo',
+            'fecha_nacimiento', 'tipo_sangre', 'numero_celular',
+            'correo_institucional', 'foto', 'id_tipo_docente', 'id_modalidad',
+            'id_dedicacion', 'unidad_organica', 'docente_activo',
         )
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),

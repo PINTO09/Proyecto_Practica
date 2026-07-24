@@ -28,3 +28,15 @@ def dictkey(dct, key):
         return dct.get(key, '')
     except (AttributeError, TypeError):
         return ''
+
+
+@register.simple_tag(takes_context=True)
+def querystring(context, **changes):
+    """Conserva los filtros activos al cambiar de página o cantidad."""
+    query = context['request'].GET.copy()
+    for key, value in changes.items():
+        if value in (None, ''):
+            query.pop(key, None)
+        else:
+            query[key] = value
+    return query.urlencode()

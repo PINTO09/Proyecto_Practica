@@ -1,5 +1,6 @@
 ﻿from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 from .forms import CatalogoPeriodoAcademicoForm, ModalidadContratacionForm
+from core.crud_base import ReadOnlyCrudListView, DisabledCrudMutationMixin
 from .models import (
     CatalogoCarrera, CatalogoModalidadContratacion, CatalogoDedicacionHoraria,
     CatalogoTipoDocente, CatalogoTipoLicencia, CatalogoPais, CatalogoTituloPosgrado,
@@ -173,16 +174,19 @@ class CatalogoPeriodoAcademicoDeleteView(CrudDeleteView):
     model = CatalogoPeriodoAcademico
 
 # â”€â”€â”€ RelacionCarreraPeriodo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-class RelacionCarreraPeriodoListView(CrudListView):
+class RelacionCarreraPeriodoListView(ReadOnlyCrudListView):
+    model = RelacionCarreraPeriodo
+    # La tabla heredada de algunas instalaciones solo conserva su clave
+    # primaria; no se generan JOIN de búsqueda contra columnas inexistentes.
+    search_fields = ()
+
+class RelacionCarreraPeriodoCreateView(DisabledCrudMutationMixin, CrudCreateView):
     model = RelacionCarreraPeriodo
 
-class RelacionCarreraPeriodoCreateView(CrudCreateView):
+class RelacionCarreraPeriodoUpdateView(DisabledCrudMutationMixin, CrudUpdateView):
     model = RelacionCarreraPeriodo
 
-class RelacionCarreraPeriodoUpdateView(CrudUpdateView):
-    model = RelacionCarreraPeriodo
-
-class RelacionCarreraPeriodoDeleteView(CrudDeleteView):
+class RelacionCarreraPeriodoDeleteView(DisabledCrudMutationMixin, CrudDeleteView):
     model = RelacionCarreraPeriodo
 
 

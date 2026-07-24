@@ -2,6 +2,8 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from copy import copy
+from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -10,6 +12,11 @@ from docentes.models import DocenteFcacc, DocenteTituloAcademico, DocenteCampoAf
 from planificacion.models import (
     PlanificacionActividadDocente, PlanificacionAsignacionDocente,
     PlanificacionMatrizF4,
+)
+from planificacion.services import (
+    activity_workload_key, assignment_hour_category,
+    build_docente_workload_map, knowledge_field_maps,
+    normalize_workload_text, registered_activity_keys,
 )
 from curriculo.models import CurriculoAsignatura
 from catalogos.models import (
@@ -24,6 +31,11 @@ THIN_BORDER = Border(
 )
 HEADER_FILL = PatternFill(start_color='2563EB', end_color='2563EB', fill_type='solid')
 HEADER_FONT = Font(color='FFFFFF', bold=True, size=11)
+F4_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent
+    / 'templates_excel'
+    / 'planificacion_mkt_2026_2_v1.xlsx'
+)
 
 
 def _style_header(ws, row, cols):
@@ -135,8 +147,7 @@ def centro_reportes(request):
         f4_rows = f4_rows.filter(id_carrera_id=carrera_id)
         activities = activities.filter(id_docente_id__in=teacher_ids)
 
-    from planificacion.views import _build_docente_workload_map
-    workload = _build_docente_workload_map(periodo_id=periodo_id)
+    workload = build_docente_workload_map(periodo_id=periodo_id)
     if teacher_ids is not None:
         workload = {key: value for key, value in workload.items() if key in teacher_ids}
     teachers_with_load = sum(1 for item in workload.values() if item.get('total_horas', 0) > 0)
@@ -363,10 +374,8 @@ def export_resumen_horas_excel(request):
 @module_permission_required('reportes', 'view')
 def export_planificacion_general_excel(request):
     """Exporta una fila consolidada por docente con su carga total."""
-    from planificacion.views import _build_docente_workload_map
-
     periodo_id, carrera_id = _export_filters(request)
-    workload_map = _build_docente_workload_map(periodo_id=periodo_id)
+    workload_map = build_docente_workload_map(periodo_id=periodo_id)
     limites = {
         limite.id_modalidad_id: limite
         for limite in LimiteHorario.objects.filter(activo=True)
@@ -445,11 +454,6 @@ def export_planificacion_general_excel(request):
 @module_permission_required('reportes', 'view')
 def export_planificacion_detallada_excel(request):
     """Exporta asignaturas, actividades y Matriz F4 en hojas separadas."""
-    from planificacion.views import (
-        _activity_workload_key, _assignment_hour_category, _excel_normalize_text,
-        _knowledge_field_maps, _registered_activity_keys,
-    )
-
     periodo_id, carrera_id = _export_filters(request)
     teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id, request.user)
     wb = Workbook()
@@ -473,14 +477,14 @@ def export_planificacion_detallada_excel(request):
     ]
     ws.append(headers)
     _style_header(ws, 1, len(headers))
-    subject_fields, teacher_fields = _knowledge_field_maps()
+    subject_fields, teacher_fields = knowledge_field_maps()
     category_labels = {
         'afinidad': 'Afinidad',
         'no_afinidad': 'No afinidad',
         'unidad_basica': 'Unidad básica',
     }
     for row_number, item in enumerate(assignments.iterator(), start=2):
-        category = _assignment_hour_category(
+        category = assignment_hour_category(
             item.id_docente_id, item.id_asignatura_id,
             item.id_campo.nombre_campo_conocimiento,
             subject_fields, teacher_fields,
@@ -540,12 +544,12 @@ def export_planificacion_detallada_excel(request):
     ]
     ws.append(headers)
     _style_header(ws, 1, len(headers))
-    activity_keys = _registered_activity_keys(periodo_id)
+    activity_keys = registered_activity_keys(periodo_id)
     seen_f4 = set()
     row_number = 2
     for item in f4_rows.iterator():
         total = (item.horas_actividad or 0) * (item.numero_paralelos_actividad or 1)
-        duplicate_key = _activity_workload_key(
+        duplicate_key = activity_workload_key(
             item.id_docente_id, item.id_periodo_id,
             item.nombre_asignatura_actividad, total,
         )
@@ -553,7 +557,7 @@ def export_planificacion_detallada_excel(request):
             continue
         f4_key = (
             item.id_docente_id, item.id_periodo_id, item.tipo_actividad,
-            _excel_normalize_text(item.nombre_asignatura_actividad),
+            normalize_workload_text(item.nombre_asignatura_actividad),
             item.horas_actividad, item.numero_paralelos_actividad,
         )
         if not carrera_id and f4_key in seen_f4:
@@ -692,158 +696,389 @@ def export_matriz_f4_mkt_excel(request):
 
 
 @login_required
-@module_permission_required('planificacion')
+@module_permission_required('reportes', 'view')
 def descargar_planificacion_original(request):
-    """
-    Clona la plantilla original EXACTA (formato, merged cells, formulas,
-    todo) y solo sobrescribe los valores de las celdas F4 con datos
-    actualizados de la BD — sin tocar merges, sin alterar estructura.
-    """
-    from pathlib import Path
-    from openpyxl import load_workbook, Workbook
-    from openpyxl.cell.cell import MergedCell
-    from copy import copy
-    from docentes.models import DocenteFcacc, DocenteTituloAcademico
-    from planificacion.models import PlanificacionMatrizF4
-    from django.db.models import Prefetch
-
-    base = Path(__file__).resolve().parents[1] / '_excel_input'
-    matches = sorted(base.glob('*MKT*.xlsx'))
-    if not matches:
-        from django.http import Http404
-        raise Http404('Archivo de planificacion original no encontrado.')
-
-    wb_src = load_workbook(matches[0])
-    ws_src = wb_src['MATRIZ F4 V1']
-
-    # ── 1) Clone original sheet cell-by-cell ──────────────────────────────
-    wb_dst = Workbook()
-    ws_dst = wb_dst.active
-    ws_dst.title = 'MATRIZ F4 V1'
-
-    for row in ws_src.iter_rows():
-        for cell in row:
-            nc = ws_dst.cell(row=cell.row, column=cell.column)
-            nc.value = cell.value
-            if cell.has_style:
-                nc.font = copy(cell.font)
-                nc.border = copy(cell.border)
-                nc.fill = copy(cell.fill)
-                nc.number_format = copy(cell.number_format)
-                nc.protection = copy(cell.protection)
-                nc.alignment = copy(cell.alignment)
-
-    for mr in ws_src.merged_cells.ranges:
-        ws_dst.merge_cells(str(mr))
-
-    for c_idx, dim in ws_src.column_dimensions.items():
-        if dim.width:
-            ws_dst.column_dimensions[c_idx].width = dim.width
-
-    for r_idx, dim in ws_src.row_dimensions.items():
-        if dim.height:
-            ws_dst.row_dimensions[r_idx].height = dim.height
-
-    # ── 2) Pre-scan template: detect F4 rows and docente-group starts ──
-    DATA_START = 8
-    MAX_ROW = ws_src.max_row or 268
-
-    template_f4_rows = []
-    first_of_group = set()
-    prev_cedula = None
-    for r in range(DATA_START, MAX_ROW + 1):
-        col1 = ws_src.cell(r, 1).value
-        col2 = ws_src.cell(r, 2).value
-        col10 = ws_src.cell(r, 10).value
-        col11 = ws_src.cell(r, 11).value
-
-        is_new = bool(col2 and str(col2).strip())
-        if is_new:
-            prev_cedula = col2
-            first_of_group.add(r)
-
-        has_f4 = bool(col10 and col11 and str(col10).strip() and str(col11).strip())
-        if has_f4:
-            template_f4_rows.append(r)
-
-    # ── 3) DB records en orden de importacion (mismo orden que el template) ──
-    records = list(
-        PlanificacionMatrizF4.objects
-        .select_related('id_docente', 'id_carrera', 'id_grado_afinidad')
-        .order_by('id_registro_f4')
+    """Genera el F4 final consolidado del módulo de planificación."""
+    from collections import OrderedDict
+    from openpyxl import load_workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from docentes.models import DocenteTituloAcademico
+    from planificacion.models import (
+        CatalogoActividadComplementaria,
+        PlanificacionActividadDocente,
+        PlanificacionMatrizF4,
     )
+    from planificacion.services import docente_tiene_afinidad
+    from django.http import Http404
+    import re
+    import unicodedata
 
-    docente_ids = list({r.id_docente_id for r in records})
-    titulos_map = {}
-    if docente_ids:
-        docs = DocenteFcacc.objects.filter(id_docente__in=docente_ids).prefetch_related(
-            Prefetch('docentetituloacademico_set', queryset=DocenteTituloAcademico.objects.all())
+    if not F4_TEMPLATE_PATH.exists():
+        raise Http404('La plantilla institucional de la Matriz F4 no está instalada.')
+
+    periodo_id, carrera_id = _export_filters(request)
+    wb_dst = load_workbook(F4_TEMPLATE_PATH)
+    if 'MATRIZ F4 V1' not in wb_dst.sheetnames:
+        raise Http404('La plantilla no contiene la hoja MATRIZ F4 V1.')
+    ws_dst = wb_dst['MATRIZ F4 V1']
+    for worksheet in list(wb_dst.worksheets):
+        if worksheet.title != 'MATRIZ F4 V1':
+            wb_dst.remove(worksheet)
+
+    def normalize_name(value):
+        value = unicodedata.normalize('NFKD', str(value or ''))
+        value = ''.join(ch for ch in value if not unicodedata.combining(ch))
+        return re.sub(r'[^A-Z0-9]+', ' ', value.upper()).strip()
+
+    # 1) Asignaturas: una línea por docente/asignatura, agrupando paralelos.
+    assignments = list(
+        _filtered_assignments(periodo_id, carrera_id, request.user)
+        .select_related(
+            'id_docente__id_tipo_docente',
+            'id_docente__id_modalidad',
+            'id_docente__id_dedicacion',
+            'id_asignatura', 'id_carrera', 'id_periodo',
         )
-        for d in docs:
-            tercer = [t.nombre_titulo for t in d.docentetituloacademico_set.all() if t.nivel_titulo == 3]
-            cuarto = [t.nombre_titulo for t in d.docentetituloacademico_set.all() if t.nivel_titulo == 4]
-            titulos_map[d.id_docente] = {
-                'tercer': tercer[0] if tercer else '',
-                'cuarto': cuarto[0] if cuarto else '',
-            }
+        .order_by(
+            'id_docente__nombres_completos',
+            'id_carrera__nombre_carrera',
+            'id_asignatura__nivel_semestre',
+            'id_asignatura__nombre_asignatura',
+            'paralelo_asignado',
+        )
+    )
+    grouped_assignments = OrderedDict()
+    represented_names = set()
+    for item in assignments:
+        affinity = docente_tiene_afinidad(item.id_docente, item.id_asignatura)
+        key = (
+            item.id_docente_id, item.id_periodo_id, item.id_carrera_id,
+            item.id_asignatura_id, item.horas_clase, affinity,
+        )
+        entry = grouped_assignments.setdefault(key, {
+            'teacher': item.id_docente,
+            'period_id': item.id_periodo_id,
+            'rank': 1,
+            'type': 'ASIGNATURA',
+            'career_or_type': item.id_carrera.nombre_carrera,
+            'name': (
+                f'{item.id_asignatura.codigo_asignatura} - '
+                f'{item.id_asignatura.nombre_asignatura} '
+                f'(Nivel {item.nivel_semestre_asignado})'
+            ),
+            'affinity': 'AFÍN' if affinity else 'NO AFÍN',
+            'hours': item.horas_clase or 0,
+            'parallels': set(),
+        })
+        entry['parallels'].add(item.paralelo_asignado or str(item.pk))
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(item.id_asignatura.nombre_asignatura),
+        ))
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(
+                f'{item.id_asignatura.codigo_asignatura} '
+                f'{item.id_asignatura.nombre_asignatura}'
+            ),
+        ))
 
-    # ── 4) Matchear DB records a template rows y sobrescribir solo valores ──
-    def _safe_write(row, col, value, fmt=None):
-        """Sobrescribe solo si la celda no es MergedCell."""
-        cell = ws_dst.cell(row, col)
-        if isinstance(cell, MergedCell):
-            return
-        cell.value = value
-        if fmt:
-            cell.number_format = fmt
+    final_rows = []
+    for entry in grouped_assignments.values():
+        entry['parallels'] = len(entry['parallels'])
+        final_rows.append(entry)
 
-    ded_cache = {}
-    def _get_ded(docente):
-        did = docente.id_docente
-        if did not in ded_cache:
-            ded_cache[did] = docente.id_dedicacion
-        return ded_cache[did]
+    # 2) Actividades complementarias registradas en el sistema.
+    teacher_scope = _teacher_ids_for_scope(
+        periodo_id, carrera_id, request.user
+    )
+    activities = (
+        PlanificacionActividadDocente.objects
+        .select_related(
+            'id_docente__id_tipo_docente',
+            'id_docente__id_modalidad',
+            'id_docente__id_dedicacion',
+            'id_periodo', 'id_actividad',
+        )
+        .order_by(
+            'id_docente__nombres_completos',
+            'id_actividad__tipo_actividad',
+            'id_actividad__nombre_actividad',
+        )
+    )
+    if periodo_id:
+        activities = activities.filter(id_periodo_id=periodo_id)
+    if teacher_scope is not None:
+        activities = activities.filter(id_docente_id__in=teacher_scope)
+    activity_labels = dict(CatalogoActividadComplementaria.TIPOS)
+    for item in activities:
+        activity_name = item.id_actividad.nombre_actividad
+        final_rows.append({
+            'teacher': item.id_docente,
+            'period_id': item.id_periodo_id,
+            'rank': 2,
+            'type': item.id_actividad.tipo_actividad,
+            'career_or_type': activity_labels.get(
+                item.id_actividad.tipo_actividad,
+                item.id_actividad.tipo_actividad,
+            ),
+            'name': (
+                f'{item.id_actividad.codigo_actividad} - {activity_name}'
+            ),
+            'affinity': 'NO APLICA',
+            'hours': item.horas_asignadas or 0,
+            'parallels': 1,
+        })
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(activity_name),
+        ))
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(
+                f'{item.id_actividad.codigo_actividad} {activity_name}'
+            ),
+        ))
 
-    seq = 0
-    prev_did = None
-    for db_rec, template_row in zip(records, template_f4_rows):
-        doc = db_rec.id_docente
-        ded = _get_ded(doc)
-        seq += 1
-        is_first = template_row in first_of_group
+    # 3) Registros históricos F4 que no están ya representados.
+    historical = (
+        PlanificacionMatrizF4.objects
+        .select_related(
+            'id_docente__id_tipo_docente',
+            'id_docente__id_modalidad',
+            'id_docente__id_dedicacion',
+            'id_carrera', 'id_periodo', 'id_grado_afinidad',
+        )
+        .order_by(
+            'id_docente__nombres_completos',
+            'tipo_actividad', 'nombre_asignatura_actividad',
+        )
+    )
+    if periodo_id:
+        historical = historical.filter(id_periodo_id=periodo_id)
+    if carrera_id:
+        historical = historical.filter(id_carrera_id=carrera_id)
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        historical = historical.filter(id_carrera_id__in=permitted)
 
-        _safe_write(template_row, 10, db_rec.id_carrera.nombre_carrera if db_rec.id_carrera else db_rec.tipo_actividad)
-        _safe_write(template_row, 11, db_rec.nombre_asignatura_actividad or '')
-        if db_rec.id_grado_afinidad:
-            _safe_write(template_row, 12, db_rec.id_grado_afinidad.nombre_grado_afinidad)
-        _safe_write(template_row, 13, db_rec.horas_actividad)
-        _safe_write(template_row, 14, db_rec.numero_paralelos_actividad)
+    historical_seen = set()
+    for item in historical:
+        name = item.nombre_asignatura_actividad or ''
+        represented_key = (
+            item.id_docente_id, item.id_periodo_id, normalize_name(name),
+        )
+        history_key = (
+            represented_key, item.horas_actividad,
+            item.numero_paralelos_actividad,
+        )
+        if represented_key in represented_names or history_key in historical_seen:
+            continue
+        historical_seen.add(history_key)
+        final_rows.append({
+            'teacher': item.id_docente,
+            'period_id': item.id_periodo_id,
+            'rank': 3,
+            'type': item.tipo_actividad,
+            'career_or_type': item.tipo_actividad or item.id_carrera.nombre_carrera,
+            'name': name,
+            'affinity': (
+                item.id_grado_afinidad.nombre_grado_afinidad
+                if item.id_grado_afinidad else 'NO APLICA'
+            ),
+            'hours': item.horas_actividad or 0,
+            'parallels': item.numero_paralelos_actividad or 1,
+        })
 
-        if is_first:
-            _safe_write(template_row, 1, seq)
-            _safe_write(template_row, 2, doc.cedula_docente, '@')
-            _safe_write(template_row, 3, doc.nombres_completos)
-            _safe_write(template_row, 5, doc.unidad_organica or '')
-            _safe_write(template_row, 7, ded.codigo_dedicacion if ded else '')
+    final_rows.sort(key=lambda item: (
+        item['teacher'].nombres_completos,
+        item['teacher'].id_docente,
+        item['rank'],
+        item['career_or_type'],
+        item['name'],
+    ))
+    rows_by_teacher = OrderedDict()
+    for row in final_rows:
+        rows_by_teacher.setdefault(row['teacher'].id_docente, []).append(row)
 
-            if doc.id_docente in titulos_map:
-                _safe_write(template_row, 8, titulos_map[doc.id_docente]['tercer'])
-                _safe_write(template_row, 9, titulos_map[doc.id_docente]['cuarto'])
-        elif doc.id_docente != prev_did:
-            pass
-        prev_did = doc.id_docente
+    # Títulos académicos para las columnas personales.
+    teacher_ids = list(rows_by_teacher)
+    titles_map = {}
+    for title in (
+        DocenteTituloAcademico.objects
+        .filter(id_docente_id__in=teacher_ids)
+        .order_by('id_docente_id', 'nivel_titulo', 'nombre_titulo')
+    ):
+        level = 'cuarto' if title.nivel_titulo >= 4 else 'tercer'
+        titles_map.setdefault(
+            title.id_docente_id, {'tercer': [], 'cuarto': []}
+        )[level].append(title.nombre_titulo)
 
-    # ── 5) Limpiar filas F4 del template que NO tienen matching en BD ──
-    matched = set(template_f4_rows[:len(records)])
-    for r in template_f4_rows[len(records):]:
-        for col in [1, 2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14]:
-            cell = ws_dst.cell(r, col)
-            if isinstance(cell, MergedCell):
-                continue
-            if cell.data_type != 'f':
-                cell.value = None
+    # 4) Conservar la plantilla institucional y retirar únicamente el contenido
+    # manual: resaltadores, apuntes laterales y filas diligenciadas.
+    original_widths = {
+        column: ws_dst.column_dimensions[get_column_letter(column)].width
+        for column in range(1, 17)
+    }
+    original_hidden_columns = {
+        column: bool(
+            ws_dst.column_dimensions[get_column_letter(column)].hidden
+        )
+        for column in range(1, 17)
+    }
+    personal_styles = {
+        column: copy(ws_dst.cell(18, column)._style)
+        for column in range(1, 10)
+    }
+    detail_styles = {
+        column: copy(ws_dst.cell(12, column)._style)
+        for column in range(10, 16)
+    }
+    load_style = copy(ws_dst.cell(18, 16)._style)
 
-    # ── 6) Responder ────────────────────────────────────────────────────
+    for merged in list(ws_dst.merged_cells.ranges):
+        if merged.min_row >= 8:
+            ws_dst.unmerge_cells(str(merged))
+    if ws_dst.max_row > 7:
+        ws_dst.delete_rows(8, ws_dst.max_row - 7)
+    if ws_dst.max_column > 16:
+        ws_dst.delete_cols(17, ws_dst.max_column - 16)
+    ws_dst.freeze_panes = 'A8'
+    if hasattr(ws_dst, 'conditional_formatting'):
+        ws_dst.conditional_formatting._cf_rules.clear()
+    if getattr(ws_dst, 'data_validations', None):
+        ws_dst.data_validations.dataValidation = []
+    for row in ws_dst.iter_rows():
+        for cell in row:
+            if cell.comment is not None:
+                cell.comment = None
+
+    # Actualizar solo los datos variables. Los títulos, logos, combinaciones y
+    # estilos de las filas 1 a 7 permanecen como en la plantilla original.
+    period = (
+        CatalogoPeriodoAcademico.objects.filter(pk=periodo_id).first()
+        if periodo_id else None
+    )
+    career = (
+        CatalogoCarrera.objects.filter(pk=carrera_id).first()
+        if carrera_id else None
+    )
+    period_text = period.nombre_periodo if period else 'TODOS LOS PERÍODOS'
+    unit_text = (
+        career.nombre_carrera if career
+        else 'CIENCIAS ADMINISTRATIVAS, CONTABLES Y COMERCIO'
+    )
+    ws_dst['A6'] = f'PERÍODO ACADÉMICO:   {period_text}'
+    ws_dst['G6'] = f'UNIDAD ACADÉMICA:    {unit_text}'
+    ws_dst['I7'] = 'Título de cuarto nivel'
+
+    # 5) Diligenciar la matriz con los datos consolidados del sistema usando
+    # estilos originales, pero sin resaltadores manuales.
+    neutral_fill = PatternFill(fill_type=None)
+    current_row = 8
+    for sequence, teacher_rows in enumerate(rows_by_teacher.values(), start=1):
+        teacher = teacher_rows[0]['teacher']
+        start_row = current_row
+        title_values = titles_map.get(
+            teacher.id_docente, {'tercer': [], 'cuarto': []}
+        )
+        teacher_type = teacher.id_tipo_docente
+        modality = teacher.id_modalidad
+        dedication = teacher.id_dedicacion
+        is_titular = bool(
+            teacher_type
+            and teacher_type.codigo_tipo_docente.upper() == 'TITULAR'
+        )
+        category = ' · '.join(filter(None, [
+            modality.nombre_modalidad if modality else '',
+            dedication.codigo_dedicacion if dedication else '',
+        ]))
+
+        for item in teacher_rows:
+            values = [
+                None, None, None, None, None, None, None, None, None,
+                item['career_or_type'], item['name'], item['affinity'],
+                item['hours'], item['parallels'], None, None,
+            ]
+            for column, value in enumerate(values, start=1):
+                ws_dst.cell(current_row, column).value = value
+            ws_dst.cell(current_row, 15).value = f'=M{current_row}*N{current_row}'
+
+            for column in range(1, 10):
+                cell = ws_dst.cell(current_row, column)
+                cell._style = copy(personal_styles[column])
+                cell.fill = copy(neutral_fill)
+            for column in range(10, 16):
+                cell = ws_dst.cell(current_row, column)
+                cell._style = copy(detail_styles[column])
+                cell.fill = copy(neutral_fill)
+            load_cell = ws_dst.cell(current_row, 16)
+            load_cell._style = copy(load_style)
+            load_cell.fill = copy(neutral_fill)
+            ws_dst.row_dimensions[current_row].height = 30
+            current_row += 1
+
+        end_row = current_row - 1
+        personal_values = {
+            1: sequence,
+            2: teacher.cedula_docente,
+            3: teacher.nombres_completos,
+            4: '',
+            5: teacher.unidad_organica or '',
+            6: 'SÍ' if is_titular else 'NO',
+            7: category,
+            8: '; '.join(title_values['tercer']),
+            9: '; '.join(title_values['cuarto']),
+        }
+        for column, value in personal_values.items():
+            ws_dst.cell(start_row, column).value = value
+            if end_row > start_row:
+                ws_dst.merge_cells(
+                    start_row=start_row, start_column=column,
+                    end_row=end_row, end_column=column,
+                )
+            cell = ws_dst.cell(start_row, column)
+            cell._style = copy(personal_styles[column])
+            cell.fill = copy(neutral_fill)
+
+        ws_dst.cell(start_row, 16).value = f'=SUM(O{start_row}:O{end_row})'
+        if end_row > start_row:
+            ws_dst.merge_cells(
+                start_row=start_row, start_column=16,
+                end_row=end_row, end_column=16,
+            )
+        load_cell = ws_dst.cell(start_row, 16)
+        load_cell._style = copy(load_style)
+        load_cell.fill = copy(neutral_fill)
+
+    data_end = current_row - 1
+    for column, width in original_widths.items():
+        dimension = ws_dst.column_dimensions[get_column_letter(column)]
+        dimension.width = width
+        dimension.hidden = original_hidden_columns[column]
+    # El título se conserva en el archivo, pero no forma parte de la vista
+    # principal solicitada para la entrega.
+    ws_dst.column_dimensions['I'].hidden = True
+    for row in range(1, data_end + 1):
+        ws_dst.row_dimensions[row].hidden = False
+    ws_dst.auto_filter.ref = (
+        f'A7:P{data_end}' if data_end >= 8 else 'A7:P7'
+    )
+    ws_dst.print_title_rows = '1:7'
+    ws_dst.print_area = f'A1:P{data_end}' if data_end >= 8 else 'A1:P7'
+    ws_dst.sheet_properties.pageSetUpPr.fitToPage = True
+    ws_dst.page_setup.fitToWidth = 1
+    ws_dst.page_setup.fitToHeight = 0
+
+    # Forzar recálculo de las fórmulas al abrir el archivo.
+    try:
+        wb_dst.calculation.fullCalcOnLoad = True
+        wb_dst.calculation.forceFullCalc = True
+        wb_dst.calculation.calcMode = 'auto'
+    except AttributeError:
+        pass
+
     from io import BytesIO
     output = BytesIO()
     wb_dst.save(output)
@@ -851,6 +1086,7 @@ def descargar_planificacion_original(request):
     content = output.read()
 
     response = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="MATRIZ_F4_V1.xlsx"'
+    filename = f'MATRIZ_F4_V1_{timezone.localdate():%Y%m%d}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Content-Length'] = len(content)
     return response

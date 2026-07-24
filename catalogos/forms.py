@@ -8,13 +8,32 @@ class CatalogoPeriodoAcademicoForm(forms.ModelForm):
     class Meta:
         model = CatalogoPeriodoAcademico
         fields = (
-            'codigo_periodo', 'nombre_periodo', 'periodo_activo',
-            'fecha_inicio_periodo', 'fecha_fin_periodo',
+            'codigo_periodo', 'nombre_periodo',
+            'fecha_inicio_periodo', 'fecha_fin_periodo', 'periodo_activo',
         )
         widgets = {
             'fecha_inicio_periodo': forms.DateInput(attrs={'type': 'date'}),
             'fecha_fin_periodo': forms.DateInput(attrs={'type': 'date'}),
         }
+
+    def clean(self):
+        cleaned = super().clean()
+        inicio = cleaned.get('fecha_inicio_periodo')
+        fin = cleaned.get('fecha_fin_periodo')
+        if inicio and fin and fin < inicio:
+            self.add_error(
+                'fecha_fin_periodo',
+                'La fecha final debe ser posterior a la fecha de inicio.',
+            )
+        return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        if commit and instance.periodo_activo:
+            CatalogoPeriodoAcademico.objects.exclude(pk=instance.pk).update(
+                periodo_activo=False
+            )
+        return instance
 
 
 class ModalidadContratacionForm(forms.ModelForm):

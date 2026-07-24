@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const carreraSelect = document.getElementById('id_id_carrera');
   const actividadCheck = document.getElementById('id_es_actividad');
   const nivelSelect = document.getElementById('id_nivel_semestre');
+  const camposSelect = document.getElementById('id_campos_conocimiento');
 
   function toggleNivel() {
     if (!nivelSelect) return;
@@ -16,6 +17,12 @@ document.addEventListener('DOMContentLoaded', function() {
     nivelSelect.required = !isAct;
     if (isAct) {
       nivelSelect.value = '';
+    }
+    if (camposSelect) {
+      const group = camposSelect.closest('.mb-3, .col-md-6, .col-12');
+      camposSelect.disabled = isAct;
+      camposSelect.required = !isAct;
+      if (group) group.style.display = isAct ? 'none' : '';
     }
   }
 

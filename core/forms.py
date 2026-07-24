@@ -213,6 +213,13 @@ class TituloForm(forms.ModelForm):
                 'class': 'form-control', 'placeholder': 'Registro Senescyt'
             }),
         }
+        labels = {
+            'id_pais': 'País',
+            'fecha_titulo': 'Fecha de obtención',
+            'registro_titulo': 'Número de registro',
+            'fecha_senecyt': 'Fecha de registro en SENESCYT',
+            'registro_senecyt': 'Registro SENESCYT',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -248,6 +255,13 @@ class PublicacionForm(forms.ModelForm):
                 'placeholder': 'Ej: Autor, Coautor, Editor'
             }),
         }
+        labels = {
+            'nombre_publicacion': 'Título de la publicación',
+            'id_tipo_publicacion': 'Tipo de publicación',
+            'fecha': 'Fecha de publicación',
+            'codigo': 'ISBN, ISSN o DOI',
+            'funcion': 'Participación',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -276,6 +290,14 @@ class DocumentoForm(forms.ModelForm):
                 'placeholder': 'Observaciones (opcional)'
             }),
             'adj_archivo': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'id_modalidad': 'Modalidad de contratación',
+            'id_dedicacion': 'Dedicación horaria',
+            'id_carrera': 'Carrera',
+            'id_periodo': 'Período académico',
+            'id_licencia': 'Licencia',
+            'adj_archivo': 'Archivo adjunto',
         }
 
     def __init__(self, *args, **kwargs):

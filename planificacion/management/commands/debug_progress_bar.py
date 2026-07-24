@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from catalogos.models import CatalogoPeriodoAcademico, LimiteHorario
-from planificacion.views import _build_docente_workload_map
+from planificacion.services import build_docente_workload_map
 from docentes.models import DocenteFcacc
 from planificacion.models import PlanificacionAsignacionDocente
 from django.db.models import Sum
@@ -18,7 +18,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Active period: {active.nombre_periodo} (id_periodo={active.id_periodo})")
 
         # 2. Build workload map
-        workload_map = _build_docente_workload_map(periodo_id=active.id_periodo)
+        workload_map = build_docente_workload_map(periodo_id=active.id_periodo)
         self.stdout.write(f"\nTeachers with workload data: {len(workload_map)}")
         self.stdout.write("-" * 120)
 

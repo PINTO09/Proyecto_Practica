@@ -1,11 +1,13 @@
 from unittest.mock import patch
 
 from django.test import RequestFactory, SimpleTestCase
+from django.forms import modelform_factory
 from django.core.exceptions import PermissionDenied
 from types import SimpleNamespace
 
 from catalogos.models import CatalogoPeriodoAcademico
-from core.crud_base import CrudListView
+from docentes.models import DocenteTituloAcademico
+from core.crud_base import CrudListView, _prepare_crud_form
 from core.forms import UsuarioCreateForm, DocenteFcaccForm
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
@@ -97,6 +99,39 @@ class CrudFieldTypeTests(SimpleTestCase):
 
         self.assertIn('fecha_inicio_periodo', context['date_fields'])
         self.assertNotIn('fecha_inicio_periodo', context['datetime_fields'])
+
+    def test_related_text_fields_are_searchable(self):
+        view = CrudListView()
+        view.model = DocenteTituloAcademico
+
+        fields = view.get_search_fields()
+
+        self.assertIn('id_docente__nombres_completos', fields)
+        self.assertIn('id_docente__cedula_docente', fields)
+
+    def test_generic_forms_use_human_labels_and_date_controls(self):
+        form_class = modelform_factory(
+            DocenteTituloAcademico,
+            fields=('id_docente', 'fecha_obtencion_titulo'),
+        )
+        form = form_class()
+        view = SimpleNamespace(
+            model=DocenteTituloAcademico,
+            form_field_order=None,
+            form_field_labels={},
+        )
+
+        _prepare_crud_form(view, form)
+
+        self.assertEqual(form.fields['id_docente'].label, 'Docente')
+        self.assertEqual(
+            form.fields['id_docente'].widget.attrs['data-searchable-select'],
+            'true',
+        )
+        self.assertEqual(
+            form.fields['fecha_obtencion_titulo'].widget.attrs['type'],
+            'date',
+        )
 
 
 class RolePermissionTests(SimpleTestCase):

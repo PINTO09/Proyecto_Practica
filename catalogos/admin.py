@@ -111,5 +111,6 @@ class CatalogoPeriodoAcademicoAdmin(SafeCatalogoAdmin):
 
 @admin.register(RelacionCarreraPeriodo)
 class RelacionCarreraPeriodoAdmin(SafeCatalogoAdmin):
-    list_display = ['id_carrera', 'id_periodo']
-    list_filter = ['id_carrera', 'id_periodo']
+    # La tabla heredada solo conserva su identificador; no expone columnas
+    # carrera/período en la base de datos actual.
+    list_display = ['id_carrera_periodo']

@@ -22,9 +22,14 @@ class HistorialLimitacionListView(CrudListView):
 
 class HistorialLimitacionCreateView(CrudCreateView):
     model = HistorialLimitacion
+    form_field_order = (
+        'id_docente', 'id_limitacion',
+        'fecha_inicio_vigencia', 'fecha_fin_vigencia',
+    )
 
 class HistorialLimitacionUpdateView(CrudUpdateView):
     model = HistorialLimitacion
+    form_field_order = HistorialLimitacionCreateView.form_field_order
 
 class HistorialLimitacionDeleteView(CrudDeleteView):
     model = HistorialLimitacion

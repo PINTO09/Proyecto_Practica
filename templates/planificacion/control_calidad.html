@@ -22,9 +22,10 @@
 
 <div class="card border-0 shadow-sm mb-4"><div class="card-body">
   <form method="get" class="row g-3 align-items-end">
-    <div class="col-md-5"><label class="form-label fw-semibold small">Periodo</label><select name="periodo" class="form-select" onchange="this.form.submit()">{% for periodo in periodos %}<option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>{{ periodo.nombre_periodo }}{% if periodo.periodo_activo %} · Activo{% endif %}</option>{% endfor %}</select></div>
-    <div class="col-md-5"><label class="form-label fw-semibold small">Tipo de observación</label><select name="severidad" class="form-select" onchange="this.form.submit()"><option value="">Todas</option><option value="error" {% if severidad == 'error' %}selected{% endif %}>Errores bloqueantes</option><option value="warning" {% if severidad == 'warning' %}selected{% endif %}>Pendientes</option></select></div>
-    <div class="col-md-2 d-grid"><a href="{% url 'planificacion:control_calidad' %}" class="btn btn-outline-secondary">Limpiar</a></div>
+    <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold small">Periodo</label><select name="periodo" class="form-select">{% for periodo in periodos %}<option value="{{ periodo.id_periodo }}" {% if periodo_id == periodo.id_periodo %}selected{% endif %}>{{ periodo.nombre_periodo }}{% if periodo.periodo_activo %} · Activo{% endif %}</option>{% endfor %}</select></div>
+    <div class="col-lg-3 col-md-6"><label class="form-label fw-semibold small">Tipo de observación</label><select name="severidad" class="form-select"><option value="">Todas</option><option value="error" {% if severidad == 'error' %}selected{% endif %}>Errores bloqueantes</option><option value="warning" {% if severidad == 'warning' %}selected{% endif %}>Pendientes</option></select></div>
+    <div class="col-lg-4 col-md-8"><label class="form-label fw-semibold small">Buscar observación</label><input type="search" name="q" value="{{ search }}" class="form-control" placeholder="Docente, asignatura, carrera o detalle"></div>
+    <div class="col-lg-2 col-md-4 d-flex gap-2"><button type="submit" class="btn btn-primary flex-grow-1"><i class="fas fa-filter me-1"></i>Filtrar</button>{% if search or severidad %}<a href="{% url 'planificacion:control_calidad' %}?periodo={{ periodo_id }}" class="btn btn-outline-secondary" title="Limpiar filtros"><i class="fas fa-xmark"></i></a>{% endif %}</div>
   </form>
 </div></div>
 

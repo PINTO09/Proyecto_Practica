@@ -24,8 +24,8 @@
       <div class="col-lg-6 col-md-7 position-relative">
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent"><i class="fas fa-magnifying-glass text-muted"></i></span>
-          <input type="search" name="q" class="form-control" placeholder="Buscar en {{ model_verbose_plural|default:model_name|lower }}..." value="{{ search_value }}" id="searchInput" aria-label="Buscar registros">
-          {% if search_value %}<a href="?cant={{ cant }}" class="btn btn-outline-secondary" title="Limpiar búsqueda" aria-label="Limpiar búsqueda"><i class="fas fa-xmark"></i></a>{% endif %}
+          <input type="search" name="q" class="form-control" placeholder="{{ search_placeholder }}" value="{{ search_value }}" id="searchInput" aria-label="Buscar registros">
+          {% if search_value %}<a href="?{% querystring q='' page='' %}" class="btn btn-outline-secondary" title="Limpiar búsqueda" aria-label="Limpiar búsqueda"><i class="fas fa-xmark"></i></a>{% endif %}
         </div>
       </div>
       <div class="col-auto">
@@ -114,24 +114,23 @@
   <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
     <ul class="pagination pagination-sm mb-0">
       {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value|urlencode }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
+      <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">Anterior</a></li>
       {% endif %}
       {% for p in elided_page_range %}
       {% if p == paginator.ELLIPSIS %}
       <li class="page-item disabled"><span class="page-link">{{ p }}</span></li>
       {% else %}
-      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value|urlencode }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
+      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?{% querystring page=p %}">{{ p }}</a></li>
       {% endif %}
       {% endfor %}
       {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value|urlencode }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
+      <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">Siguiente</a></li>
       {% endif %}
     </ul>
     <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
       <label class="small text-muted mb-0">Ir a:</label>
       <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;" aria-label="Ir a página">
-      {% if search_value %}<input type="hidden" name="q" value="{{ search_value }}">{% endif %}
-      {% if cant %}<input type="hidden" name="cant" value="{{ cant }}">{% endif %}
+      {% for key, value in request.GET.items %}{% if key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
     </form>
   </div>
 </nav>

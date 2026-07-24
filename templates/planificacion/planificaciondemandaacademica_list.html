@@ -1,0 +1,158 @@
+{% extends 'core/base_dashboard.html' %}
+{% load crud_tags %}
+
+{% block title %}Demanda académica - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-layer-group me-2 text-primary"></i>Demanda académica</h4>
+    <p class="text-muted small mb-0">Asignaturas, niveles y paralelos que deben cubrirse en cada período.</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary"><i class="fas fa-users me-1"></i>Asignaciones</a>
+    {% if can_change_records %}
+    <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nueva demanda</a>
+    {% endif %}
+  </div>
+</div>
+
+{% include 'planificacion/_planning_flow.html' %}
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="small text-muted text-uppercase fw-semibold">Demandas encontradas</div>
+      <div class="fs-3 fw-bold text-primary">{{ total_demandas }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="small text-muted text-uppercase fw-semibold">Paralelos en esta página</div>
+      <div class="fs-3 fw-bold">{{ total_paralelos }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="small text-muted text-uppercase fw-semibold">Paralelos asignados</div>
+      <div class="fs-3 fw-bold text-success">{{ total_asignados }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-lg-3">
+        <label class="form-label small fw-semibold">Período</label>
+        <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for item in periodos %}
+          <option value="{{ item.pk }}" {% if periodo_id == item.pk %}selected{% endif %}>{{ item.nombre_periodo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-3">
+        <label class="form-label small fw-semibold">Carrera</label>
+        <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todas</option>
+          {% for item in carreras %}
+          <option value="{{ item.pk }}" {% if carrera_id == item.pk %}selected{% endif %}>{{ item.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label small fw-semibold">Nivel</label>
+        <select name="nivel" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for item in level_options %}
+          <option value="{{ item }}" {% if nivel == item %}selected{% endif %}>Nivel {{ item }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-3">
+        <label class="form-label small fw-semibold">Buscar</label>
+        <input type="search" name="q" value="{{ search_value }}" class="form-control form-control-sm" placeholder="Código o asignatura">
+      </div>
+      <div class="col-lg-1 d-grid">
+        <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary" title="Limpiar filtros"><i class="fas fa-xmark"></i></a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Asignatura</th>
+            <th>Carrera</th>
+            <th>Período</th>
+            <th class="text-center">Nivel</th>
+            <th>Campo de conocimiento</th>
+            <th class="text-center">Estudiantes</th>
+            <th class="text-center">Paralelos</th>
+            <th>Cobertura</th>
+            <th class="text-end pe-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="ps-3" style="min-width:260px;">
+              <div class="fw-semibold">{{ row.id_asignatura.codigo_asignatura }}</div>
+              <div class="small text-muted">{{ row.id_asignatura.nombre_asignatura }}</div>
+            </td>
+            <td>{{ row.id_carrera.nombre_carrera }}</td>
+            <td>{{ row.id_periodo.nombre_periodo }}</td>
+            <td class="text-center">{{ row.id_asignatura.nivel_semestre }}</td>
+            <td>
+              {% for campo in row.campos_conocimiento %}
+              <span class="badge bg-info-subtle text-info me-1">{{ campo }}</span>
+              {% empty %}
+              <span class="badge bg-danger-subtle text-danger">Sin configurar</span>
+              {% endfor %}
+            </td>
+            <td class="text-center">{{ row.proyeccion_estudiantes }}</td>
+            <td class="text-center">{{ row.numero_paralelos }}</td>
+            <td style="min-width:170px;">
+              <div class="fw-semibold">{{ row.asignaciones_realizadas }}/{{ row.numero_paralelos }} asignados</div>
+              {% if row.cobertura_completa %}
+              <span class="badge bg-success">Completa</span>
+              {% else %}
+              <span class="badge bg-warning text-dark">{{ row.paralelos_pendientes }} pendiente(s)</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              {% if can_change_records %}
+              <a href="{% url update_url pk=row.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar"><i class="fas fa-pencil-alt"></i></a>
+              <a href="{% url delete_url pk=row.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar"><i class="fas fa-trash-alt"></i></a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" class="text-center py-4 text-muted">No hay demanda académica para mostrar con esos filtros.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-3">
+  <ul class="pagination pagination-sm justify-content-center">
+    {% if page_obj.has_previous %}
+    <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">Anterior</a></li>
+    {% endif %}
+    <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}
+    <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">Siguiente</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

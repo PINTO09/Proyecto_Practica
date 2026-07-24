@@ -25,6 +25,8 @@
       {% elif active_section == 'planificacionmatrizf4_list' %}
         <li class="breadcrumb-item"><a href="{% url 'planificacion:planificacion_consolidada_docentes' %}">Carga y actividades</a></li>
         <li class="breadcrumb-item active" aria-current="page">Matriz F4</li>
+      {% elif active_section == 'planificacioncapacidadespecial_list' %}
+        <li class="breadcrumb-item active" aria-current="page">Capacidades especiales</li>
       {% elif active_section == 'control_calidad' %}
         <li class="breadcrumb-item"><a href="{% url 'reportes:centro_reportes' %}">Reportes y control</a></li>
         <li class="breadcrumb-item active" aria-current="page">Control de calidad</li>
@@ -36,7 +38,7 @@
     </ol>
   </nav>
 
-  {% if active_section == 'planificaciondemandaacademica_list' or active_section == 'planificacion_paralelos_matriz' or active_section == 'planificacionasignaciondocente_list' or active_section == 'asignacion_inteligente' %}
+  {% if active_section == 'planificaciondemandaacademica_list' or active_section == 'planificacion_paralelos_matriz' or active_section == 'planificacionasignaciondocente_list' or active_section == 'asignacion_inteligente' or active_section == 'planificacioncapacidadespecial_list' %}
     <a href="{% url 'planificacion:planificacion_operativa' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Volver a Planificación</a>
   {% elif active_section == 'planificacionactividaddocente_list' %}
     <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Volver a Carga docente</a>

@@ -3,9 +3,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, ProgrammingError, OperationalError, transaction
+from django.db.models import Q
+from django.core.paginator import Paginator
 from django.urls import reverse
 from django.apps import apps
 from django.core.cache import cache
@@ -231,10 +234,12 @@ def dashboard_view(request):
             context['mis_publicaciones'] = DocentePublicacionAcademica.objects.filter(id_docente=docente_fcacc).order_by('-id_publicacion')[:5]
             periodo_activo = CatalogoPeriodoAcademico.objects.filter(periodo_activo=True).first()
             if periodo_activo:
-                from planificacion.views import _build_docente_workload_map, _empty_workload
-                wl = _build_docente_workload_map(periodo_id=periodo_activo.id_periodo).get(docente_fcacc.id_docente)
+                from planificacion.services import build_docente_workload_map, empty_workload
+                wl = build_docente_workload_map(
+                    periodo_id=periodo_activo.id_periodo
+                ).get(docente_fcacc.id_docente)
                 if wl is None:
-                    wl = _empty_workload()
+                    wl = empty_workload()
                 from catalogos.models import LimiteHorario
                 limite = LimiteHorario.objects.filter(
                     id_modalidad=docente_fcacc.id_modalidad, activo=True
@@ -513,23 +518,56 @@ def usuarios_por_rol_view(request, rol=None):
         'groups', 'alcances_carrera__carrera'
     ).order_by('-date_joined')
     title = 'Usuarios del Sistema'
-    if rol:
-        usuarios = usuarios.filter(groups__name=rol)
-        title = f'Usuarios - {rol}'
-    usuarios = list(usuarios)
+    search = (request.GET.get('q') or '').strip()
+    role_filter = rol or (request.GET.get('rol') or '').strip()
+    status_filter = (request.GET.get('estado') or '').strip()
+    if role_filter:
+        usuarios = usuarios.filter(groups__name=role_filter)
+        if rol:
+            title = f'Usuarios - {rol}'
+    if search:
+        matching_documents = DocenteFcacc.objects.filter(
+            Q(nombres_completos__icontains=search) |
+            Q(cedula_docente__icontains=search) |
+            Q(correo_institucional__icontains=search)
+        ).values_list('cedula_docente', flat=True)
+        usuarios = usuarios.filter(
+            Q(cedula__icontains=search) |
+            Q(email__icontains=search) |
+            Q(first_name__icontains=search) |
+            Q(last_name__icontains=search) |
+            Q(cedula__in=matching_documents)
+        )
+    if status_filter == 'activo':
+        usuarios = usuarios.filter(is_active=True, debe_cambiar_password=False)
+    elif status_filter == 'temporal':
+        usuarios = usuarios.filter(is_active=True, debe_cambiar_password=True)
+    elif status_filter == 'inactivo':
+        usuarios = usuarios.filter(is_active=False)
+
+    paginator = Paginator(usuarios.distinct(), 25)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    usuarios_pagina = list(page_obj.object_list)
     docentes_por_cedula = {
         item.cedula_docente: item
         for item in DocenteFcacc.objects.filter(
-            cedula_docente__in=[user.cedula for user in usuarios]
+            cedula_docente__in=[user.cedula for user in usuarios_pagina]
         )
     }
-    for user in usuarios:
+    for user in usuarios_pagina:
         user.docente_fcacc = docentes_por_cedula.get(user.cedula)
+    page_obj.object_list = usuarios_pagina
     return render(request, 'core/usuarios_list.html', {
-        'usuarios': usuarios,
+        'usuarios': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
         'active_section': 'usuarios',
         'title': title,
         'role_name': rol,
+        'role_filter': role_filter,
+        'status_filter': status_filter,
+        'search': search,
+        'role_options': Group.objects.order_by('name'),
     })
 
 
@@ -620,11 +658,37 @@ def eventos_seguridad_view(request):
     _require_admin(request.user)
     eventos = EventoSeguridad.objects.select_related(
         'actor', 'usuario_afectado'
-    ).all()[:250]
+    ).all()
+    search = (request.GET.get('q') or '').strip()
+    event_type = (request.GET.get('tipo') or '').strip()
+    date_from = (request.GET.get('desde') or '').strip()
+    date_to = (request.GET.get('hasta') or '').strip()
+    if search:
+        eventos = eventos.filter(
+            Q(actor__cedula__icontains=search) |
+            Q(usuario_afectado__cedula__icontains=search) |
+            Q(direccion_ip__icontains=search) |
+            Q(detalle__icontains=search)
+        )
+    if event_type:
+        eventos = eventos.filter(tipo=event_type)
+    if date_from:
+        eventos = eventos.filter(fecha__date__gte=date_from)
+    if date_to:
+        eventos = eventos.filter(fecha__date__lte=date_to)
+    paginator = Paginator(eventos, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'core/eventos_seguridad.html', {
-        'eventos': eventos,
+        'eventos': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
         'active_section': 'usuarios',
         'title': 'Eventos de seguridad',
+        'search': search,
+        'event_type': event_type,
+        'date_from': date_from,
+        'date_to': date_to,
+        'event_types': EventoSeguridad.TIPOS,
     })
 
 
@@ -726,7 +790,13 @@ MODULOS = {
             ('Horarios', 'planificacion:planificacionaulahorario_list', 'fa-calendar-days', 'Organizar aulas, días y horas sin cruces de docente o espacio.'),
             ('Reportes y control', 'reportes:centro_reportes', 'fa-file-excel', 'Validar la planificación y descargar reportes generales o detallados.'),
         ],
-        'modelos': [],
+        'modelos': [
+            ('Demandas Académicas', 'PlanificacionDemandaAcademica'),
+            ('Asignaciones Docentes', 'PlanificacionAsignacionDocente'),
+            ('Actividades Docentes', 'PlanificacionActividadDocente'),
+            ('Horarios y Aulas', 'PlanificacionAulaHorario'),
+            ('Matriz F4', 'PlanificacionMatrizF4'),
+        ],
     },
     'auditoria': {
         'nombre': 'Auditoría',

@@ -240,6 +240,38 @@ class PlanificacionCapacidadEspecial(models.Model):
     def __str__(self):
         return f'{self.estudiante_nombre} - {self.condicion}'
 
+    def clean(self):
+        from .services import assert_periodo_editable, normalize_parallel
+
+        if self.id_periodo_id:
+            assert_periodo_editable(self.id_periodo)
+        self.estudiante_nombre = ' '.join((self.estudiante_nombre or '').split())
+        self.nivel_asignado = (self.nivel_asignado or '').strip()
+        self.paralelo_asignado = normalize_parallel(self.paralelo_asignado)
+
+        if not self.estudiante_nombre:
+            raise ValidationError({
+                'estudiante_nombre': 'Ingrese los nombres completos del estudiante.',
+            })
+        if self.paralelo_asignado and not self.paralelo_asignado.isalpha():
+            raise ValidationError({
+                'paralelo_asignado': 'El paralelo debe contener únicamente letras.',
+            })
+        if self.id_periodo_id and self.id_carrera_id:
+            duplicate = PlanificacionCapacidadEspecial.objects.filter(
+                id_periodo_id=self.id_periodo_id,
+                id_carrera_id=self.id_carrera_id,
+                estudiante_nombre__iexact=self.estudiante_nombre,
+                nivel_asignado__iexact=self.nivel_asignado,
+                paralelo_asignado__iexact=self.paralelo_asignado,
+            )
+            if self.pk:
+                duplicate = duplicate.exclude(pk=self.pk)
+            if duplicate.exists():
+                raise ValidationError(
+                    'Este estudiante ya está registrado en el mismo período, carrera, nivel y paralelo.'
+                )
+
 
 class CargaHistorial(models.Model):
     id_carga = models.BigAutoField(primary_key=True, db_column='id_carga')

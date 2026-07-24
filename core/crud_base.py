@@ -6,6 +6,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django import forms
 from accounts.decorators import can_access_module, allowed_career_ids
 
 
@@ -28,6 +29,71 @@ def _limit_career_form_fields(form, user):
         queryset = getattr(field, 'queryset', None)
         if queryset is not None and queryset.model._meta.label_lower == 'catalogos.catalogocarrera':
             field.queryset = queryset.filter(pk__in=career_ids)
+
+
+def _prepare_crud_form(view, form):
+    """Uniforma orden, etiquetas y controles de los formularios CRUD."""
+    order = getattr(view, 'form_field_order', None)
+    if order:
+        form.order_fields(order)
+    label_overrides = getattr(view, 'form_field_labels', {}) or {}
+    for name, field in form.fields.items():
+        try:
+            model_field = view.model._meta.get_field(name)
+        except Exception:
+            model_field = None
+
+        if name in label_overrides:
+            field.label = label_overrides[name]
+        elif model_field is not None and model_field.is_relation and name.startswith('id_'):
+            label = str(model_field.related_model._meta.verbose_name)
+            label = re.sub(r'^\[[^]]+\]\s*', '', label)
+            field.label = re.sub(r'\s*\([^)]*\)\s*$', '', label)
+
+        widget = field.widget
+        current_class = widget.attrs.get('class', '')
+        if isinstance(widget, forms.CheckboxInput):
+            desired_class = 'form-check-input'
+        elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
+            desired_class = 'form-select'
+            if hasattr(field, 'empty_label') and field.empty_label == '---------':
+                field.empty_label = f'Seleccione {str(field.label).lower()}'
+        else:
+            desired_class = 'form-control'
+        widget.attrs['class'] = ' '.join(dict.fromkeys(
+            part for part in f'{current_class} {desired_class}'.split() if part
+        ))
+        if (
+            isinstance(widget, forms.Select)
+            and not isinstance(widget, forms.SelectMultiple)
+            and getattr(field, 'queryset', None) is not None
+        ):
+            related_label = field.queryset.model._meta.label_lower
+            if related_label in {
+                'catalogos.catalogocarrera',
+                'catalogos.catalogocampoconocimiento',
+                'catalogos.catalogoperiodoacademico',
+                'curriculo.curriculoasignatura',
+                'docentes.docentefcacc',
+                'planificacion.planificacionasignaciondocente',
+            }:
+                widget.attrs.setdefault('data-searchable-select', 'true')
+                widget.attrs.setdefault(
+                    'data-search-placeholder',
+                    f'Buscar {str(field.label).lower()}...',
+                )
+
+        if model_field is not None:
+            internal_type = model_field.get_internal_type()
+            if internal_type == 'DateField':
+                widget.attrs.setdefault('type', 'date')
+            elif internal_type == 'DateTimeField':
+                widget.attrs.setdefault('type', 'datetime-local')
+            elif internal_type == 'TimeField':
+                widget.attrs.setdefault('type', 'time')
+        if isinstance(widget, forms.Textarea):
+            widget.attrs.setdefault('rows', 3)
+    return form
 
 
 def _get_seguridad_user(user):
@@ -204,8 +270,20 @@ class CrudListView(LoginRequiredMixin, RoleAccessMixin, ListView):
         fields = []
         for f in self.model._meta.get_fields():
             if f.concrete and not f.auto_created and hasattr(f, 'get_internal_type'):
-                if f.get_internal_type() in ('CharField', 'TextField'):
+                if f.get_internal_type() in ('CharField', 'TextField', 'EmailField'):
                     fields.append(f.name)
+                elif f.is_relation and getattr(f, 'many_to_one', False) and f.related_model:
+                    # Los listados relacionales deben poder localizarse por el texto
+                    # que el usuario ve (docente, carrera, periodo, asignatura, etc.).
+                    for related_field in f.related_model._meta.get_fields():
+                        if (
+                            related_field.concrete
+                            and not related_field.auto_created
+                            and not related_field.is_relation
+                            and hasattr(related_field, 'get_internal_type')
+                            and related_field.get_internal_type() in ('CharField', 'TextField', 'EmailField')
+                        ):
+                            fields.append(f'{f.name}__{related_field.name}')
         return fields
 
     def get_context_data(self, **kwargs):
@@ -236,6 +314,7 @@ class CrudListView(LoginRequiredMixin, RoleAccessMixin, ListView):
         ctx['delete_url'] = f'{app}:{name}_delete'
         ctx['search_value'] = self.request.GET.get('q', '')
         ctx['search_fields'] = self.get_search_fields()
+        ctx['search_placeholder'] = f'Buscar en {getattr(model._meta, "verbose_name_plural", name).lower()}...'
         ctx['can_change_records'] = can_access_module(
             getattr(self.request, 'user', None), app, 'change'
         )
@@ -253,15 +332,34 @@ class CrudListView(LoginRequiredMixin, RoleAccessMixin, ListView):
         return ctx
 
 
+class ReadOnlyCrudListView(CrudListView):
+    """Listado informativo sin acciones de creación, edición o eliminación."""
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['can_change_records'] = False
+        return ctx
+
+
+class DisabledCrudMutationMixin:
+    """Bloquea formularios heredados que ya no deben modificar datos."""
+
+    def dispatch(self, request, *args, **kwargs):
+        raise PermissionDenied
+
+
 class CrudCreateView(LoginRequiredMixin, RoleAccessMixin, CreateView):
     access_action = 'change'
     fields = '__all__'
     template_name = 'generic_crud/form.html'
     autofill_rules = {}
+    form_field_order = None
+    form_field_labels = {}
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         _limit_career_form_fields(form, self.request.user)
+        _prepare_crud_form(self, form)
         codigo_field, _ = _find_codigo_nombre_fields(self.model)
         if codigo_field and codigo_field.name in form.fields:
             form.fields[codigo_field.name].required = False
@@ -297,6 +395,8 @@ class CrudUpdateView(LoginRequiredMixin, RoleAccessMixin, UpdateView):
     fields = '__all__'
     template_name = 'generic_crud/form.html'
     autofill_rules = {}
+    form_field_order = None
+    form_field_labels = {}
 
     def get_queryset(self):
         return _scope_queryset_by_career(super().get_queryset(), self.request.user)
@@ -304,6 +404,7 @@ class CrudUpdateView(LoginRequiredMixin, RoleAccessMixin, UpdateView):
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         _limit_career_form_fields(form, self.request.user)
+        _prepare_crud_form(self, form)
         return form
 
     def get_success_url(self):

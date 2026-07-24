@@ -8,6 +8,7 @@
     <link href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/vendor/fontawesome/css/all.min.css' %}">
     <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=azul-ui-20260722">
+    <link rel="stylesheet" href="{% static 'core/css/searchable-select.css' %}?v=20260723">
     {% block extra_css %}{% endblock %}
     <style>
         :root {
@@ -246,6 +247,7 @@
 }
 </style>
 <script src="{% static 'core/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'core/js/searchable-select.js' %}?v=20260723"></script>
 <script>
     document.getElementById('sidebarToggle')?.addEventListener('click', function(){
         document.getElementById('sidebar').classList.toggle('show');
@@ -412,6 +414,22 @@
             search.focus();
         });
     })();
+
+    // En los paneles con filtros automáticos, la búsqueda de texto se
+    // aplica tras una pausa breve. Así el botón visible puede dedicarse a
+    // limpiar el conjunto completo de filtros.
+    document.querySelectorAll('form[data-auto-filter]').forEach(form => {
+        form.querySelectorAll('[data-filter-search]').forEach(input => {
+            let timer;
+            let previousValue = input.value;
+            input.addEventListener('input', function(){
+                clearTimeout(timer);
+                if (this.value === previousValue) return;
+                previousValue = this.value;
+                timer = setTimeout(() => form.requestSubmit(), 450);
+            });
+        });
+    });
 </script>
 {% block extra_js %}{% endblock %}
 </body>

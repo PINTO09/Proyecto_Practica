@@ -33,9 +33,15 @@ class DocenteTituloAcademicoListView(CrudListView):
 
 class DocenteTituloAcademicoCreateView(CrudCreateView):
     model = DocenteTituloAcademico
+    form_field_order = (
+        'id_docente', 'nombre_titulo', 'nivel_titulo', 'id_posgrado',
+        'id_pais', 'fecha_obtencion_titulo', 'numero_registro_titulo',
+        'numero_registro_senescyt', 'fecha_registro_senescyt',
+    )
 
 class DocenteTituloAcademicoUpdateView(CrudUpdateView):
     model = DocenteTituloAcademico
+    form_field_order = DocenteTituloAcademicoCreateView.form_field_order
 
 class DocenteTituloAcademicoDeleteView(CrudDeleteView):
     model = DocenteTituloAcademico
@@ -61,9 +67,14 @@ class DocenteAsignacionCarreraPeriodoListView(CrudListView):
 
 class DocenteAsignacionCarreraPeriodoCreateView(CrudCreateView):
     model = DocenteAsignacionCarreraPeriodo
+    form_field_order = (
+        'id_periodo', 'id_carrera', 'id_docente', 'id_licencia',
+        'horas_otras_unidades_academicas', 'observacion_periodo',
+    )
 
 class DocenteAsignacionCarreraPeriodoUpdateView(CrudUpdateView):
     model = DocenteAsignacionCarreraPeriodo
+    form_field_order = DocenteAsignacionCarreraPeriodoCreateView.form_field_order
 
 class DocenteAsignacionCarreraPeriodoDeleteView(CrudDeleteView):
     model = DocenteAsignacionCarreraPeriodo
@@ -75,9 +86,14 @@ class DocenteCursoCapacitacionListView(CrudListView):
 
 class DocenteCursoCapacitacionCreateView(CrudCreateView):
     model = DocenteCursoCapacitacion
+    form_field_order = (
+        'nombre_curso_capacitacion', 'id_tipo_curso',
+        'fecha_inicio_curso', 'fecha_fin_curso', 'horas_totales_curso',
+    )
 
 class DocenteCursoCapacitacionUpdateView(CrudUpdateView):
     model = DocenteCursoCapacitacion
+    form_field_order = DocenteCursoCapacitacionCreateView.form_field_order
 
 class DocenteCursoCapacitacionDeleteView(CrudDeleteView):
     model = DocenteCursoCapacitacion
@@ -89,9 +105,11 @@ class DocenteParticipacionCursoListView(CrudListView):
 
 class DocenteParticipacionCursoCreateView(CrudCreateView):
     model = DocenteParticipacionCurso
+    form_field_order = ('id_docente', 'id_curso', 'fecha_participacion')
 
 class DocenteParticipacionCursoUpdateView(CrudUpdateView):
     model = DocenteParticipacionCurso
+    form_field_order = DocenteParticipacionCursoCreateView.form_field_order
 
 class DocenteParticipacionCursoDeleteView(CrudDeleteView):
     model = DocenteParticipacionCurso
@@ -103,9 +121,14 @@ class DocentePublicacionAcademicaListView(CrudListView):
 
 class DocentePublicacionAcademicaCreateView(CrudCreateView):
     model = DocentePublicacionAcademica
+    form_field_order = (
+        'id_docente', 'nombre_publicacion', 'id_tipo_publicacion',
+        'fecha_publicacion', 'detalle_publicacion',
+    )
 
 class DocentePublicacionAcademicaUpdateView(CrudUpdateView):
     model = DocentePublicacionAcademica
+    form_field_order = DocentePublicacionAcademicaCreateView.form_field_order
 
 class DocentePublicacionAcademicaDeleteView(CrudDeleteView):
     model = DocentePublicacionAcademica

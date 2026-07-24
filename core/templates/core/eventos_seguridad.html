@@ -1,13 +1,22 @@
 {% extends 'core/base_dashboard.html' %}
+{% load crud_tags %}
 {% block title %}Eventos de seguridad{% endblock %}
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' with active_section='usuarios' %}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <div><h4 class="fw-bold mb-1"><i class="fas fa-shield-halved text-primary me-2"></i>Eventos de seguridad</h4><p class="text-muted mb-0">Últimos 250 eventos relacionados con cuentas y credenciales.</p></div>
+  <div><h4 class="fw-bold mb-1"><i class="fas fa-shield-halved text-primary me-2"></i>Eventos de seguridad</h4><p class="text-muted mb-0">Consulta los eventos relacionados con cuentas y credenciales.</p></div>
   <a href="{% url 'core:usuarios_list' %}" class="btn btn-outline-primary">Volver a usuarios</a>
 </div>
+<div class="card border-0 shadow-sm mb-3"><div class="card-body"><form method="get" class="row g-2 align-items-end">
+  <div class="col-lg-4"><label class="form-label small fw-semibold">Buscar</label><input type="search" name="q" value="{{ search }}" class="form-control" placeholder="Cédula, IP o detalle"></div>
+  <div class="col-lg-3"><label class="form-label small fw-semibold">Tipo de evento</label><select name="tipo" class="form-select"><option value="">Todos</option>{% for value, label in event_types %}<option value="{{ value }}" {% if event_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-lg-2 col-md-4"><label class="form-label small fw-semibold">Desde</label><input type="date" name="desde" value="{{ date_from }}" class="form-control"></div>
+  <div class="col-lg-2 col-md-4"><label class="form-label small fw-semibold">Hasta</label><input type="date" name="hasta" value="{{ date_to }}" class="form-control"></div>
+  <div class="col-lg-1 col-md-4 d-flex gap-1"><button class="btn btn-primary flex-grow-1" type="submit" title="Aplicar filtros"><i class="fas fa-filter"></i></button>{% if search or event_type or date_from or date_to %}<a href="{% url 'core:eventos_seguridad' %}" class="btn btn-outline-secondary" title="Limpiar filtros"><i class="fas fa-xmark"></i></a>{% endif %}</div>
+</form></div></div>
 <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
   <thead class="table-light"><tr><th class="ps-3">Fecha</th><th>Evento</th><th>Usuario</th><th>Realizado por</th><th>IP</th><th class="pe-3">Detalle</th></tr></thead>
   <tbody>{% for event in eventos %}<tr><td class="ps-3 text-nowrap">{{ event.fecha|date:"d/m/Y H:i" }}</td><td><span class="badge bg-primary-subtle text-primary">{{ event.get_tipo_display }}</span></td><td>{{ event.usuario_afectado.cedula|default:"—" }}</td><td>{{ event.actor.cedula|default:"Sistema" }}</td><td>{{ event.direccion_ip|default:"—" }}</td><td class="pe-3">{{ event.detalle|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6" class="text-center text-muted py-4">Todavía no existen eventos registrados.</td></tr>{% endfor %}</tbody>
 </table></div></div>
+{% if page_obj.has_other_pages %}<nav class="mt-3" aria-label="Paginación de eventos"><ul class="pagination pagination-sm justify-content-center">{% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">Anterior</a></li>{% endif %}<li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ paginator.num_pages }}</span></li>{% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">Siguiente</a></li>{% endif %}</ul></nav>{% endif %}
 {% endblock %}

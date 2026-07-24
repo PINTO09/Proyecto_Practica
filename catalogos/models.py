@@ -201,13 +201,10 @@ class CatalogoPeriodoAcademico(models.Model):
 
 class RelacionCarreraPeriodo(models.Model):
     id_carrera_periodo = models.AutoField(primary_key=True, db_column='id_carrera_periodo')
-    id_carrera = models.ForeignKey(CatalogoCarrera, on_delete=models.RESTRICT, db_column='id_carrera')
-    id_periodo = models.ForeignKey(CatalogoPeriodoAcademico, on_delete=models.RESTRICT, db_column='id_periodo')
 
     class Meta:
         managed = False
         db_table = 'relacion_carrera_periodo'
-        unique_together = (('id_carrera', 'id_periodo'),)
         verbose_name = '[Relación] Carrera × Período'
         verbose_name_plural = 'M1 · Catálogos · Carreras por Período'
 

@@ -2,17 +2,18 @@ import re
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo
 from catalogos.models import LimiteHorario, CatalogoCarrera, CatalogoPeriodoAcademico
 
 from .models import (
     PlanificacionAsignacionDocente, PlanificacionActividadDocente,
-    PlanificacionAulaHorario, PlanificacionDemandaAcademica,
+    PlanificacionAulaHorario, PlanificacionCapacidadEspecial,
+    PlanificacionDemandaAcademica,
 )
 from .services import (
-    add_form_errors, docente_tiene_afinidad, parallel_labels,
+    add_form_errors, build_docente_workload_map, docente_tiene_afinidad, parallel_labels,
     validate_assignment_business_rules,
 )
 
@@ -26,13 +27,34 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         label='Paralelo', choices=[],
         help_text='Seleccione el paralelo según la demanda académica.',
     )
+    campo_conocimiento = forms.CharField(
+        label='Campo de conocimiento',
+        required=False,
+        disabled=True,
+        help_text='Se carga automáticamente desde la asignatura seleccionada.',
+    )
+    requiere_afinidad = forms.ChoiceField(
+        label='¿Requiere afinidad?',
+        choices=(
+            ('AUTO', 'Automático según el nivel'),
+            ('SI', 'Sí, exigir docente afín'),
+            ('NO', 'No, permitir cualquier docente activo'),
+        ),
+        initial='AUTO',
+        help_text=(
+            'En niveles 1–3 puede decidirse. Desde nivel 4 la afinidad '
+            'siempre es obligatoria.'
+        ),
+    )
 
     class Meta:
         model = PlanificacionAsignacionDocente
         fields = (
-            'id_periodo', 'id_carrera', 'nivel_semestre_asignado',
-            'id_asignatura', 'paralelo_asignado', 'id_campo',
-            'id_docente', 'horas_clase', 'semanas_planificadas', 'comision_servicio',
+            'id_periodo', 'id_carrera', 'id_asignatura',
+            'nivel_semestre_asignado', 'paralelo_asignado',
+            'campo_conocimiento', 'id_campo', 'requiere_afinidad',
+            'id_docente', 'horas_clase', 'semanas_planificadas',
+            'comision_servicio',
         )
         widgets = {
             'comision_servicio': forms.Textarea(attrs={'rows': 2}),
@@ -40,13 +62,30 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
             'horas_clase': forms.NumberInput(attrs={'min': 0}),
             'semanas_planificadas': forms.NumberInput(attrs={'min': 1, 'max': 30}),
         }
+        labels = {
+            'nivel_semestre_asignado': 'Nivel',
+            'id_campo': 'Campo de conocimiento',
+            'id_docente': 'Docente',
+            'horas_clase': 'Horas semanales de clase',
+            'semanas_planificadas': 'Semanas del período',
+            'comision_servicio': 'Comisión de servicio u observación',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
+        self.fields['id_campo'].widget = forms.HiddenInput()
+        self.fields['id_campo'].required = False
         self.fields['id_docente'].queryset = self.fields['id_docente'].queryset.filter(docente_activo=True).order_by('nombres_completos')
-        self.fields['id_asignatura'].queryset = CurriculoAsignatura.objects.select_related('id_carrera').order_by(
+        subjects = CurriculoAsignatura.objects.select_related('id_carrera').filter(
+            es_actividad=False
+        )
+        if self.instance and self.instance.pk and self.instance.id_asignatura_id:
+            subjects = CurriculoAsignatura.objects.select_related('id_carrera').filter(
+                Q(es_actividad=False) | Q(pk=self.instance.id_asignatura_id)
+            )
+        self.fields['id_asignatura'].queryset = subjects.order_by(
             'id_carrera__nombre_carrera', 'nivel_semestre', 'nombre_asignatura'
         )
         asignatura = None
@@ -61,22 +100,47 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
             paralelo_actual = self.instance.paralelo_asignado
             es_actividad = getattr(asignatura, 'es_actividad', False) or getattr(carrera, 'es_actividad', False)
         else:
-            raw_subj = self.initial.get('id_asignatura')
-            carr_id = self.initial.get('id_carrera')
-            per_id = self.initial.get('id_periodo')
-            if carr_id and per_id:
-                subj_id = raw_subj.pk if hasattr(raw_subj, 'pk') else raw_subj
-                carr_id_v = carr_id.pk if hasattr(carr_id, 'pk') else carr_id
-                per_id_v = per_id.pk if hasattr(per_id, 'pk') else per_id
-                if subj_id and carr_id_v and per_id_v:
-                    try:
-                        asignatura = CurriculoAsignatura.objects.get(pk=subj_id)
-                        carrera = CatalogoCarrera.objects.get(pk=carr_id_v)
-                        periodo = CatalogoPeriodoAcademico.objects.get(pk=per_id_v)
-                        es_actividad = asignatura.es_actividad or carrera.es_actividad
-                    except (CurriculoAsignatura.DoesNotExist, CatalogoCarrera.DoesNotExist, CatalogoPeriodoAcademico.DoesNotExist):
-                        pass
-            paralelo_actual = self.initial.get('paralelo_asignado', '')
+            source = self.data if self.is_bound else self.initial
+            raw_subj = source.get('id_asignatura')
+            carr_id = source.get('id_carrera')
+            per_id = source.get('id_periodo')
+            subj_id = raw_subj.pk if hasattr(raw_subj, 'pk') else raw_subj
+            carr_id_v = carr_id.pk if hasattr(carr_id, 'pk') else carr_id
+            per_id_v = per_id.pk if hasattr(per_id, 'pk') else per_id
+            try:
+                if subj_id:
+                    asignatura = CurriculoAsignatura.objects.get(pk=subj_id)
+                if carr_id_v:
+                    carrera = CatalogoCarrera.objects.get(pk=carr_id_v)
+                elif asignatura:
+                    carrera = asignatura.id_carrera
+                if per_id_v:
+                    periodo = CatalogoPeriodoAcademico.objects.get(pk=per_id_v)
+                es_actividad = (
+                    getattr(asignatura, 'es_actividad', False)
+                    or getattr(carrera, 'es_actividad', False)
+                )
+            except (
+                CurriculoAsignatura.DoesNotExist,
+                CatalogoCarrera.DoesNotExist,
+                CatalogoPeriodoAcademico.DoesNotExist,
+            ):
+                pass
+            paralelo_actual = source.get('paralelo_asignado', '')
+
+        if asignatura:
+            campo_rel = (
+                CurriculoAsignaturaCampo.objects
+                .filter(id_asignatura=asignatura)
+                .select_related('id_campo')
+                .order_by('id_asignatura_campo')
+                .first()
+            )
+            if campo_rel:
+                self.fields['id_campo'].initial = campo_rel.id_campo_id
+                self.fields['campo_conocimiento'].initial = str(
+                    campo_rel.id_campo
+                )
 
         # Populate nivel choices based on career's actual levels
         if carrera:
@@ -119,12 +183,31 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         periodo = cleaned.get('id_periodo')
         paralelo = cleaned.get('paralelo_asignado')
         campo = cleaned.get('id_campo')
+        requiere_afinidad = cleaned.get('requiere_afinidad') or 'AUTO'
 
         es_actividad = False
         if asignatura:
             es_actividad = asignatura.es_actividad
         if carrera and not es_actividad:
             es_actividad = carrera.es_actividad
+
+        if asignatura and not es_actividad:
+            campo_rel = (
+                CurriculoAsignaturaCampo.objects
+                .filter(id_asignatura=asignatura)
+                .select_related('id_campo')
+                .order_by('id_asignatura_campo')
+                .first()
+            )
+            if campo_rel:
+                campo = campo_rel.id_campo
+                cleaned['id_campo'] = campo
+                cleaned['campo_conocimiento'] = str(campo)
+            else:
+                self.add_error(
+                    'campo_conocimiento',
+                    'La asignatura no tiene un campo de conocimiento configurado.',
+                )
 
         if not es_actividad and all((asignatura, carrera, periodo, docente, campo, nivel, paralelo)):
             errors = validate_assignment_business_rules(
@@ -139,6 +222,20 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
                 instance=self.instance,
             )
             add_form_errors(self, errors)
+            if (
+                requiere_afinidad == 'SI'
+                and nivel < 4
+                and not docente_tiene_afinidad(docente, asignatura)
+            ):
+                self.add_error(
+                    'id_docente',
+                    'Seleccione un docente con afinidad para esta asignatura.',
+                )
+            if requiere_afinidad == 'NO' and nivel >= 4:
+                self.add_error(
+                    'requiere_afinidad',
+                    'Desde cuarto nivel la afinidad no puede desactivarse.',
+                )
             return cleaned
 
         if asignatura and carrera and asignatura.id_carrera_id != carrera.id_carrera:
@@ -186,11 +283,141 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         return instance
 
 
+class PlanificacionDemandaAcademicaForm(forms.ModelForm):
+    class Meta:
+        model = PlanificacionDemandaAcademica
+        fields = (
+            'id_periodo', 'id_carrera', 'id_asignatura',
+            'proyeccion_estudiantes', 'numero_paralelos',
+        )
+        widgets = {
+            'proyeccion_estudiantes': forms.NumberInput(attrs={'min': 0}),
+            'numero_paralelos': forms.NumberInput(attrs={'min': 1}),
+        }
+        labels = {
+            'proyeccion_estudiantes': 'Estudiantes proyectados',
+            'numero_paralelos': 'Número de paralelos',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['id_asignatura'].queryset = CurriculoAsignatura.objects.filter(
+            es_actividad=False
+        ).select_related('id_carrera').order_by(
+            'id_carrera__nombre_carrera', 'nivel_semestre', 'nombre_asignatura'
+        )
+        if not self.is_bound and not self.instance.pk:
+            active_period = CatalogoPeriodoAcademico.objects.filter(
+                periodo_activo=True
+            ).first()
+            if active_period:
+                self.fields['id_periodo'].initial = active_period
+        for field in self.fields.values():
+            field.widget.attrs['class'] = (
+                'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        subject = cleaned.get('id_asignatura')
+        career = cleaned.get('id_carrera')
+        projected = cleaned.get('proyeccion_estudiantes')
+        parallels = cleaned.get('numero_paralelos')
+        if subject and career and subject.id_carrera_id != career.id_carrera:
+            self.add_error(
+                'id_asignatura',
+                'La asignatura no pertenece a la carrera seleccionada.',
+            )
+        if projected is not None and projected < 0:
+            self.add_error(
+                'proyeccion_estudiantes',
+                'La proyección de estudiantes no puede ser negativa.',
+            )
+        if parallels is not None and parallels < 1:
+            self.add_error(
+                'numero_paralelos',
+                'Debe existir al menos un paralelo.',
+            )
+        return cleaned
+
+
+class PlanificacionCapacidadEspecialForm(forms.ModelForm):
+    class Meta:
+        model = PlanificacionCapacidadEspecial
+        fields = (
+            'id_periodo', 'id_carrera', 'estudiante_nombre', 'condicion',
+            'nivel_asignado', 'paralelo_asignado', 'informes_adjuntos',
+        )
+        labels = {
+            'estudiante_nombre': 'Nombres completos del estudiante',
+            'condicion': 'Condición o necesidad educativa',
+            'nivel_asignado': 'Nivel',
+            'paralelo_asignado': 'Paralelo',
+            'informes_adjuntos': 'Informes o referencias',
+        }
+        help_texts = {
+            'condicion': 'Registre únicamente la información necesaria para la planificación académica.',
+            'informes_adjuntos': (
+                'Indique el nombre, código o ubicación institucional del informe. '
+                'No incluya información médica innecesaria.'
+            ),
+        }
+        widgets = {
+            'condicion': forms.Textarea(attrs={'rows': 3}),
+            'informes_adjuntos': forms.Textarea(attrs={'rows': 3}),
+            'paralelo_asignado': forms.TextInput(attrs={
+                'maxlength': 3,
+                'data-uppercase': 'true',
+                'placeholder': 'Ej. A',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        current_period_id = self.instance.id_periodo_id if self.instance.pk else None
+        editable_periods = Q(estado_planificacion__in=('BORRADOR', 'EN_REVISION'))
+        if current_period_id:
+            editable_periods |= Q(pk=current_period_id)
+        self.fields['id_periodo'].queryset = CatalogoPeriodoAcademico.objects.filter(
+            editable_periods
+        ).order_by('-fecha_inicio_periodo', '-id_periodo')
+        self.fields['id_carrera'].queryset = self.fields['id_carrera'].queryset.filter(
+            carrera_activa=True
+        ).order_by('nombre_carrera')
+        if not self.is_bound and not self.instance.pk:
+            active_period = self.fields['id_periodo'].queryset.filter(
+                periodo_activo=True
+            ).first()
+            if active_period:
+                self.fields['id_periodo'].initial = active_period
+
+        current_level = (self.instance.nivel_asignado or '').strip() if self.instance.pk else ''
+        level_choices = [('', 'Sin especificar')] + [
+            (str(level), f'Nivel {level}') for level in range(1, 11)
+        ]
+        if current_level and current_level not in dict(level_choices):
+            level_choices.append((current_level, current_level))
+        self.fields['nivel_asignado'].widget = forms.Select(choices=level_choices)
+
+    def clean_estudiante_nombre(self):
+        return ' '.join((self.cleaned_data.get('estudiante_nombre') or '').split())
+
+    def clean_paralelo_asignado(self):
+        value = (self.cleaned_data.get('paralelo_asignado') or '').strip().upper()
+        if value and not re.fullmatch(r'[A-Z]{1,3}', value):
+            raise ValidationError('El paralelo debe contener entre 1 y 3 letras.')
+        return value
+
+
 class PlanificacionActividadDocenteForm(forms.ModelForm):
     class Meta:
         model = PlanificacionActividadDocente
-        fields = ['id_docente', 'id_periodo', 'id_actividad', 'horas_asignadas', 'observaciones']
+        fields = ['id_periodo', 'id_docente', 'id_actividad', 'horas_asignadas', 'observaciones']
         widgets = {'observaciones': forms.Textarea(attrs={'rows': 3})}
+        labels = {
+            'horas_asignadas': 'Horas semanales',
+            'observaciones': 'Observaciones',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -223,8 +450,9 @@ class PlanificacionActividadDocenteForm(forms.ModelForm):
                 'horas_asignadas',
                 f'La carga complementaria sería {total}h y supera el límite de {limite.horas_complementarias_maximas}h.',
             )
-        from .views import _build_docente_workload_map
-        workload = _build_docente_workload_map(periodo_id=periodo.id_periodo).get(docente.id_docente, {})
+        workload = build_docente_workload_map(
+            periodo_id=periodo.id_periodo
+        ).get(docente.id_docente, {})
         actual_total = workload.get('total_horas', 0) or 0
         if self.instance.pk:
             actual_total -= self.instance.horas_asignadas or 0
@@ -246,12 +474,22 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
     class Meta:
         model = PlanificacionAulaHorario
         fields = (
-            'id_periodo', 'id_asignacion', 'nombre_aula', 'turno_horario',
-            'dia_semana', 'hora_inicio', 'hora_fin', 'nivel_asignado',
+            'id_periodo', 'id_asignacion', 'dia_semana',
+            'hora_inicio', 'hora_fin', 'turno_horario',
+            'nombre_aula', 'nivel_asignado',
         )
         widgets = {
             'hora_inicio': forms.TimeInput(attrs={'type': 'time'}),
             'hora_fin': forms.TimeInput(attrs={'type': 'time'}),
+        }
+        labels = {
+            'id_asignacion': 'Asignatura, paralelo y docente',
+            'dia_semana': 'Día',
+            'hora_inicio': 'Hora de inicio',
+            'hora_fin': 'Hora de finalización',
+            'turno_horario': 'Jornada',
+            'nombre_aula': 'Aula o espacio',
+            'nivel_asignado': 'Nivel',
         }
 
     def __init__(self, *args, **kwargs):
@@ -263,5 +501,11 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
         if periodo_id:
             asignaciones = asignaciones.filter(id_periodo_id=periodo_id)
         self.fields['id_asignacion'].queryset = asignaciones
+        self.fields['id_asignacion'].label_from_instance = lambda item: (
+            f'{item.id_docente.nombres_completos} → '
+            f'{item.id_asignatura.codigo_asignatura} - '
+            f'{item.id_asignatura.nombre_asignatura} '
+            f'({item.paralelo_asignado} · {item.id_periodo.nombre_periodo})'
+        )
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'

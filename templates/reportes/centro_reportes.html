@@ -86,7 +86,7 @@
 
 <h5 class="fw-bold mb-3">Exportaciones principales</h5>
 <div class="row g-3 mb-4">
-  <div class="col-lg-6">
+  <div class="col-lg-4">
     <div class="card border-0 shadow-sm h-100">
       <div class="card-body d-flex flex-column">
         <div class="d-flex gap-3 align-items-start mb-3">
@@ -102,7 +102,7 @@
       </div>
     </div>
   </div>
-  <div class="col-lg-6">
+  <div class="col-lg-4">
     <div class="card border-0 shadow-sm h-100">
       <div class="card-body d-flex flex-column">
         <div class="d-flex gap-3 align-items-start mb-3">
@@ -114,6 +114,23 @@
         </div>
         <a href="{% url 'reportes:export_planificacion_detallada' %}?{{ export_query }}" class="btn btn-success mt-auto">
           <i class="fas fa-file-export me-1"></i>Descargar planificación detallada
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card border-primary shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex gap-3 align-items-start mb-3">
+          <div class="module-icon"><i class="fas fa-file-shield"></i></div>
+          <div>
+            <div class="badge bg-primary-subtle text-primary mb-2">Documento institucional</div>
+            <h6 class="fw-bold mb-1">Matriz F4 oficial</h6>
+            <p class="text-muted small mb-0">Informe final del módulo para cargar la planificación en el sistema de la Universidad. Usa la plantilla institucional F4 con sus logos y estructura original, limpia de resaltadores, notas y apuntes manuales.</p>
+          </div>
+        </div>
+        <a href="{% url 'reportes:descargar_planificacion_original' %}?{{ export_query }}" class="btn btn-primary mt-auto">
+          <i class="fas fa-download me-1"></i>Descargar Matriz F4 oficial
         </a>
       </div>
     </div>
@@ -135,14 +152,6 @@
       <div class="card-body d-flex justify-content-between align-items-center gap-3">
         <div><h6 class="fw-bold mb-1">Malla curricular</h6><p class="text-muted small mb-0">Asignaturas, niveles y horas de la carrera seleccionada.</p></div>
         <a href="{% url 'reportes:export_malla' %}?{{ export_query }}" class="btn btn-outline-success text-nowrap"><i class="fas fa-download me-1"></i>Excel</a>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-body d-flex justify-content-between align-items-center gap-3">
-        <div><h6 class="fw-bold mb-1">MATRIZ F4 V1 (original)</h6><p class="text-muted small mb-0">Hoja original del Excel de planificación MKT, con formato y fórmulas.</p></div>
-        <a href="{% url 'reportes:descargar_planificacion_original' %}" class="btn btn-outline-success text-nowrap"><i class="fas fa-download me-1"></i>Excel</a>
       </div>
     </div>
   </div>
