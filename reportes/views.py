@@ -571,3 +571,286 @@ def export_planificacion_detallada_excel(request):
     _finish_sheet(ws, {1: 36, 3: 30, 5: 24, 6: 38, 11: 45})
 
     return _excel_response(wb, 'planificacion_detallada')
+
+
+@login_required
+@module_permission_required('planificacion')
+def export_matriz_f4_mkt_excel(request):
+    """Exporta Matriz F4 en formato MKT (16 columnas) para el periodo y carrera actual."""
+    periodo_id = request.GET.get('periodo')
+    carrera_id = request.GET.get('carrera')
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'MATRIZ F4 V1'
+
+    headers = [
+        'N°', 'Cédula', 'Apellidos y Nombres', 'Sexo', 'Unidad Orgánica',
+        'Titular', 'Categoría', 'Título de tercer nivel', 'Título de cuarto nivel',
+        'Carrera o Tipo de Actividad', 'Asignatura o Actividad',
+        'Grado de afinidad', 'Horas', 'Paralelos', 'Total Horas', 'Carga Horaria',
+    ]
+    ws.append(headers)
+    _style_header(ws, 1, len(headers))
+
+    qs = PlanificacionMatrizF4.objects.select_related(
+        'id_docente', 'id_carrera', 'id_periodo', 'id_grado_afinidad',
+    ).order_by('id_docente__nombres_completos', 'tipo_actividad')
+
+    if periodo_id:
+        qs = qs.filter(id_periodo__codigo_periodo=periodo_id)
+    if carrera_id:
+        qs = qs.filter(id_carrera__codigo_carrera=carrera_id)
+
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        qs = qs.filter(id_carrera__codigo_carrera__in=permitted)
+
+    # Pre-fetch titulos por docente
+    from django.db.models import Q
+    titulos_qs = DocenteTituloAcademico.objects.filter(
+        id_docente__in=qs.values_list('id_docente_id', flat=True).distinct()
+    ).order_by('id_docente_id', '-nivel_titulo')
+    titulos_por_docente = {}
+    for t in titulos_qs:
+        titulos_por_docente.setdefault(t.id_docente_id, []).append(t)
+
+    row_number = 2
+    docente_actual = None
+    secuencia = 0
+    from django.db.models import Sum, F, Q
+    carga_filter = Q()
+    if periodo_id:
+        carga_filter &= Q(id_periodo__codigo_periodo=periodo_id)
+    carga_por_docente = dict(
+        PlanificacionMatrizF4.objects.filter(carga_filter)
+        .values('id_docente_id')
+        .annotate(total=Sum(F('horas_actividad') * F('numero_paralelos_actividad')))
+        .values_list('id_docente_id', 'total')
+    )
+
+    for item in qs.iterator():
+        docente = item.id_docente
+        total_linea = (item.horas_actividad or 0) * (item.numero_paralelos_actividad or 1)
+
+        if docente.id_docente != docente_actual:
+            secuencia += 1
+            docente_actual = docente.id_docente
+
+            titulos = titulos_por_docente.get(docente.id_docente, [])
+            tercer_nivel = ''
+            cuarto_nivel = ''
+            for t in titulos:
+                nt = t.nivel_titulo or 0
+                if nt >= 4:
+                    cuarto_nivel = (cuarto_nivel + '; ' + t.nombre_titulo) if cuarto_nivel else t.nombre_titulo
+                else:
+                    tercer_nivel = (tercer_nivel + '; ' + t.nombre_titulo) if tercer_nivel else t.nombre_titulo
+            if not tercer_nivel and titulos:
+                tercer_nivel = titulos[0].nombre_titulo
+
+            modalidad_text = str(docente.id_modalidad or '')
+            dedicacion_text = str(docente.id_dedicacion or '')
+            categoria = f'{modalidad_text} {dedicacion_text}'.strip()
+
+            carga = carga_por_docente.get(docente.id_docente, '')
+
+            ws.append([
+                secuencia,
+                docente.cedula_docente or '',
+                docente.nombres_completos or '',
+                '',
+                docente.unidad_organica or '',
+                '',
+                categoria,
+                tercer_nivel,
+                cuarto_nivel,
+                item.id_carrera.nombre_carrera if item.id_carrera else '',
+                item.nombre_asignatura_actividad or '',
+                str(item.id_grado_afinidad or ''),
+                item.horas_actividad or 0,
+                item.numero_paralelos_actividad or 1,
+                total_linea,
+                carga if carga else '',
+            ])
+        else:
+            ws.append([
+                '', '', '', '', '', '', '', '', '',
+                item.id_carrera.nombre_carrera if item.id_carrera else '',
+                item.nombre_asignatura_actividad or '',
+                str(item.id_grado_afinidad or ''),
+                item.horas_actividad or 0,
+                item.numero_paralelos_actividad or 1,
+                total_linea,
+                '',
+            ])
+
+        _style_data(ws, row_number, len(headers))
+        row_number += 1
+
+    _finish_sheet(ws, {1: 5, 2: 14, 3: 36, 5: 30, 7: 30, 8: 30, 9: 30, 10: 30, 11: 40, 12: 30})
+    return _excel_response(wb, 'matriz_f4_mkt')
+
+
+@login_required
+@module_permission_required('planificacion')
+def descargar_planificacion_original(request):
+    """
+    Clona la plantilla original EXACTA (formato, merged cells, formulas,
+    todo) y solo sobrescribe los valores de las celdas F4 con datos
+    actualizados de la BD — sin tocar merges, sin alterar estructura.
+    """
+    from pathlib import Path
+    from openpyxl import load_workbook, Workbook
+    from openpyxl.cell.cell import MergedCell
+    from copy import copy
+    from docentes.models import DocenteFcacc, DocenteTituloAcademico
+    from planificacion.models import PlanificacionMatrizF4
+    from django.db.models import Prefetch
+
+    base = Path(__file__).resolve().parents[1] / '_excel_input'
+    matches = sorted(base.glob('*MKT*.xlsx'))
+    if not matches:
+        from django.http import Http404
+        raise Http404('Archivo de planificacion original no encontrado.')
+
+    wb_src = load_workbook(matches[0])
+    ws_src = wb_src['MATRIZ F4 V1']
+
+    # ── 1) Clone original sheet cell-by-cell ──────────────────────────────
+    wb_dst = Workbook()
+    ws_dst = wb_dst.active
+    ws_dst.title = 'MATRIZ F4 V1'
+
+    for row in ws_src.iter_rows():
+        for cell in row:
+            nc = ws_dst.cell(row=cell.row, column=cell.column)
+            nc.value = cell.value
+            if cell.has_style:
+                nc.font = copy(cell.font)
+                nc.border = copy(cell.border)
+                nc.fill = copy(cell.fill)
+                nc.number_format = copy(cell.number_format)
+                nc.protection = copy(cell.protection)
+                nc.alignment = copy(cell.alignment)
+
+    for mr in ws_src.merged_cells.ranges:
+        ws_dst.merge_cells(str(mr))
+
+    for c_idx, dim in ws_src.column_dimensions.items():
+        if dim.width:
+            ws_dst.column_dimensions[c_idx].width = dim.width
+
+    for r_idx, dim in ws_src.row_dimensions.items():
+        if dim.height:
+            ws_dst.row_dimensions[r_idx].height = dim.height
+
+    # ── 2) Pre-scan template: detect F4 rows and docente-group starts ──
+    DATA_START = 8
+    MAX_ROW = ws_src.max_row or 268
+
+    template_f4_rows = []
+    first_of_group = set()
+    prev_cedula = None
+    for r in range(DATA_START, MAX_ROW + 1):
+        col1 = ws_src.cell(r, 1).value
+        col2 = ws_src.cell(r, 2).value
+        col10 = ws_src.cell(r, 10).value
+        col11 = ws_src.cell(r, 11).value
+
+        is_new = bool(col2 and str(col2).strip())
+        if is_new:
+            prev_cedula = col2
+            first_of_group.add(r)
+
+        has_f4 = bool(col10 and col11 and str(col10).strip() and str(col11).strip())
+        if has_f4:
+            template_f4_rows.append(r)
+
+    # ── 3) DB records en orden de importacion (mismo orden que el template) ──
+    records = list(
+        PlanificacionMatrizF4.objects
+        .select_related('id_docente', 'id_carrera', 'id_grado_afinidad')
+        .order_by('id_registro_f4')
+    )
+
+    docente_ids = list({r.id_docente_id for r in records})
+    titulos_map = {}
+    if docente_ids:
+        docs = DocenteFcacc.objects.filter(id_docente__in=docente_ids).prefetch_related(
+            Prefetch('docentetituloacademico_set', queryset=DocenteTituloAcademico.objects.all())
+        )
+        for d in docs:
+            tercer = [t.nombre_titulo for t in d.docentetituloacademico_set.all() if t.nivel_titulo == 3]
+            cuarto = [t.nombre_titulo for t in d.docentetituloacademico_set.all() if t.nivel_titulo == 4]
+            titulos_map[d.id_docente] = {
+                'tercer': tercer[0] if tercer else '',
+                'cuarto': cuarto[0] if cuarto else '',
+            }
+
+    # ── 4) Matchear DB records a template rows y sobrescribir solo valores ──
+    def _safe_write(row, col, value, fmt=None):
+        """Sobrescribe solo si la celda no es MergedCell."""
+        cell = ws_dst.cell(row, col)
+        if isinstance(cell, MergedCell):
+            return
+        cell.value = value
+        if fmt:
+            cell.number_format = fmt
+
+    ded_cache = {}
+    def _get_ded(docente):
+        did = docente.id_docente
+        if did not in ded_cache:
+            ded_cache[did] = docente.id_dedicacion
+        return ded_cache[did]
+
+    seq = 0
+    prev_did = None
+    for db_rec, template_row in zip(records, template_f4_rows):
+        doc = db_rec.id_docente
+        ded = _get_ded(doc)
+        seq += 1
+        is_first = template_row in first_of_group
+
+        _safe_write(template_row, 10, db_rec.id_carrera.nombre_carrera if db_rec.id_carrera else db_rec.tipo_actividad)
+        _safe_write(template_row, 11, db_rec.nombre_asignatura_actividad or '')
+        if db_rec.id_grado_afinidad:
+            _safe_write(template_row, 12, db_rec.id_grado_afinidad.nombre_grado_afinidad)
+        _safe_write(template_row, 13, db_rec.horas_actividad)
+        _safe_write(template_row, 14, db_rec.numero_paralelos_actividad)
+
+        if is_first:
+            _safe_write(template_row, 1, seq)
+            _safe_write(template_row, 2, doc.cedula_docente, '@')
+            _safe_write(template_row, 3, doc.nombres_completos)
+            _safe_write(template_row, 5, doc.unidad_organica or '')
+            _safe_write(template_row, 7, ded.codigo_dedicacion if ded else '')
+
+            if doc.id_docente in titulos_map:
+                _safe_write(template_row, 8, titulos_map[doc.id_docente]['tercer'])
+                _safe_write(template_row, 9, titulos_map[doc.id_docente]['cuarto'])
+        elif doc.id_docente != prev_did:
+            pass
+        prev_did = doc.id_docente
+
+    # ── 5) Limpiar filas F4 del template que NO tienen matching en BD ──
+    matched = set(template_f4_rows[:len(records)])
+    for r in template_f4_rows[len(records):]:
+        for col in [1, 2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14]:
+            cell = ws_dst.cell(r, col)
+            if isinstance(cell, MergedCell):
+                continue
+            if cell.data_type != 'f':
+                cell.value = None
+
+    # ── 6) Responder ────────────────────────────────────────────────────
+    from io import BytesIO
+    output = BytesIO()
+    wb_dst.save(output)
+    output.seek(0)
+    content = output.read()
+
+    response = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="MATRIZ_F4_V1.xlsx"'
+    response['Content-Length'] = len(content)
+    return response

@@ -10,6 +10,11 @@
     <h4 class="fw-bold mb-0"><i class="fas fa-table me-2 text-primary"></i>Matriz de Paralelos</h4>
     <p class="text-muted mb-0 mt-1">Vista matricial de asignaturas y paralelos con sus docentes asignados.</p>
   </div>
+  <div class="d-flex gap-2 flex-wrap justify-content-end">
+    <a href="{% url 'planificacion:planificaciondemandaacademica_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Demanda</a>
+    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary"><i class="fas fa-list me-1"></i>Detalle</a>
+    <a href="{% url 'planificacion:asignacion_inteligente' %}" class="btn btn-outline-primary"><i class="fas fa-wand-magic-sparkles me-1"></i>Recomendar</a>
+  </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}

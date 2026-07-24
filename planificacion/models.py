@@ -221,6 +221,26 @@ class PlanificacionAulaHorario(models.Model):
             raise ValidationError('El docente ya tiene otra clase en ese rango horario.')
 
 
+class PlanificacionCapacidadEspecial(models.Model):
+    id_capacidad = models.BigAutoField(primary_key=True, db_column='id_capacidad')
+    id_periodo = models.ForeignKey('catalogos.CatalogoPeriodoAcademico', on_delete=models.RESTRICT, db_column='id_periodo')
+    id_carrera = models.ForeignKey('catalogos.CatalogoCarrera', on_delete=models.RESTRICT, db_column='id_carrera')
+    estudiante_nombre = models.CharField(max_length=200, db_column='estudiante_nombre')
+    condicion = models.CharField(max_length=200, db_column='condicion', null=True, blank=True)
+    informes_adjuntos = models.TextField(null=True, blank=True, db_column='informes_adjuntos')
+    nivel_asignado = models.CharField(max_length=10, null=True, blank=True, db_column='nivel_asignado')
+    paralelo_asignado = models.CharField(max_length=20, null=True, blank=True, db_column='paralelo_asignado')
+
+    class Meta:
+        managed = False
+        db_table = 'planificacion_capacidad_especial'
+        verbose_name = 'Capacidad Especial'
+        verbose_name_plural = 'M5 · Planificación · Capacidades Especiales'
+
+    def __str__(self):
+        return f'{self.estudiante_nombre} - {self.condicion}'
+
+
 class CargaHistorial(models.Model):
     id_carga = models.BigAutoField(primary_key=True, db_column='id_carga')
     fecha_carga = models.DateTimeField(auto_now_add=True, db_column='fecha_carga')

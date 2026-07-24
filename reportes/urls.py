@@ -15,5 +15,7 @@ urlpatterns = [
     path('exportar/resumen-horas/', views.export_resumen_horas_excel, name='export_resumen_horas'),
     path('exportar/planificacion-general/', views.export_planificacion_general_excel, name='export_planificacion_general'),
     path('exportar/planificacion-detallada/', views.export_planificacion_detallada_excel, name='export_planificacion_detallada'),
+    path('exportar/matriz-f4-mkt/', views.export_matriz_f4_mkt_excel, name='export_matriz_f4_mkt'),
+    path('descargar/planificacion-original/', views.descargar_planificacion_original, name='descargar_planificacion_original'),
 
 ]
