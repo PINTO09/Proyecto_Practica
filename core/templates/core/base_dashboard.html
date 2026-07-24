@@ -131,6 +131,7 @@
                     <a class="nav-link{% if active_section == 'planificacionmatrizf4_list' %} active{% endif %}" href="{% url 'planificacion:planificacionmatrizf4_list' %}"><i class="fas fa-layer-group"></i><span>Matriz F4</span></a>
                     <a class="nav-link{% if active_section == 'planificacionaulahorario_list' %} active{% endif %}" href="{% url 'planificacion:planificacionaulahorario_list' %}"><i class="fas fa-calendar-days"></i><span>Horarios</span></a>
                     <a class="nav-link{% if active_section == 'centro_reportes' or active_section == 'control_calidad' %} active{% endif %}" href="{% url 'reportes:centro_reportes' %}"><i class="fas fa-file-excel"></i><span>Reportes y control</span></a>
+                    <a class="nav-link{% if active_section == 'reporte_asignacion_carreras' %} active{% endif %}" href="{% url 'planificacion:reporte_asignacion_carreras' %}"><i class="fas fa-chart-simple"></i><span>Asignación por carreras</span></a>
                 </div>
             </details>{% endif %}
 
@@ -264,7 +265,7 @@
             t.value = t.value.toUpperCase();
             if (typeof t.setSelectionRange === 'function') t.setSelectionRange(start, start);
         }
-    });
+    }); 
     const t=document.getElementById('themeToggle'),h=document.documentElement,i=document.getElementById('themeIcon'),l=document.getElementById('themeLabel');
     if(localStorage.getItem('theme')==='dark'){h.setAttribute('data-bs-theme','dark');i.className='fas fa-sun';l.textContent='Modo Claro';}
     t?.addEventListener('click',function(){
@@ -432,5 +433,19 @@
     });
 </script>
 {% block extra_js %}{% endblock %}
+<script>
+(function() {
+  const TIMEOUT_MINUTES = 15;
+  let idleTimer;
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      window.location.href = '{% url "core:logout" %}';
+    }, TIMEOUT_MINUTES * 60 * 1000);
+  }
+  ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(ev => document.addEventListener(ev, resetIdleTimer, { passive: true }));
+  resetIdleTimer();
+})();
+</script>
 </body>
 </html>

@@ -4,6 +4,15 @@
 {% block title %}Consolidado por Docente - ULEAM{% endblock %}
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
+{% block extra_css %}
+<style>
+  .bg-orange { background-color: #f39c12 !important; }
+  .badge-estado { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; }
+  .barra-carga { height: 6px; border-radius: 3px; background: #e9ecef; overflow: hidden; min-width: 80px; }
+  .barra-carga .fill { height: 100%; border-radius: 3px; transition: width .3s; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
@@ -30,14 +39,20 @@
   </div>
   <div class="col-md-3 col-6">
     <div class="card border-0 shadow-sm text-center py-3">
-      <p class="text-muted small text-uppercase fw-semibold mb-0">Sobrecargados</p>
-      <h3 class="fw-bold mb-0 text-danger">{{ sobrecargados }}</h3>
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Saturados (&gt;100%)</p>
+      <h3 class="fw-bold mb-0 text-danger">{{ saturados }}</h3>
     </div>
   </div>
   <div class="col-md-3 col-6">
     <div class="card border-0 shadow-sm text-center py-3">
-      <p class="text-muted small text-uppercase fw-semibold mb-0">En alerta</p>
-      <h3 class="fw-bold mb-0 text-warning">{{ en_alerta }}</h3>
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Completos (86-100%)</p>
+      <h3 class="fw-bold mb-0 text-warning">{{ completos }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <p class="text-muted small text-uppercase fw-semibold mb-0">Incompletos (1-85%)</p>
+      <h3 class="fw-bold mb-0 text-orange" style="color:#f39c12;">{{ incompletos }}</h3>
     </div>
   </div>
   <div class="col-md-3 col-6">
@@ -75,9 +90,10 @@
         <label class="form-label small fw-semibold">Estado</label>
         <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
           <option value="">Todos</option>
-          <option value="sobrecargado" {% if estado == 'sobrecargado' %}selected{% endif %}>Sobrecargado</option>
-          <option value="alerta" {% if estado == 'alerta' %}selected{% endif %}>Alerta</option>
-          <option value="balanceado" {% if estado == 'balanceado' %}selected{% endif %}>Balanceado</option>
+          <option value="saturado" {% if estado == 'saturado' %}selected{% endif %}>Saturado (&gt;100%)</option>
+          <option value="completo" {% if estado == 'completo' %}selected{% endif %}>Completo (100%)</option>
+          <option value="por_completar" {% if estado == 'por_completar' %}selected{% endif %}>Por completar (86-99%)</option>
+          <option value="incompleto" {% if estado == 'incompleto' %}selected{% endif %}>Incompleto (1-85%)</option>
           <option value="sin_carga" {% if estado == 'sin_carga' %}selected{% endif %}>Sin carga</option>
         </select>
       </div>
@@ -101,28 +117,16 @@
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr class="text-center small text-uppercase">
-            <th rowspan="2" class="ps-3 text-start align-middle">Docente</th>
-            <th rowspan="2" class="align-middle">Dedicación</th>
-            <th colspan="4" class="table-primary border-start">Horas de docencia</th>
-            <th colspan="6" class="table-info border-start">Actividades (no asignaturas)</th>
-            <th colspan="3" class="border-start">Carga contractual</th>
-            <th rowspan="2" class="align-middle">Detalle</th>
-            <th rowspan="2" class="text-end pe-3 align-middle">Estado</th>
-          </tr>
-          <tr class="text-center small">
-            <th class="border-start text-success" title="Asignaturas afines al perfil del docente">Afinidad</th>
-            <th class="text-danger" title="Asignaturas sin afinidad registrada">No afin.</th>
-            <th class="text-primary" title="Asignaturas del campo Unidad Básica">U. básica</th>
-            <th title="Total de horas clase">Total</th>
-            <th class="border-start">Comp.</th>
-            <th>Invest.</th>
-            <th>Gestión</th>
-            <th>Vinc.</th>
-            <th>Otras</th>
-            <th title="Total de actividades que no son asignaturas">Total</th>
-            <th class="border-start">Total</th>
+            <th class="ps-3 text-start">Docente</th>
+            <th>Dedicación</th>
+            <th>Horas clase</th>
+            <th>Actividades</th>
+            <th>Total</th>
             <th>Límite</th>
-            <th>Disp.</th>
+            <th>Disponible</th>
+            <th style="min-width:130px;">Carga</th>
+            <th style="min-width:220px;">Detalle</th>
+            <th class="text-end pe-3">Estado</th>
           </tr>
         </thead>
         <tbody>
@@ -133,22 +137,22 @@
               <div class="text-muted small">{{ row.docente.cedula_docente }}</div>
             </td>
             <td><span class="badge bg-secondary">{{ row.docente.id_dedicacion.codigo_dedicacion|default:'—' }}</span></td>
-            <td class="text-center border-start text-success fw-semibold">{{ row.workload.horas_afinidad }}</td>
-            <td class="text-center text-danger fw-semibold">{{ row.workload.horas_no_afinidad }}</td>
-            <td class="text-center text-primary fw-semibold">{{ row.workload.horas_unidad_basica }}</td>
-            <td class="text-center fw-bold">{{ row.workload.total_horas_clase }}</td>
-            <td class="text-center border-start">{{ row.workload.horas_complementarias }}</td>
-            <td class="text-center">{{ row.workload.horas_investigacion }}</td>
-            <td class="text-center">{{ row.workload.horas_gestion }}</td>
-            <td class="text-center">{{ row.workload.horas_vinculacion }}</td>
-            <td class="text-center">{{ row.workload.horas_actividad }}</td>
-            <td class="text-center fw-semibold">{{ row.workload.horas_actividades_total }}</td>
-            <td class="text-center border-start fw-bold text-primary">{{ row.workload.total_horas }}</td>
+            <td class="text-center fw-semibold">{{ row.workload.total_horas_clase }}</td>
+            <td class="text-center">{{ row.workload.horas_actividades_total }}</td>
+            <td class="text-center fw-bold text-primary">{{ row.workload.total_horas }}</td>
             <td class="text-center">{{ row.max_total }}</td>
             <td class="text-center">
               <span class="badge {% if row.available > 0 %}bg-success{% else %}bg-danger{% endif %}">{{ row.available }}h</span>
             </td>
-            <td style="min-width:190px;">
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="barra-carga flex-grow-1">
+                  <div class="fill" style="width:{% if row.max_total > 0 %}{{ row.percentage }}{% else %}0{% endif %}%;background:{% if row.percentage > 100 %}#dc3545{% elif row.percentage >= 100 %}#198754{% elif row.percentage >= 86 %}#ffc107{% elif row.percentage > 0 %}#f39c12{% else %}#e9ecef{% endif %};"></div>
+                </div>
+                <small class="text-muted" style="min-width:38px;">{{ row.percentage }}%</small>
+              </div>
+            </td>
+            <td>
               <details>
                 <summary class="small text-primary" style="cursor:pointer;">
                   {{ row.assignment_count }} asignatura{{ row.assignment_count|pluralize }}, {{ row.activity_count|add:row.f4_count }} actividad{{ row.activity_count|add:row.f4_count|pluralize:"es" }}
@@ -156,28 +160,31 @@
                 <div class="mt-2 d-flex flex-column gap-1">
                   {% for assignment in row.assignments %}
                   <span class="badge text-start {% if assignment.hour_category == 'afinidad' %}bg-success-subtle text-success{% elif assignment.hour_category == 'unidad_basica' %}bg-primary-subtle text-primary{% else %}bg-danger-subtle text-danger{% endif %}">
-                    {{ assignment.id_asignatura.codigo_asignatura }} {{ assignment.paralelo_asignado }} · {{ assignment.horas_clase }}h
+                    {{ assignment.id_asignatura.nombre_asignatura }}
                   </span>
                   {% endfor %}
                   {% for activity in row.activities %}
-                  <span class="badge bg-info-subtle text-dark text-start">{{ activity.id_actividad.nombre_actividad }} · {{ activity.horas_asignadas }}h</span>
+                  <span class="badge bg-info-subtle text-dark text-start">{{ activity.id_actividad.nombre_actividad }}</span>
                   {% endfor %}
-                  {% for activity in row.f4_activities %}
-                  <span class="badge bg-warning-subtle text-dark text-start">{{ activity.nombre_asignatura_actividad }} · {{ activity.horas_actividad }}h</span>
+                  {% for f4 in row.f4_activities %}
+                  <span class="badge bg-warning-subtle text-dark text-start">{{ f4.nombre_asignatura_actividad }}</span>
                   {% endfor %}
                   {% if not row.assignments and not row.activities and not row.f4_activities %}<span class="text-muted small">Sin carga registrada</span>{% endif %}
                 </div>
               </details>
             </td>
             <td class="text-end pe-3">
-              <div class="d-flex flex-column align-items-end gap-1">
-                <span class="badge bg-{{ row.badge }}">{{ row.status|title }}</span>
-                <small class="text-muted">{{ row.percentage }}%</small>
-              </div>
+              <span class="badge badge-estado bg-{{ row.badge }}">
+                {% if row.status == 'saturado' %}Saturado
+                {% elif row.status == 'completo' %}Completo
+                {% elif row.status == 'por_completar' %}Por completar
+                {% elif row.status == 'incompleto' %}Incompleto
+                {% else %}Sin carga{% endif %}
+              </span>
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="17" class="text-center py-4 text-muted">No hay docentes para mostrar con esos filtros</td></tr>
+          <tr><td colspan="10" class="text-center py-4 text-muted">No hay docentes para mostrar con esos filtros</td></tr>
           {% endfor %}
         </tbody>
       </table>

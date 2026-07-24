@@ -117,7 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # La sesión institucional expira después de 8 horas de inactividad y las
 # cookies no quedan disponibles para JavaScript.
-SESSION_COOKIE_AGE = 60 * 60 * 8
+SESSION_COOKIE_AGE = 15 * 60  # 15 minutes of inactivity
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True

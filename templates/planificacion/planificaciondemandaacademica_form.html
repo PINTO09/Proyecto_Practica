@@ -1,0 +1,144 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ form_title|default:model_verbose|default:model_name }} - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="fas {% if object %}fa-pen{% else %}fa-plus-circle{% endif %} me-2 text-primary"></i>{{ form_title|default:model_verbose|default:model_name }}
+    </h4>
+    <p class="text-muted mb-0 mt-1">{{ form_subtitle|default:'Complete la información del registro.' }}</p>
+  </div>
+</div>
+
+{% if show_planning_flow %}
+{% include 'planificacion/_planning_flow.html' %}
+{% endif %}
+
+{% include 'planificacion/_limit_config_alert.html' %}
+
+<div class="row g-4">
+  <div class="{% if load_summary %}col-xl-8{% else %}col-xl-9{% endif %}">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0">
+          <i class="fas fa-clipboard-check me-2 text-primary"></i>Datos del registro
+        </h6>
+      </div>
+      <div class="card-body p-4">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <p class="text-muted small mb-3"><span class="text-danger fw-bold" aria-hidden="true">*</span> Campos obligatorios</p>
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <div class="row g-3">
+          {% for field in form %}
+          <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'observaciones' or field.name == 'nivel_semestre' %}col-md-2{% else %}col-md-6{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label small fw-semibold">
+              {{ field.label }}{% if field.field.required %} <span class="text-danger" aria-hidden="true">*</span><span class="visually-hidden"> obligatorio</span>{% endif %}
+            </label>
+            {% if field.field.widget.input_type == 'checkbox' %}
+              <div class="form-check">{{ field }}</div>
+            {% else %}
+              {{ field }}
+            {% endif %}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="text-danger small mt-1" role="alert">{{ field.errors }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          </div>
+          <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+            <button type="submit" class="btn btn-primary px-4" id="submitBtn"><i class="fas fa-check me-1"></i>Guardar</button>
+            <a href="{% url list_url %}" class="btn btn-outline-secondary" id="cancelBtn"><i class="fas fa-arrow-left me-1"></i>Volver sin guardar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script id="subjectData" type="application/json">{{ subject_data_json|default:'{}'|safe }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const subjectSelect = document.getElementById('id_id_asignatura');
+  const carreraSelect = document.getElementById('id_id_carrera');
+  const nivelSelect = document.getElementById('id_nivel_semestre');
+
+  if (!subjectSelect) return;
+
+  const subjectData = JSON.parse(document.getElementById('subjectData')?.textContent || '{}');
+  const originalOptions = Array.from(subjectSelect.options).map(o => ({
+    value: o.value, text: o.text, selected: o.selected,
+    nivel: subjectData[o.value]?.n || 0,
+    carrera: subjectData[o.value]?.c || 0,
+  }));
+
+  function filterSubjects() {
+    const carrera = parseInt(carreraSelect?.value) || 0;
+    const nivel = parseInt(nivelSelect?.value) || 0;
+    const currentVal = subjectSelect.value;
+    subjectSelect.innerHTML = '<option value="">---------</option>';
+    originalOptions.forEach(o => {
+      if (o.value === '') return;
+      if (carrera > 0 && o.carrera !== carrera) return;
+      if (nivel > 0 && o.nivel !== nivel) return;
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.text;
+      if (o.value === currentVal) opt.selected = true;
+      subjectSelect.appendChild(opt);
+    });
+  }
+
+  function updateNivelChoices() {
+    if (!nivelSelect) return;
+    const carrera = parseInt(carreraSelect?.value) || 0;
+    const currentNivel = nivelSelect.value;
+    nivelSelect.innerHTML = '<option value="">--- Seleccione ---</option>';
+    const nivels = new Set();
+    originalOptions.forEach(o => {
+      if (o.value === '') return;
+      if (carrera === 0 || o.carrera === carrera) {
+        if (o.nivel > 0) nivels.add(o.nivel);
+      }
+    });
+    [...nivels].sort((a, b) => a - b).forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n;
+      opt.textContent = 'Nivel ' + n;
+      if (String(n) === String(currentNivel)) opt.selected = true;
+      nivelSelect.appendChild(opt);
+    });
+  }
+
+  if (carreraSelect) {
+    carreraSelect.addEventListener('change', function() {
+      updateNivelChoices();
+      if (!Array.from(nivelSelect.options).some(o => o.value === nivelSelect.value)) {
+        nivelSelect.value = '';
+      }
+      filterSubjects();
+    });
+  }
+
+  if (nivelSelect) {
+    nivelSelect.addEventListener('change', function() {
+      filterSubjects();
+    });
+  }
+
+  if (carreraSelect?.value) {
+    updateNivelChoices();
+  }
+  if (nivelSelect?.value) {
+    filterSubjects();
+  }
+});
+</script>
+{% endblock %}

@@ -188,8 +188,10 @@
           <td class="total-col">{{ item.total_horas_f4 }}</td>
           <td class="hours-col">{% if forloop.first %}{{ carga }}{% endif %}</td>
           <td class="actions-col">
+            {% if item.pk %}
             <a href="{% url 'planificacion:planificacionmatrizf4_update' pk=item.pk %}" class="btn btn-sm btn-outline-warning border-0 py-0 px-1" title="Editar"><i class="fas fa-pencil-alt fa-xs"></i></a>
             <a href="{% url 'planificacion:planificacionmatrizf4_delete' pk=item.pk %}" class="btn btn-sm btn-outline-danger border-0 py-0 px-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></a>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

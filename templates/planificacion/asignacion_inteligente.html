@@ -24,6 +24,15 @@
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-body">
     <form method="get" class="row g-3 align-items-end" id="filterForm">
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Periodo</label>
+        <select name="periodo" class="form-select form-select-sm" onchange="this.form.querySelector('[name=nivel]').value='';this.form.querySelector('[name=asignatura]').value='';this.form.submit()">
+          <option value="">Todos</option>
+          {% for p in periodos %}
+          <option value="{{ p.id_periodo }}" {% if periodo_id == p.id_periodo %}selected{% endif %}>{{ p.nombre_periodo }}{% if p.periodo_activo %} (Activo){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="col-md-3">
         <label class="form-label small fw-semibold">Carrera</label>
         <select name="carrera" class="form-select form-select-sm" id="filterCarrera" onchange="this.form.querySelector('[name=nivel]').value='';this.form.querySelector('[name=asignatura]').value='';this.form.submit()">
@@ -42,7 +51,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-5">
+      <div class="col-md-3">
         <label class="form-label small fw-semibold">Asignatura</label>
         <select name="asignatura" class="form-select form-select-sm" id="filterAsignatura" onchange="this.form.submit()">
           <option value="">Todas las asignaturas</option>
@@ -216,7 +225,11 @@
           </div>
           <div class="col-md-5">
             <label class="form-label small fw-semibold text-secondary mb-1">Carrera</label>
-            <select class="form-select form-select-sm border-0 bg-light" id="modalIdCarrera"></select>
+            <select class="form-select form-select-sm border-0 bg-light" id="modalIdCarrera">
+              {% for c in modal_carreras %}
+              <option value="{{ c.id_carrera }}">{{ c.nombre_carrera }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="col-md-2">
             <label class="form-label small fw-semibold text-secondary mb-1">Nivel</label>
@@ -261,20 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const modalElement = document.getElementById('asignacionModal');
   if (!modalElement || !window.bootstrap) return;
   const modal = new bootstrap.Modal(modalElement);
-  const modalCarrera = document.getElementById('modalIdCarrera');
   let currentData = {};
-
-  const carreraSelect = document.querySelector('select[name="carrera"]');
-  if (carreraSelect && modalCarrera) {
-    Array.from(carreraSelect.options).forEach(opt => {
-      if (opt.value) {
-        const clone = document.createElement('option');
-        clone.value = opt.value;
-        clone.textContent = opt.textContent;
-        modalCarrera.appendChild(clone);
-      }
-    });
-  }
 
   document.querySelectorAll('.btn-asignar').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -292,7 +292,8 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('modalAsignaturaNombre').value = currentData.asignaturaNombre;
       document.getElementById('modalNivel').value = currentData.nivel;
       document.getElementById('modalHorasClase').value = currentData.horas;
-      if (modalCarrera) modalCarrera.value = currentData.carrera;
+      const modalCarreraEl = document.getElementById('modalIdCarrera');
+      if (modalCarreraEl) modalCarreraEl.value = currentData.carrera;
       document.getElementById('modalError').classList.add('d-none');
       modal.show();
     });
@@ -308,6 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
       id_docente: parseInt(currentData.docente),
       id_asignatura: parseInt(currentData.asignatura),
       id_carrera: parseInt(document.getElementById('modalIdCarrera').value || currentData.carrera),
+      id_periodo: parseInt('{{ periodo_id|default:"0" }}') || null,
       id_campo: parseInt(document.getElementById('modalIdCampo').value) || null,
       nivel_semestre_asignado: parseInt(document.getElementById('modalNivel').value),
       paralelo_asignado: document.getElementById('modalParalelo').value || 'A',

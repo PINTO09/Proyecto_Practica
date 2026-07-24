@@ -30,8 +30,8 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
     campo_conocimiento = forms.CharField(
         label='Campo de conocimiento',
         required=False,
-        disabled=True,
-        help_text='Se carga automáticamente desde la asignatura seleccionada.',
+        widget=forms.TextInput(attrs={'readonly': 'readonly', 'class': 'form-control-plaintext'}),
+        help_text='Campos de conocimiento asociados a la asignatura.',
     )
     requiere_afinidad = forms.ChoiceField(
         label='¿Requiere afinidad?',
@@ -42,16 +42,16 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
         ),
         initial='AUTO',
         help_text=(
-            'En niveles 1–3 puede decidirse. Desde nivel 4 la afinidad '
-            'siempre es obligatoria.'
+            'Automático: según el nivel. SI: exige docente con afinidad. '
+            'NO: permite cualquier docente activo.'
         ),
     )
 
     class Meta:
         model = PlanificacionAsignacionDocente
         fields = (
-            'id_periodo', 'id_carrera', 'id_asignatura',
-            'nivel_semestre_asignado', 'paralelo_asignado',
+            'id_periodo', 'id_carrera', 'nivel_semestre_asignado',
+            'id_asignatura', 'paralelo_asignado',
             'campo_conocimiento', 'id_campo', 'requiere_afinidad',
             'id_docente', 'horas_clase', 'semanas_planificadas',
             'comision_servicio',
@@ -73,7 +73,9 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            if name == 'campo_conocimiento':
+                continue
             field.widget.attrs['class'] = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
         self.fields['id_campo'].widget = forms.HiddenInput()
         self.fields['id_campo'].required = False
@@ -85,6 +87,22 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
             subjects = CurriculoAsignatura.objects.select_related('id_carrera').filter(
                 Q(es_actividad=False) | Q(pk=self.instance.id_asignatura_id)
             )
+        # Filter subjects by Demanda Académica for selected period/carrera
+        source = self.data if self.is_bound else self.initial
+        demanda_periodo = source.get('id_periodo')
+        if demanda_periodo:
+            demanda_carrera = source.get('id_carrera')
+            demanda_filter = {'id_periodo_id': demanda_periodo.pk if hasattr(demanda_periodo, 'pk') else demanda_periodo}
+            if demanda_carrera:
+                car_id = demanda_carrera.pk if hasattr(demanda_carrera, 'pk') else demanda_carrera
+                demanda_filter['id_carrera_id'] = car_id
+            demanda_ids = list(PlanificacionDemandaAcademica.objects.filter(**demanda_filter).values_list('id_asignatura_id', flat=True))
+            if demanda_ids:
+                subjects = subjects.filter(id_asignatura__in=demanda_ids)
+            else:
+                subjects = subjects.none()
+        else:
+            subjects = subjects.none()
         self.fields['id_asignatura'].queryset = subjects.order_by(
             'id_carrera__nombre_carrera', 'nivel_semestre', 'nombre_asignatura'
         )
@@ -129,18 +147,16 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
             paralelo_actual = source.get('paralelo_asignado', '')
 
         if asignatura:
-            campo_rel = (
+            campos_qs = (
                 CurriculoAsignaturaCampo.objects
                 .filter(id_asignatura=asignatura)
                 .select_related('id_campo')
                 .order_by('id_asignatura_campo')
-                .first()
             )
-            if campo_rel:
-                self.fields['id_campo'].initial = campo_rel.id_campo_id
-                self.fields['campo_conocimiento'].initial = str(
-                    campo_rel.id_campo
-                )
+            if campos_qs:
+                nombres = [str(rel.id_campo) for rel in campos_qs]
+                self.fields['id_campo'].initial = campos_qs[0].id_campo_id
+                self.fields['campo_conocimiento'].initial = ' · '.join(nombres)
 
         # Populate nivel choices based on career's actual levels
         if carrera:
@@ -221,21 +237,21 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
                 horas_clase=cleaned.get('horas_clase'),
                 instance=self.instance,
             )
-            add_form_errors(self, errors)
-            if (
-                requiere_afinidad == 'SI'
-                and nivel < 4
-                and not docente_tiene_afinidad(docente, asignatura)
-            ):
-                self.add_error(
-                    'id_docente',
-                    'Seleccione un docente con afinidad para esta asignatura.',
-                )
-            if requiere_afinidad == 'NO' and nivel >= 4:
-                self.add_error(
-                    'requiere_afinidad',
-                    'Desde cuarto nivel la afinidad no puede desactivarse.',
-                )
+            ##if (
+                ##requiere_afinidad == 'SI'
+                ##and nivel < 4
+              ##  and not docente_tiene_afinidad(docente, asignatura)
+            ##):
+                ######    'id_docente',
+              ########  self.add_error(
+                  ####  'Seleccione un docente con afinidad para esta asignatura.',
+               ## )
+           ## if requiere_afinidad == 'NO' and nivel >= 4:
+            ##add_form_errors(self, errors)
+              ##  self.add_error(
+                 ####   'requiere_afinidad',
+                ##    'Desde cuarto nivel la afinidad no puede desactivarse.',
+              ##  )
             return cleaned
 
         if asignatura and carrera and asignatura.id_carrera_id != carrera.id_carrera:
@@ -257,7 +273,7 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
                 )
 
         if not es_actividad and asignatura and docente and (nivel or asignatura.nivel_semestre) >= 4:
-            if not docente_tiene_afinidad(docente, asignatura):
+            if requiere_afinidad != 'NO' and not docente_tiene_afinidad(docente, asignatura):
                 self.add_error(
                     'id_docente',
                     'Desde cuarto nivel solo se permiten docentes con afinidad registrada para la asignatura.',
@@ -284,10 +300,17 @@ class PlanificacionAsignacionDocenteForm(forms.ModelForm):
 
 
 class PlanificacionDemandaAcademicaForm(forms.ModelForm):
+    nivel_semestre = forms.ChoiceField(
+        label='Nivel',
+        choices=[('', '--- Seleccione ---')] + [(str(i), f'Nivel {i}') for i in range(1, 11)],
+        required=False,
+    )
+
     class Meta:
         model = PlanificacionDemandaAcademica
         fields = (
-            'id_periodo', 'id_carrera', 'id_asignatura',
+            'id_periodo', 'id_carrera',
+            'id_asignatura',
             'proyeccion_estudiantes', 'numero_paralelos',
         )
         widgets = {
@@ -312,22 +335,56 @@ class PlanificacionDemandaAcademicaForm(forms.ModelForm):
             ).first()
             if active_period:
                 self.fields['id_periodo'].initial = active_period
+
+        # Move nivel_semestre so it renders after id_carrera
+        nivel_key = 'nivel_semestre'
+        self.fields[nivel_key] = self.fields.pop(nivel_key)
+        order = ['id_periodo', 'id_carrera', nivel_key, 'id_asignatura', 'proyeccion_estudiantes', 'numero_paralelos']
+        self.order_fields(order)
+
+        # Pre-populate nivel_semestre from instance's subject when editing
+        if self.instance.pk and self.instance.id_asignatura_id:
+            self.fields[nivel_key].initial = str(self.instance.id_asignatura.nivel_semestre)
+
         for field in self.fields.values():
             field.widget.attrs['class'] = (
                 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
             )
 
+        # Filter subjects when bound
+        if self.is_bound:
+            carrera_id = self.data.get('id_carrera')
+            nivel = self.data.get('nivel_semestre')
+            qs = self.fields['id_asignatura'].queryset
+            if carrera_id:
+                qs = qs.filter(id_carrera_id=carrera_id)
+            if nivel:
+                qs = qs.filter(nivel_semestre=nivel)
+            self.fields['id_asignatura'].queryset = qs
+
     def clean(self):
         cleaned = super().clean()
         subject = cleaned.get('id_asignatura')
         career = cleaned.get('id_carrera')
+        nivel = cleaned.get('nivel_semestre')
         projected = cleaned.get('proyeccion_estudiantes')
         parallels = cleaned.get('numero_paralelos')
-        if subject and career and subject.id_carrera_id != career.id_carrera:
-            self.add_error(
-                'id_asignatura',
-                'La asignatura no pertenece a la carrera seleccionada.',
-            )
+
+        if nivel and not nivel.isdigit():
+            self.add_error('nivel_semestre', 'Seleccione un nivel válido.')
+            return cleaned
+
+        if subject:
+            if career and subject.id_carrera_id != career.id_carrera:
+                self.add_error(
+                    'id_asignatura',
+                    'La asignatura no pertenece a la carrera seleccionada.',
+                )
+            if nivel and int(nivel) != subject.nivel_semestre:
+                self.add_error(
+                    'id_asignatura',
+                    f'La asignatura pertenece al nivel {subject.nivel_semestre}, no al nivel seleccionado.',
+                )
         if projected is not None and projected < 0:
             self.add_error(
                 'proyeccion_estudiantes',

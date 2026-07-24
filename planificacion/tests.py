@@ -31,8 +31,8 @@ class PlanificacionRulesTests(SimpleTestCase):
     def test_planning_forms_follow_the_workflow_order(self):
         assignment_fields = list(PlanificacionAsignacionDocenteForm().fields)
         self.assertLess(
-            assignment_fields.index('id_asignatura'),
             assignment_fields.index('nivel_semestre_asignado'),
+            assignment_fields.index('id_asignatura'),
         )
         self.assertEqual(
             list(PlanificacionActividadDocenteForm().fields)[:3],
@@ -46,7 +46,7 @@ class PlanificacionRulesTests(SimpleTestCase):
     def test_assignment_id_is_automatic_and_field_is_textual(self):
         form = PlanificacionAsignacionDocenteForm()
         self.assertNotIn('id_asignacion', form.fields)
-        self.assertTrue(form.fields['campo_conocimiento'].disabled)
+        self.assertTrue(form.fields['campo_conocimiento'].widget.attrs.get('readonly'))
         self.assertEqual(
             form.fields['id_campo'].widget.input_type,
             'hidden',

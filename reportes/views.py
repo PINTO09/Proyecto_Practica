@@ -11,12 +11,13 @@ from openpyxl.utils import get_column_letter
 from docentes.models import DocenteFcacc, DocenteTituloAcademico, DocenteCampoAfinidad
 from planificacion.models import (
     PlanificacionActividadDocente, PlanificacionAsignacionDocente,
-    PlanificacionMatrizF4,
+    PlanificacionDemandaAcademica, PlanificacionMatrizF4,
 )
 from planificacion.services import (
     activity_workload_key, assignment_hour_category,
     build_docente_workload_map, knowledge_field_maps,
-    normalize_workload_text, registered_activity_keys,
+    normalize_parallel, normalize_workload_text, parallel_labels,
+    registered_activity_keys,
 )
 from curriculo.models import CurriculoAsignatura
 from catalogos.models import (
@@ -82,8 +83,11 @@ def _excel_response(workbook, prefix):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    filename = f'{prefix}_{timezone.localdate():%Y%m%d}.xlsx'
+    filename = f'{prefix}_{timezone.localtime():%Y%m%d_%H%M%S}.xlsx'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
     workbook.save(response)
     return response
 
@@ -995,62 +999,56 @@ def descargar_planificacion_original(request):
             dedication.codigo_dedicacion if dedication else '',
         ]))
 
-        for item in teacher_rows:
-            values = [
-                None, None, None, None, None, None, None, None, None,
-                item['career_or_type'], item['name'], item['affinity'],
-                item['hours'], item['parallels'], None, None,
-            ]
-            for column, value in enumerate(values, start=1):
-                ws_dst.cell(current_row, column).value = value
-            ws_dst.cell(current_row, 15).value = f'=M{current_row}*N{current_row}'
+        end_row = current_row + len(teacher_rows) - 1
+        for i, item in enumerate(teacher_rows):
+            row = current_row
+            personal_values = {
+                1: sequence if i == 0 else '',
+                2: teacher.cedula_docente,
+                3: teacher.nombres_completos,
+                4: '',
+                5: teacher.unidad_organica or '',
+                6: 'SÍ' if is_titular else 'NO',
+                7: category,
+                8: '; '.join(title_values['tercer']),
+                9: '; '.join(title_values['cuarto']),
+            }
+            detail_values = {
+                10: item['career_or_type'],
+                11: item['name'],
+                12: item['affinity'],
+                13: item['hours'],
+                14: item['parallels'],
+            }
+            for column, value in {**personal_values, **detail_values}.items():
+                ws_dst.cell(row, column).value = value
+            ws_dst.cell(row, 15).value = f'=M{row}*N{row}'
+            ws_dst.cell(row, 16).value = f'=SUM(O{start_row}:O{end_row})' if i == 0 else ''
 
             for column in range(1, 10):
-                cell = ws_dst.cell(current_row, column)
+                cell = ws_dst.cell(row, column)
                 cell._style = copy(personal_styles[column])
                 cell.fill = copy(neutral_fill)
             for column in range(10, 16):
-                cell = ws_dst.cell(current_row, column)
+                cell = ws_dst.cell(row, column)
                 cell._style = copy(detail_styles[column])
                 cell.fill = copy(neutral_fill)
-            load_cell = ws_dst.cell(current_row, 16)
+            load_cell = ws_dst.cell(row, 16)
             load_cell._style = copy(load_style)
             load_cell.fill = copy(neutral_fill)
-            ws_dst.row_dimensions[current_row].height = 30
+            ws_dst.row_dimensions[row].height = 30
             current_row += 1
 
-        end_row = current_row - 1
-        personal_values = {
-            1: sequence,
-            2: teacher.cedula_docente,
-            3: teacher.nombres_completos,
-            4: '',
-            5: teacher.unidad_organica or '',
-            6: 'SÍ' if is_titular else 'NO',
-            7: category,
-            8: '; '.join(title_values['tercer']),
-            9: '; '.join(title_values['cuarto']),
-        }
-        for column, value in personal_values.items():
-            ws_dst.cell(start_row, column).value = value
-            if end_row > start_row:
+        if end_row > start_row:
+            for column in [1, 4, 8, 9]:
                 ws_dst.merge_cells(
                     start_row=start_row, start_column=column,
                     end_row=end_row, end_column=column,
                 )
-            cell = ws_dst.cell(start_row, column)
-            cell._style = copy(personal_styles[column])
-            cell.fill = copy(neutral_fill)
-
-        ws_dst.cell(start_row, 16).value = f'=SUM(O{start_row}:O{end_row})'
-        if end_row > start_row:
             ws_dst.merge_cells(
                 start_row=start_row, start_column=16,
                 end_row=end_row, end_column=16,
             )
-        load_cell = ws_dst.cell(start_row, 16)
-        load_cell._style = copy(load_style)
-        load_cell.fill = copy(neutral_fill)
 
     data_end = current_row - 1
     for column, width in original_widths.items():
@@ -1086,7 +1084,75 @@ def descargar_planificacion_original(request):
     content = output.read()
 
     response = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    filename = f'MATRIZ_F4_V1_{timezone.localdate():%Y%m%d}.xlsx'
+    filename = f'MATRIZ_F4_V1_{timezone.localtime():%Y%m%d_%H%M%S}.xlsx'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Content-Length'] = len(content)
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
     return response
+
+
+@login_required
+@module_permission_required('reportes', 'view')
+def export_reporte_asignacion_carreras(request):
+    periodo_id, carrera_id = _export_filters(request)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Asignación por carreras'
+    headers = ['Carrera', 'Asignatura', 'Nivel', 'Paralelo', 'Horas', 'Docente asignado']
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=h)
+    _style_header(ws, 1, len(headers))
+
+    permitted = allowed_career_ids(request.user)
+
+    # Solo asignaturas con Demanda
+    demandas_qs = PlanificacionDemandaAcademica.objects.select_related('id_asignatura', 'id_carrera').all()
+    if periodo_id:
+        demandas_qs = demandas_qs.filter(id_periodo_id=periodo_id)
+    if permitted is not None:
+        demandas_qs = demandas_qs.filter(id_carrera_id__in=permitted)
+    if carrera_id:
+        demandas_qs = demandas_qs.filter(id_carrera_id=carrera_id)
+    demandas_qs = demandas_qs.order_by(
+        'id_carrera__nombre_carrera', 'id_asignatura__nivel_semestre', 'id_asignatura__nombre_asignatura'
+    )
+
+    # Asignaciones del periodo
+    asignaciones_qs = PlanificacionAsignacionDocente.objects.all()
+    if periodo_id:
+        asignaciones_qs = asignaciones_qs.filter(id_periodo_id=periodo_id)
+    if permitted is not None:
+        asignaciones_qs = asignaciones_qs.filter(id_carrera_id__in=permitted)
+    if carrera_id:
+        asignaciones_qs = asignaciones_qs.filter(id_carrera_id=carrera_id)
+    asignadas = {}
+    asignaciones_horas = {}
+    for asig_id, carr_id, paralelo, horas in asignaciones_qs.values_list(
+        'id_asignatura_id', 'id_carrera_id', 'paralelo_asignado', 'horas_clase'
+    ):
+        key = (asig_id, carr_id, normalize_parallel(paralelo))
+        asignadas[key] = True
+        if key not in asignaciones_horas:
+            asignaciones_horas[key] = horas
+
+    row = 2
+    for d in demandas_qs:
+        paralelos = parallel_labels(d.numero_paralelos)
+        for p in paralelos:
+            a_key = (d.id_asignatura_id, d.id_carrera_id, p)
+            tiene = a_key in asignadas
+            horas = asignaciones_horas.get(a_key, d.id_asignatura.horas_semanales_asignatura or 0)
+            docente = '✅' if tiene else '🚫'
+            ws.cell(row=row, column=1, value=str(d.id_carrera))
+            ws.cell(row=row, column=2, value=str(d.id_asignatura))
+            ws.cell(row=row, column=3, value=d.id_asignatura.nivel_semestre)
+            ws.cell(row=row, column=4, value=p)
+            ws.cell(row=row, column=5, value=horas)
+            ws.cell(row=row, column=6, value=docente)
+            _style_data(ws, row, len(headers))
+            row += 1
+
+    _finish_sheet(ws, {1: 30, 2: 45, 3: 8, 4: 10, 5: 8, 6: 18})
+    return _excel_response(wb, 'asignacion_por_carreras')

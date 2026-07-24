@@ -45,6 +45,7 @@ urlpatterns = [
     path('periodo/<int:periodo_id>/estado/', views.cambiar_estado_periodo, name='cambiar_estado_periodo'),
     path('periodo/<int:periodo_id>/copiar/', views.copiar_planificacion_periodo, name='copiar_planificacion_periodo'),
     path('asignacion-inteligente/', views.asignacion_inteligente, name='asignacion_inteligente'),
+    path('reporte-asignacion-carreras/', views.reporte_asignacion_carreras, name='reporte_asignacion_carreras'),
     path('paralelos-matriz/', views.planificacion_paralelos_matriz, name='planificacion_paralelos_matriz'),
     path('api/asignatura-info/', views.api_asignatura_info, name='api_asignatura_info'),
     path('api/recommendations/', views.api_recommendations, name='api_recommendations'),

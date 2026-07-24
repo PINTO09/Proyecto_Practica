@@ -302,8 +302,8 @@ def validate_assignment_business_rules(
         id_asignatura=asignatura, id_campo=campo,
     ).exists():
         errors['id_campo'] = 'El campo seleccionado no corresponde a esta asignatura.'
-    if asignatura and docente and nivel >= 4 and not docente_tiene_afinidad(docente, asignatura):
-        errors['id_docente'] = 'Desde cuarto nivel solo se permiten docentes con afinidad registrada.'
+   ## if asignatura and docente and nivel >= 4 and not docente_tiene_afinidad(docente, asignatura):
+     ##   errors['id_docente'] = 'Desde cuarto nivel solo se permiten docentes con afinidad registrada.'
     expected_hours = asignatura.horas_semanales_asignatura or 0 if asignatura else 0
     if asignatura and horas_clase <= 0:
         errors['horas_clase'] = 'Las horas de clase deben ser mayores que cero.'

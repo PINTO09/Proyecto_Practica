@@ -64,7 +64,7 @@
               {% else %}
               {{ field }}
               {% endif %}
-              {% if field.help_text and field.name != 'requiere_afinidad' %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
               {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
             </div>
             {% endfor %}
@@ -415,10 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if (horasInput) horasInput.value = data.horas_clase;
           if (campoSelect) campoSelect.value = data.id_campo || '';
           if (campoText) campoText.value = data.campo_nombre || 'Sin campo configurado';
-          if (requiereAfinidadSelect && data.nivel_semestre_asignado >= 4) {
-            requiereAfinidadSelect.value = 'SI';
-            requiereAfinidadSelect.disabled = true;
-          } else if (requiereAfinidadSelect) {
+          if (requiereAfinidadSelect) {
             requiereAfinidadSelect.disabled = false;
           }
           if (data.es_actividad) {
