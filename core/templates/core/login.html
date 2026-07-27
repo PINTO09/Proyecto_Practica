@@ -7,13 +7,13 @@
     <title>Iniciar Sesión - ULEAM</title>
     <link href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/vendor/fontawesome/css/all.min.css' %}">
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=azul-ui-20260722">
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=password-toggle-20260727">
 </head>
 <body>
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <img src="{% static 'core/img/logo.png' %}" alt="Logo ULEAM" class="uleam-logo">
+                <img src="{% static 'core/img/logo.png' %}?v=fcacc-20260727" alt="Logo FCACC" class="uleam-logo">
                 <h4>UNIVERSIDAD LAICA</h4>
                 <p>"ELOY ALFARO" DE MANABÍ</p>
                 <p class="mb-0">Sistema de Gestión</p>
@@ -41,7 +41,14 @@
                         <label for="id_password" class="form-label small fw-semibold">
                             <i class="fas fa-lock me-2"></i>Contraseña
                         </label>
-                        {{ form.password }}
+                        <div class="password-field">
+                            {{ form.password }}
+                            <button type="button" class="password-toggle"
+                                    data-password-toggle data-password-target="id_password"
+                                    aria-label="Mostrar contraseña" aria-pressed="false">
+                                <i class="fas fa-eye" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100 py-2">
@@ -54,5 +61,6 @@
             </div>
         </div>
     </div>
+    <script src="{% static 'core/js/password-toggle.js' %}?v=20260727"></script>
 </body>
 </html>

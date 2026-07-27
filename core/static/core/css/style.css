@@ -758,6 +758,47 @@ a {
     padding: 2rem;
 }
 
+.password-field {
+    position: relative;
+}
+
+.password-field .form-control {
+    padding-right: 3rem;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.35rem;
+    transform: translateY(-50%);
+    display: inline-grid;
+    place-items: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    color: var(--uleam-blue);
+    background: rgba(37, 99, 235, 0.08);
+}
+
+.password-toggle:focus-visible {
+    color: var(--uleam-blue);
+    outline: 3px solid rgba(37, 99, 235, 0.24);
+    outline-offset: 1px;
+}
+
+[data-bs-theme="dark"] .password-toggle:hover {
+    color: #bfdbfe;
+    background: rgba(96, 165, 250, 0.12);
+}
+
 .login-footer {
     background: #f8fafc;
     padding: 0.8rem 2rem;

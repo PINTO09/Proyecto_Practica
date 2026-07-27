@@ -7,8 +7,8 @@
 <div class="login-container">
     <div class="login-card">
         <div class="login-header text-center">
-            <img src="{% static 'core/img/logo.png' %}"
-                 alt="Escudo ULEAM" class="uleam-logo mb-3">
+            <img src="{% static 'core/img/logo.png' %}?v=fcacc-20260727"
+                 alt="Logo FCACC" class="uleam-logo mb-3">
             <h1 class="h4 mb-1">UNIVERSIDAD LAICA</h1>
             <h2 class="h5 mb-3">"ELOY ALFARO" DE MANABÍ</h2>
             <p class="text-white-50 mb-0">Portal Estudiantes</p>
@@ -29,7 +29,14 @@
                 </div>
                 <div class="mb-3">
                     <label for="id_password" class="form-label">Contraseña</label>
-                    {{ form.password }}
+                    <div class="password-field">
+                        {{ form.password }}
+                        <button type="button" class="password-toggle"
+                                data-password-toggle data-password-target="id_password"
+                                aria-label="Mostrar contraseña" aria-pressed="false">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-uleam w-100 mt-2">
                     <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar
@@ -46,4 +53,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'core/js/password-toggle.js' %}?v=20260727"></script>
 {% endblock %}
