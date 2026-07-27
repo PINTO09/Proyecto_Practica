@@ -83,6 +83,24 @@ def _scope_careers(queryset, request):
     return queryset.filter(id_carrera__in=permitted)
 
 
+def _careers_with_planning_data(request=None):
+    from planificacion.models import PlanificacionAsignacionDocente, PlanificacionMatrizF4
+    asg_ids = PlanificacionAsignacionDocente.objects.values_list('id_carrera_id', flat=True).distinct()
+    f4_ids = PlanificacionMatrizF4.objects.values_list('id_carrera_id', flat=True).distinct()
+    ids = set(asg_ids) | set(f4_ids)
+    qs = CatalogoCarrera.objects.filter(id_carrera__in=ids, carrera_activa=True)
+    if request is not None:
+        qs = _scope_careers(qs, request)
+    return qs.order_by('nombre_carrera')
+
+
+def _nombre_sin_codigo(nombre):
+    if not nombre:
+        return nombre
+    import re
+    return re.sub(r'^[A-Z0-9\-–—]+\s*[-–—]\s*', '', nombre).strip()
+
+
 def _build_parallel_label(index):
     label = ''
     current = index
@@ -1214,6 +1232,10 @@ class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, Le
         total_horas_consolidadas = sum(r.total_horas_f4 for r in all_rows)
         docentes_con_f4 = len(set(r.id_docente.id_docente for r in all_rows))
 
+        # ── 5b) Agregar nombre_display sin código para la tabla ──────────
+        for row in all_rows:
+            row.nombre_display = _nombre_sin_codigo(row.nombre_asignatura_actividad)
+
         # ── 6) Tipos disponibles ──────────────────────────────────────────
         tipos = list(
             PlanificacionMatrizF4.objects.exclude(tipo_actividad__isnull=True)
@@ -1249,7 +1271,7 @@ class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, Le
             'limit_config': _build_limit_config_state(),
             'filter_querystring': _filter_querystring(self.request),
             'periodos': CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo'),
-            'carreras': _scope_careers(CatalogoCarrera.objects.filter(carrera_activa=True), self.request).order_by('nombre_carrera'),
+            'carreras': _careers_with_planning_data(self.request),
             'docentes': DocenteFcacc.objects.filter(docente_activo=True).order_by('nombres_completos'),
             'tipos': tipos,
             'periodo_id': int(self.request.GET['periodo']) if self.request.GET.get('periodo') else None,

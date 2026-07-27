@@ -38,7 +38,7 @@
   <div class="d-flex gap-2 flex-wrap">
     <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Carga docente</a>
     <a href="{% url 'reportes:centro_reportes' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export me-1"></i>Reportes y descargas</a>
-    <a href="{% url 'planificacion:planificacionmatrizf4_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i>Nueva F4</a>
+    <a href="{% url 'reportes:export_matriz_f4_filtrada' %}?{{ filter_querystring }}" class="btn btn-sm btn-success"><i class="fas fa-file-excel me-1"></i>Exportar filtrados</a>
   </div>
 </div>
 
@@ -181,7 +181,7 @@
             <span class="badge bg-warning-subtle text-dark" style="font-size:0.75rem;">{{ item.tipo_actividad }}</span>
             <div class="small text-muted">{{ item.id_carrera.nombre_carrera|truncatechars:28 }}</div>
           </td>
-          <td>{{ item.nombre_asignatura_actividad|default:'-' }}</td>
+          <td>{{ item.nombre_display|default:'-' }}</td>
           <td>{{ item.id_grado_afinidad|default:'-' }}</td>
           <td class="hours-col">{{ item.horas_actividad }}</td>
           <td class="hours-col">{{ item.numero_paralelos_actividad }}</td>

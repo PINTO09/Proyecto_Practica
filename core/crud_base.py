@@ -127,6 +127,8 @@ def _model_to_dict(instance):
                     val = val.pk
                 elif val is not None and hasattr(val, 'isoformat'):
                     val = val.isoformat()
+                elif val is not None and hasattr(val, 'url') and hasattr(val, 'name'):
+                    val = val.name
                 result[field.attname] = val
             except Exception:
                 result[field.attname] = None

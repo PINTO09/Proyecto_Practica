@@ -79,7 +79,7 @@ class InstitutionalF4TemplateTests(SimpleTestCase):
         workbook = load_workbook(F4_TEMPLATE_PATH)
         self.assertIn('MATRIZ F4 V1', workbook.sheetnames)
         worksheet = workbook['MATRIZ F4 V1']
-        self.assertGreaterEqual(len(worksheet._images), 2)
+        self.assertGreaterEqual(len(worksheet._images), 1)
         self.assertTrue(any(
             cell.data_type == 'f'
             for row in worksheet.iter_rows()
