@@ -878,13 +878,8 @@ a {
 }
 
 @media (max-width: 991.98px) {
-    :root {
-        --sidebar-width: 260px;
-    }
-}
-
-@media (max-width: 767.98px) {
     .sidebar {
+        width: min(320px, 88vw);
         transform: translateX(-100%);
     }
 
@@ -916,12 +911,248 @@ a {
         padding: 0.65rem 1rem;
     }
 
+    body.sidebar-open {
+        overflow: hidden;
+        touch-action: none;
+    }
+}
+
+@media (max-width: 767.98px) {
     .topbar-user small {
         display: none;
     }
 
     .display-5 {
         font-size: 1.85rem;
+    }
+}
+
+/* ===== RESPONSIVE GLOBAL ===== */
+html {
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+    max-width: 100%;
+}
+
+.content-area,
+.content-area > *,
+.card,
+.card-body,
+.row > * {
+    min-width: 0;
+}
+
+.content-area :is(h1, h2, h3, h4, h5, h6, p, a, span, td, th, label) {
+    overflow-wrap: anywhere;
+}
+
+.table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.table-responsive > table {
+    width: 100%;
+}
+
+.modal-dialog {
+    max-width: min(var(--bs-modal-width, 500px), calc(100vw - 1.5rem));
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 991.98px) {
+    .content-area > .d-flex.justify-content-between,
+    .content-area .page-heading {
+        align-items: flex-start !important;
+    }
+
+    .content-area .page-heading > :last-child,
+    .content-area > .d-flex.justify-content-between > :last-child {
+        max-width: 100%;
+    }
+
+    .content-area .table-responsive > table {
+        min-width: 680px;
+    }
+
+    .content-area .card-header > .d-flex {
+        flex-wrap: wrap;
+    }
+
+    .planning-pagination {
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .content-area {
+        padding: 0.75rem;
+    }
+
+    .topbar {
+        min-height: 56px;
+        padding: 0.55rem 0.75rem;
+    }
+
+    .topbar-user .dropdown-menu {
+        max-width: calc(100vw - 1.5rem);
+    }
+
+    .content-area .page-heading,
+    .content-area > .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 0.75rem !important;
+        margin-bottom: 1rem !important;
+    }
+
+    .content-area .page-heading > *,
+    .content-area .page-heading > :last-child,
+    .content-area > .d-flex.justify-content-between > *,
+    .content-area > .d-flex.justify-content-between > :last-child {
+        width: 100%;
+    }
+
+    .content-area .page-heading > :last-child:is(.btn),
+    .content-area .page-heading > :last-child > .btn,
+    .content-area .page-heading > :last-child > form,
+    .content-area > .d-flex.justify-content-between > :last-child > .btn,
+    .content-area > .d-flex.justify-content-between > :last-child > form {
+        width: 100%;
+    }
+
+    .content-area .page-heading > :last-child > form .btn,
+    .content-area > .d-flex.justify-content-between > :last-child > form .btn {
+        width: 100%;
+    }
+
+    .content-area h4 {
+        font-size: clamp(1.1rem, 5.5vw, 1.4rem);
+    }
+
+    .card-header,
+    .card-body {
+        padding: 0.9rem;
+    }
+
+    .card-body.p-0 {
+        padding: 0 !important;
+    }
+
+    .content-area form.row > [class*="col-"],
+    .content-area form.row > .col {
+        width: 100%;
+    }
+
+    .content-area form.row .d-grid .btn,
+    .content-area form.row > [class*="col-"] > .btn {
+        width: 100%;
+    }
+
+    .content-area .input-group {
+        flex-wrap: nowrap;
+    }
+
+    .content-area .input-group > .form-control,
+    .content-area .input-group > .form-select {
+        min-width: 0;
+    }
+
+    .form-control,
+    .form-select {
+        font-size: 1rem;
+    }
+
+    .content-area .table-responsive {
+        margin-left: -1px;
+        margin-right: -1px;
+        border-radius: 6px;
+    }
+
+    .content-area .table-responsive > table {
+        min-width: 640px;
+        font-size: 0.82rem;
+    }
+
+    .table > thead > tr > th,
+    .table > tbody > tr > td {
+        padding: 0.65rem 0.75rem;
+    }
+
+    .planning-flow {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .planning-flow a {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+        white-space: normal;
+    }
+
+    .pagination {
+        flex-wrap: nowrap;
+        width: max-content;
+        min-width: 100%;
+        justify-content: center;
+    }
+
+    .modal-dialog {
+        margin-top: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .modal-body,
+    .modal-header,
+    .modal-footer {
+        padding: 0.9rem;
+    }
+
+    .modal-footer {
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 399.98px) {
+    .content-area {
+        padding: 0.55rem;
+    }
+
+    .planning-flow {
+        grid-template-columns: 1fr;
+    }
+
+    .content-area .row > .col-6 {
+        width: 100%;
+    }
+
+    .content-area .d-flex.gap-2:not(.input-group),
+    .content-area .d-flex.gap-3:not(.input-group) {
+        flex-wrap: wrap;
+    }
+
+    .login-container {
+        padding: 0.75rem;
+    }
+
+    .login-header,
+    .login-body {
+        padding: 1.25rem;
+    }
+
+    .uleam-logo {
+        width: 76px;
+        height: 76px;
     }
 }
 

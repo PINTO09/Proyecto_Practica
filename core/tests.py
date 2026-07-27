@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from pathlib import Path
 
 from django.test import RequestFactory, SimpleTestCase
 from django.forms import modelform_factory
@@ -15,6 +16,34 @@ from datetime import timedelta
 from accounts.decorators import can_access_module, module_permission_required
 from accounts.middleware import ForcePasswordChangeMiddleware
 from core.management.commands.load_schema import split_sql_statements
+
+
+class ResponsiveLayoutTests(SimpleTestCase):
+    def setUp(self):
+        core_dir = Path(__file__).resolve().parent
+        self.layout = (
+            core_dir / 'templates/core/base_dashboard.html'
+        ).read_text(encoding='utf-8')
+        self.styles = (
+            core_dir / 'static/core/css/style.css'
+        ).read_text(encoding='utf-8')
+
+    def test_layout_has_mobile_viewport_and_tablet_menu_toggle(self):
+        self.assertIn('name="viewport"', self.layout)
+        self.assertIn('btn-collapse d-lg-none', self.layout)
+        self.assertIn('aria-controls="sidebar"', self.layout)
+
+    def test_sidebar_switches_to_drawer_on_tablets(self):
+        self.assertIn('@media (max-width: 991.98px)', self.styles)
+        self.assertIn('body.sidebar-open', self.styles)
+        self.assertIn('width: min(320px, 88vw)', self.styles)
+
+    def test_narrow_content_has_horizontal_table_fallback(self):
+        self.assertIn('-webkit-overflow-scrolling: touch', self.styles)
+        self.assertIn(
+            '.content-area .table-responsive > table',
+            self.styles,
+        )
 
 
 class SqlSplitterTests(SimpleTestCase):

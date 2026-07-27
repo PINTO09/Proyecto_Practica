@@ -7,7 +7,7 @@
     <title>{% block title %}Dashboard - ULEAM{% endblock %}</title>
     <link href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/vendor/fontawesome/css/all.min.css' %}">
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=azul-ui-20260722">
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=responsive-20260727">
     <link rel="stylesheet" href="{% static 'core/css/searchable-select.css' %}?v=20260723">
     {% block extra_css %}{% endblock %}
     <style>
@@ -47,7 +47,7 @@
             .content-area { padding: 1rem; }
             .planning-flow a { flex: 1 1 130px; justify-content: center; }
         }
-        @media (max-width: 767.98px) {
+        @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); transition: transform 0.28s ease; }
             .sidebar.show { transform: translateX(0); }
             .sidebar-overlay {
@@ -70,7 +70,7 @@
 <a class="skip-link" href="#mainContent">Saltar al contenido principal</a>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 <div class="wrapper">
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" aria-label="Menú principal">
         <div class="sidebar-brand">
             <div class="sidebar-brand-inner">
                 <img src="{% static 'core/img/logo.png' %}" alt="" class="sidebar-brand-logo">
@@ -165,7 +165,8 @@
     </aside>
     <div class="main-content">
         <header class="topbar">
-            <button class="btn-collapse d-md-none" id="sidebarToggle" type="button">
+            <button class="btn-collapse d-lg-none" id="sidebarToggle" type="button"
+                    aria-label="Abrir menú principal" aria-controls="sidebar" aria-expanded="false">
                 <i class="fas fa-bars"></i>
             </button>
             <div class="topbar-user dropdown">
@@ -250,14 +251,37 @@
 <script src="{% static 'core/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
 <script src="{% static 'core/js/searchable-select.js' %}?v=20260723"></script>
 <script>
-    document.getElementById('sidebarToggle')?.addEventListener('click', function(){
-        document.getElementById('sidebar').classList.toggle('show');
-        document.getElementById('sidebarOverlay').classList.toggle('show');
-    });
-    document.getElementById('sidebarOverlay')?.addEventListener('click', function(){
-        document.getElementById('sidebar').classList.remove('show');
-        document.getElementById('sidebarOverlay').classList.remove('show');
-    });
+    (function(){
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggle = document.getElementById('sidebarToggle');
+        const mobileQuery = window.matchMedia('(max-width: 991.98px)');
+
+        const setSidebar = open => {
+            if (!sidebar || !overlay || !toggle) return;
+            const shouldOpen = Boolean(open && mobileQuery.matches);
+            sidebar.classList.toggle('show', shouldOpen);
+            overlay.classList.toggle('show', shouldOpen);
+            document.body.classList.toggle('sidebar-open', shouldOpen);
+            toggle.setAttribute('aria-expanded', String(shouldOpen));
+            toggle.setAttribute('aria-label', shouldOpen ? 'Cerrar menú principal' : 'Abrir menú principal');
+        };
+
+        toggle?.addEventListener('click', () => setSidebar(!sidebar.classList.contains('show')));
+        overlay?.addEventListener('click', () => setSidebar(false));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && sidebar?.classList.contains('show')) {
+                setSidebar(false);
+                toggle?.focus();
+            }
+        });
+        sidebar?.querySelectorAll('a[href]').forEach(link => {
+            link.addEventListener('click', () => {
+                if (mobileQuery.matches) setSidebar(false);
+            });
+        });
+        mobileQuery.addEventListener?.('change', () => setSidebar(false));
+    })();
     document.addEventListener('input', function(e) {
         const t = e.target;
         if (t.matches('[data-uppercase="true"]')) {

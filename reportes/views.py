@@ -127,6 +127,22 @@ def _teacher_ids_for_scope(periodo_id=None, carrera_id=None, user=None):
     )
 
 
+def _filter_teacher_activity_scope(queryset, periodo_id=None, teacher_ids=None):
+    """Aplica el alcance correcto a actividades sin una carrera académica.
+
+    Las actividades actuales no tienen carrera y las históricas F4 pueden usar
+    una pseudo-carrera (por ejemplo, ``1. Docencia - Clases``). Cuando el
+    reporte se filtra por carrera, su alcance debe resolverse por los docentes
+    vinculados a ella; filtrar nuevamente por ``id_carrera`` elimina
+    actividades válidas.
+    """
+    if periodo_id:
+        queryset = queryset.filter(id_periodo_id=periodo_id)
+    if teacher_ids is not None:
+        queryset = queryset.filter(id_docente_id__in=teacher_ids)
+    return queryset
+
+
 @login_required
 @module_permission_required('reportes', 'view')
 def centro_reportes(request):
@@ -144,12 +160,12 @@ def centro_reportes(request):
     teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id, request.user)
     activities = PlanificacionActividadDocente.objects.all()
     f4_rows = PlanificacionMatrizF4.objects.all()
-    if periodo_id:
-        activities = activities.filter(id_periodo_id=periodo_id)
-        f4_rows = f4_rows.filter(id_periodo_id=periodo_id)
-    if carrera_id:
-        f4_rows = f4_rows.filter(id_carrera_id=carrera_id)
-        activities = activities.filter(id_docente_id__in=teacher_ids)
+    activities = _filter_teacher_activity_scope(
+        activities, periodo_id, teacher_ids
+    )
+    f4_rows = _filter_teacher_activity_scope(
+        f4_rows, periodo_id, teacher_ids
+    )
 
     workload = build_docente_workload_map(periodo_id=periodo_id)
     if teacher_ids is not None:
@@ -514,10 +530,9 @@ def export_planificacion_detallada_excel(request):
     activities = PlanificacionActividadDocente.objects.select_related(
         'id_docente', 'id_periodo', 'id_actividad'
     ).order_by('id_docente__nombres_completos', 'id_actividad__nombre_actividad')
-    if periodo_id:
-        activities = activities.filter(id_periodo_id=periodo_id)
-    if teacher_ids is not None:
-        activities = activities.filter(id_docente_id__in=teacher_ids)
+    activities = _filter_teacher_activity_scope(
+        activities, periodo_id, teacher_ids
+    )
     ws = wb.create_sheet('Actividades')
     headers = ['Docente', 'Cédula', 'Período', 'Código', 'Actividad', 'Tipo', 'Horas', 'Observaciones']
     ws.append(headers)
@@ -535,12 +550,9 @@ def export_planificacion_detallada_excel(request):
     f4_rows = PlanificacionMatrizF4.objects.select_related(
         'id_docente', 'id_carrera', 'id_periodo', 'id_grado_afinidad'
     ).order_by('id_docente__nombres_completos', 'tipo_actividad')
-    if periodo_id:
-        f4_rows = f4_rows.filter(id_periodo_id=periodo_id)
-    if carrera_id:
-        f4_rows = f4_rows.filter(id_carrera_id=carrera_id)
-    if permitted is not None:
-        f4_rows = f4_rows.filter(id_carrera_id__in=permitted)
+    f4_rows = _filter_teacher_activity_scope(
+        f4_rows, periodo_id, teacher_ids
+    )
     ws = wb.create_sheet('F4 adicional')
     headers = [
         'Docente', 'Cédula', 'Carrera', 'Período', 'Tipo', 'Detalle',
@@ -811,10 +823,9 @@ def descargar_planificacion_original(request):
             'id_actividad__nombre_actividad',
         )
     )
-    if periodo_id:
-        activities = activities.filter(id_periodo_id=periodo_id)
-    if teacher_scope is not None:
-        activities = activities.filter(id_docente_id__in=teacher_scope)
+    activities = _filter_teacher_activity_scope(
+        activities, periodo_id, teacher_scope
+    )
     activity_labels = dict(CatalogoActividadComplementaria.TIPOS)
     for item in activities:
         activity_name = item.id_actividad.nombre_actividad
@@ -859,13 +870,9 @@ def descargar_planificacion_original(request):
             'tipo_actividad', 'nombre_asignatura_actividad',
         )
     )
-    if periodo_id:
-        historical = historical.filter(id_periodo_id=periodo_id)
-    if carrera_id:
-        historical = historical.filter(id_carrera_id=carrera_id)
-    permitted = allowed_career_ids(request.user)
-    if permitted is not None:
-        historical = historical.filter(id_carrera_id__in=permitted)
+    historical = _filter_teacher_activity_scope(
+        historical, periodo_id, teacher_scope
+    )
 
     historical_seen = set()
     for item in historical:
