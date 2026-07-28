@@ -22,37 +22,37 @@
 <div id="content-main">
     {% if app_list %}
     <div class="mod-grid">
-        <a href="{% url 'admin:core_carrera_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:catalogos_catalogocarrera_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(13,110,253,0.1);color:#0d6efd;"><i class="fas fa-university"></i></div>
             <h6>Carreras</h6>
             <p class="num">{% admin_stat 'carreras' %}</p>
             <span class="lbl">Catálogos</span>
         </a>
-        <a href="{% url 'admin:core_catalogoperiodoacademico_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:catalogos_catalogoperiodoacademico_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(23,162,184,0.1);color:#17a2b8;"><i class="fas fa-calendar-alt"></i></div>
             <h6>Períodos</h6>
             <p class="num">{% admin_stat 'periodos' %}</p>
             <span class="lbl">Catálogos</span>
         </a>
-        <a href="{% url 'admin:core_docentefcacc_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:docentes_docentefcacc_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(0,123,255,0.1);color:#007bff;"><i class="fas fa-users"></i></div>
             <h6>Docentes</h6>
             <p class="num">{% admin_stat 'docentes' %}</p>
             <span class="lbl">FCACC</span>
         </a>
-        <a href="{% url 'admin:core_docentetituloacademico_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:docentes_docentetituloacademico_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(111,66,193,0.1);color:#6f42c1;"><i class="fas fa-award"></i></div>
             <h6>Títulos</h6>
             <p class="num">{% admin_stat 'titulos' %}</p>
             <span class="lbl">Docentes</span>
         </a>
-        <a href="{% url 'admin:core_docentepublicacionacademica_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:docentes_docentepublicacionacademica_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(23,162,184,0.1);color:#17a2b8;"><i class="fas fa-book"></i></div>
             <h6>Publicaciones</h6>
             <p class="num">{% admin_stat 'publicaciones' %}</p>
             <span class="lbl">Docentes</span>
         </a>
-        <a href="{% url 'admin:core_docentecursocapacitacion_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:docentes_docentecursocapacitacion_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(40,167,69,0.1);color:#28a745;"><i class="fas fa-chalkboard"></i></div>
             <h6>Capacitaciones</h6>
             <p class="num">{% admin_stat 'capacitaciones' %}</p>
@@ -64,31 +64,31 @@
             <p class="num">{% admin_stat 'usuarios' %}</p>
             <span class="lbl">Seguridad</span>
         </a>
-        <a href="{% url 'admin:core_curriculoasignatura_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:curriculo_curriculoasignatura_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(0,123,255,0.1);color:#007bff;"><i class="fas fa-list-alt"></i></div>
             <h6>Asignaturas</h6>
             <p class="num">{% admin_stat 'asignaturas' %}</p>
             <span class="lbl">Currículo</span>
         </a>
-        <a href="{% url 'admin:core_planificacionasignaciondocente_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:planificacion_planificacionasignaciondocente_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(255,193,7,0.1);color:#ffc107;"><i class="fas fa-tasks"></i></div>
             <h6>Asignaciones</h6>
             <p class="num">{% admin_stat 'asignaciones' %}</p>
             <span class="lbl">Planificación</span>
         </a>
-        <a href="{% url 'admin:core_planificacionmatrizf4_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:planificacion_planificacionmatrizf4_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(111,66,193,0.1);color:#6f42c1;"><i class="fas fa-table"></i></div>
             <h6>Matriz F4</h6>
             <p class="num">{% admin_stat 'matriz_f4' %}</p>
             <span class="lbl">Planificación</span>
         </a>
-        <a href="{% url 'admin:core_auditoriaregistrocambios_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:auditoria_auditoriaregistrocambios_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(108,117,125,0.1);color:#6c757d;"><i class="fas fa-history"></i></div>
             <h6>Auditoría</h6>
             <p class="num">{% admin_stat 'auditoria' %}</p>
             <span class="lbl">Auditoría</span>
         </a>
-        <a href="{% url 'admin:core_limitacion_changelist' %}" class="mod-card">
+        <a href="{% url 'admin:restricciones_limitacion_changelist' %}" class="mod-card">
             <div class="icn" style="background:rgba(220,53,69,0.1);color:#dc3545;"><i class="fas fa-ban"></i></div>
             <h6>Limitaciones</h6>
             <p class="num">{% admin_stat 'limitaciones' %}</p>

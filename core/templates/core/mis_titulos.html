@@ -16,16 +16,16 @@
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
-                    <tr><th>Título</th><th>Institución</th><th>País</th><th>Fecha</th><th>Registro</th></tr>
+                    <tr><th>Título</th><th>País</th><th>Nivel</th><th>Fecha</th><th>Registro Senescyt</th></tr>
                 </thead>
                 <tbody>
                     {% for t in titulos %}
                     <tr>
-                        <td>{{ t.titulo_nombre|default:t.nombre_titulo }}</td>
-                        <td>{{ t.institucion|default:t.nombre_institucion }}</td>
-                        <td>{{ t.pais|default:t.nombre_pais }}</td>
-                        <td>{% firstof t.fecha_obtencion t.fecha_emision "—" %}</td>
-                        <td>{% firstof t.numero_registro t.numero_registro_senescyt "—" %}</td>
+                        <td>{% firstof t.nombre_titulo t.nombre '—' %}</td>
+                        <td>{% firstof t.id_pais '—' %}</td>
+                        <td>{% firstof t.nivel_titulo '—' %}</td>
+                        <td>{% firstof t.fecha_obtencion_titulo|date:'d/m/Y' t.fecha_titulo|date:'d/m/Y' '—' %}</td>
+                        <td>{% firstof t.numero_registro_senescyt t.registro_senecyt t.registro_senescyt '—' %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

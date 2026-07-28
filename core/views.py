@@ -373,11 +373,23 @@ def mi_perfil_view(request):
 @funcionario_readonly
 def mis_titulos_view(request):
     usuario = request.user
+    titulos = []
+
     docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if docente:
-        titulos = Titulo.objects.filter(id_cedula=docente)
-    else:
-        titulos = []
+        titulos = list(Titulo.objects.filter(id_cedula=docente))
+
+    try:
+        docente_fcacc = DocenteFcacc.objects.filter(cedula_docente=usuario.cedula).first()
+        if docente_fcacc:
+            fcacc_titulos = DocenteTituloAcademico.objects.filter(
+                id_docente=docente_fcacc
+            ).select_related('id_pais', 'id_posgrado')
+            for t in fcacc_titulos:
+                titulos.append(t)
+    except Exception:
+        pass
+
     return render(request, 'core/mis_titulos.html', {'titulos': titulos, 'active_section': 'titulos'})
 
 

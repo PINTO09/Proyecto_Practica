@@ -1,7 +1,15 @@
-﻿from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
+﻿from core.crud_base import CrudListView, ReadOnlyCrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView, DisabledCrudMutationMixin
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.urls import reverse
+from django.views.generic import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+from accounts.decorators import ADMIN, has_role
+from core.crud_base import RoleAccessMixin
+
+from catalogos.models import CatalogoTituloPosgrado, CatalogoCampoConocimiento
+from curriculo.models import RelacionPosgradoCampo
 
 from .forms import DocenteFcaccForm
 from .models import DocenteFcacc, DocenteTituloAcademico, DocenteCampoAfinidad, DocenteAsignacionCarreraPeriodo, DocenteCursoCapacitacion, DocenteParticipacionCurso, DocentePublicacionAcademica
@@ -47,17 +55,94 @@ class DocenteTituloAcademicoDeleteView(CrudDeleteView):
     model = DocenteTituloAcademico
 
 
-class DocenteCampoAfinidadListView(CrudListView):
+class DocenteCampoAfinidadListView(LoginRequiredMixin, RoleAccessMixin, ListView):
+    model = DocenteTituloAcademico
+    template_name = 'docentes/campo_afinidad_list.html'
+    paginate_by = 25
+    allowed_page_sizes = (10, 25, 50, 100)
+
+    def get_queryset(self):
+        qs = DocenteTituloAcademico.objects.select_related('id_docente', 'id_posgrado')
+
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            from django.db.models import Q as Q_
+            qs = qs.filter(
+                Q_(id_docente__nombres_completos__icontains=q) |
+                Q_(id_docente__cedula_docente__icontains=q) |
+                Q_(nombre_titulo__icontains=q) |
+                Q_(id_posgrado__nombre_titulo_posgrado__icontains=q)
+            )
+
+        campo_filter = self.request.GET.get('campo', '').strip()
+        if campo_filter and campo_filter.isdigit():
+            posgrado_ids = RelacionPosgradoCampo.objects.filter(
+                id_campo_id=int(campo_filter)
+            ).values_list('id_posgrado_id', flat=True).distinct()
+            qs = qs.filter(id_posgrado_id__in=posgrado_ids)
+
+        posgrado_filter = self.request.GET.get('posgrado', '').strip()
+        if posgrado_filter and posgrado_filter.isdigit():
+            qs = qs.filter(id_posgrado_id=int(posgrado_filter))
+
+        return qs.order_by('id_docente__nombres_completos', '-nivel_titulo', '-fecha_obtencion_titulo')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['is_admin'] = has_role(getattr(self.request, 'user', None), ADMIN)
+        ctx['titulo_create_url'] = 'docentes:docentetituloacademico_create'
+        ctx['search_value'] = self.request.GET.get('q', '')
+        ctx['campo_filter'] = self.request.GET.get('campo', '')
+        ctx['posgrado_filter'] = self.request.GET.get('posgrado', '')
+
+        posgrado_ids = set()
+        for obj in ctx.get('object_list', []):
+            if obj.id_posgrado_id:
+                posgrado_ids.add(obj.id_posgrado_id)
+
+        if posgrado_ids:
+            posgrado_campos = {}
+            rels = RelacionPosgradoCampo.objects.filter(
+                id_posgrado_id__in=posgrado_ids
+            ).select_related('id_campo')
+            for r in rels:
+                posgrado_campos.setdefault(r.id_posgrado_id, []).append(r.id_campo)
+            for obj in ctx.get('object_list', []):
+                obj.related_campos = posgrado_campos.get(obj.id_posgrado_id, [])
+        else:
+            for obj in ctx.get('object_list', []):
+                obj.related_campos = []
+
+        ctx['campos'] = CatalogoCampoConocimiento.objects.all().order_by('nombre_campo_conocimiento')
+        ctx['posgrados'] = CatalogoTituloPosgrado.objects.all().order_by('nombre_titulo_posgrado')
+
+        raw_cant = self.request.GET.get('cant', self.paginate_by)
+        try:
+            ctx['cant'] = int(raw_cant)
+        except (ValueError, TypeError):
+            ctx['cant'] = self.paginate_by
+        if ctx['cant'] not in self.allowed_page_sizes:
+            ctx['cant'] = self.paginate_by
+        if ctx.get('paginator') and ctx.get('page_obj'):
+            ctx['elided_page_range'] = ctx['paginator'].get_elided_page_range(
+                ctx['page_obj'].number, on_each_side=2, on_ends=1,
+            )
+        return ctx
+
+    def get_paginate_by(self, queryset):
+        cant = self.request.GET.get('cant')
+        if cant and cant.isdigit() and int(cant) in self.allowed_page_sizes:
+            return int(cant)
+        return self.paginate_by
+
+
+class DocenteCampoAfinidadCreateView(DisabledCrudMutationMixin, CrudCreateView):
     model = DocenteCampoAfinidad
 
-
-class DocenteCampoAfinidadCreateView(CrudCreateView):
+class DocenteCampoAfinidadUpdateView(DisabledCrudMutationMixin, CrudUpdateView):
     model = DocenteCampoAfinidad
 
-class DocenteCampoAfinidadUpdateView(CrudUpdateView):
-    model = DocenteCampoAfinidad
-
-class DocenteCampoAfinidadDeleteView(CrudDeleteView):
+class DocenteCampoAfinidadDeleteView(DisabledCrudMutationMixin, CrudDeleteView):
     model = DocenteCampoAfinidad
 
 
@@ -68,7 +153,7 @@ class DocenteAsignacionCarreraPeriodoListView(CrudListView):
 class DocenteAsignacionCarreraPeriodoCreateView(CrudCreateView):
     model = DocenteAsignacionCarreraPeriodo
     form_field_order = (
-        'id_periodo', 'id_carrera', 'id_docente', 'id_licencia',
+        'id_docente', 'id_periodo', 'id_carrera', 'id_licencia',
         'horas_otras_unidades_academicas', 'observacion_periodo',
     )
 
@@ -87,7 +172,7 @@ class DocenteCursoCapacitacionListView(CrudListView):
 class DocenteCursoCapacitacionCreateView(CrudCreateView):
     model = DocenteCursoCapacitacion
     form_field_order = (
-        'nombre_curso_capacitacion', 'id_tipo_curso',
+        'id_tipo_curso', 'nombre_curso_capacitacion',
         'fecha_inicio_curso', 'fecha_fin_curso', 'horas_totales_curso',
     )
 

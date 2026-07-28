@@ -1,0 +1,184 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static crud_tags %}
+
+{% block title %}Campos de Afinidad - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <div class="page-eyebrow mb-1">Módulo Docente</div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-link me-2 text-primary"></i>Campos de Afinidad</h4>
+    <p class="text-muted small mb-0">Relación entre docentes, títulos académicos, maestrías y sus campos de conocimiento.</p>
+  </div>
+  {% if is_admin %}<a href="{% url titulo_create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo registro</a>{% endif %}
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" id="filterForm" class="row g-2 align-items-end">
+      <div class="col-lg-4">
+        <label class="small fw-semibold text-muted mb-1">Buscar</label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-transparent"><i class="fas fa-magnifying-glass text-muted"></i></span>
+          <input type="search" name="q" class="form-control" placeholder="Docente, título o posgrado..." value="{{ search_value }}" id="searchInput">
+          {% if search_value %}<a href="?{% querystring q='' page='' campo='' posgrado='' %}" class="btn btn-outline-secondary"><i class="fas fa-xmark"></i></a>{% endif %}
+        </div>
+      </div>
+      <div class="col-lg-3">
+        <label class="small fw-semibold text-muted mb-1">Campo de conocimiento</label>
+        <select name="campo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for c in campos %}
+          <option value="{{ c.id_campo }}" {% if campo_filter == c.id_campo|slugify %}selected{% endif %}>{{ c.nombre_campo_conocimiento }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-3">
+        <label class="small fw-semibold text-muted mb-1">Maestría / Posgrado</label>
+        <select name="posgrado" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for p in posgrados %}
+          <option value="{{ p.id_posgrado }}" {% if posgrado_filter == p.id_posgrado|slugify %}selected{% endif %}>{{ p.nombre_titulo_posgrado }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-2 d-grid">
+        <a href="{% url 'docentes:docentecampoafinidad_list' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-xmark me-1"></i>Limpiar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+    <span class="small text-muted">{{ page_obj.paginator.count }} registro(s)</span>
+    <select name="cant" form="filterForm" class="form-select form-select-sm d-inline-block w-auto" id="cantSelect">
+      <option value="10" {% if cant == 10 %}selected{% endif %}>10</option>
+      <option value="25" {% if cant == 25 %}selected{% endif %}>25</option>
+      <option value="50" {% if cant == 50 %}selected{% endif %}>50</option>
+      <option value="100" {% if cant == 100 %}selected{% endif %}>100</option>
+    </select>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="min-width:220px;">Docente</th>
+            <th style="min-width:110px;">Cédula</th>
+            <th style="min-width:250px;">Título Académico</th>
+            <th>Maestría / Posgrado</th>
+            <th class="pe-3">Campo de Afinidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in object_list %}
+          <tr>
+            <td class="ps-3" style="min-width:220px;">
+              <div class="fw-semibold">{{ obj.id_docente.nombres_completos|default:'—' }}</div>
+            </td>
+            <td style="min-width:110px;">
+              <span class="font-monospace small">{{ obj.id_docente.cedula_docente|default:'—' }}</span>
+            </td>
+            <td style="min-width:250px;">
+              <div>{{ obj.nombre_titulo|default:'—' }}</div>
+              <div class="text-muted" style="font-size:0.75rem;">
+                Nivel {{ obj.nivel_titulo }} · {{ obj.fecha_obtencion_titulo|date:'d/m/Y'|default:'—' }}
+                {% if obj.numero_registro_senescyt %} · Senescyt: {{ obj.numero_registro_senescyt }}{% endif %}
+              </div>
+            </td>
+            <td>
+              {% if obj.id_posgrado %}
+                <span class="badge bg-primary-subtle text-primary-emphasis">{{ obj.id_posgrado.nombre_titulo_posgrado }}</span>
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            <td class="pe-3">
+              {% if obj.related_campos %}
+                {% for campo in obj.related_campos %}
+                <span class="badge bg-info-subtle text-info-emphasis me-1 mb-1">{{ campo.nombre_campo_conocimiento }}</span>
+                {% endfor %}
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4">
+              <div class="empty-state">
+                {% if search_value or campo_filter or posgrado_filter %}
+                <i class="fas fa-magnifying-glass"></i>
+                <div class="fw-semibold text-body mb-1">No se encontraron coincidencias</div>
+                <div class="small mb-3">Prueba con otros filtros o limpia la búsqueda actual.</div>
+                <a href="{% url 'docentes:docentecampoafinidad_list' %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-xmark me-1"></i>Limpiar filtros</a>
+                {% else %}
+                <i class="far fa-folder-open"></i>
+                <div class="fw-semibold text-body mb-1">No hay registros</div>
+                <div class="small mb-3">No se encontraron títulos académicos vinculados a docentes.</div>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-3">
+  <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+    <ul class="pagination pagination-sm mb-0">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">Anterior</a></li>
+      {% endif %}
+      {% for p in elided_page_range %}
+      {% if p == paginator.ELLIPSIS %}
+      <li class="page-item disabled"><span class="page-link">{{ p }}</span></li>
+      {% else %}
+      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?{% querystring page=p %}">{{ p }}</a></li>
+      {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">Siguiente</a></li>
+      {% endif %}
+    </ul>
+    <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
+      <label class="small text-muted mb-0">Ir a:</label>
+      <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;" aria-label="Ir a página">
+      {% for key, value in request.GET.items %}{% if key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+    </form>
+  </div>
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const cantSelect = document.getElementById('cantSelect');
+  const filterForm = document.getElementById('filterForm');
+
+  if (searchInput) {
+    let debounceTimer;
+    let currentValue = searchInput.value;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      if (this.value === currentValue) return;
+      currentValue = this.value;
+      debounceTimer = setTimeout(() => filterForm.submit(), 350);
+    });
+  }
+  if (cantSelect) {
+    cantSelect.addEventListener('change', function() {
+      filterForm.submit();
+    });
+  }
+});
+</script>
+{% endblock %}

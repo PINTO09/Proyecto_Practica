@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.db import ProgrammingError, OperationalError
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.urls import reverse
 from .models import (
     DocenteFcacc, DocenteTituloAcademico, DocenteCampoAfinidad,
     DocenteAsignacionCarreraPeriodo, DocenteCursoCapacitacion,
@@ -83,6 +84,15 @@ class DocenteCampoAfinidadAdmin(SafeDocenteAdmin):
     list_filter = ['id_campo']
     search_fields = ['id_docente__nombres_completos']
     raw_id_fields = ['id_docente', 'id_campo']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(DocenteAsignacionCarreraPeriodo)
