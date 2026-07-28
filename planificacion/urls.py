@@ -4,6 +4,16 @@ from . import views
 app_name = 'planificacion'
 
 urlpatterns = [
+    path('espacios/', views.CatalogoEspacioAcademicoListView.as_view(), name='catalogoespacioacademico_list'),
+    path('espacios/crear/', views.CatalogoEspacioAcademicoCreateView.as_view(), name='catalogoespacioacademico_create'),
+    path('espacios/<int:pk>/editar/', views.CatalogoEspacioAcademicoUpdateView.as_view(), name='catalogoespacioacademico_update'),
+    path('espacios/<int:pk>/eliminar/', views.CatalogoEspacioAcademicoDeleteView.as_view(), name='catalogoespacioacademico_delete'),
+    path('mi-bitacora/', views.bitacora_laboratorios, name='bitacora_laboratorios'),
+    path('mi-bitacora/crear/', views.bitacora_laboratorios_crear, name='bitacora_laboratorios_crear'),
+    path('mi-bitacora/<int:pk>/editar/', views.bitacora_laboratorios_editar, name='bitacora_laboratorios_editar'),
+    path('mi-bitacora/<int:pk>/eliminar/', views.bitacora_laboratorios_eliminar, name='bitacora_laboratorios_eliminar'),
+    path('mi-bitacora/api/semanas/', views.api_bitacora_semanas, name='api_bitacora_semanas'),
+    path('control-bitacora/', views.consulta_bitacora_laboratorios, name='consulta_bitacora_laboratorios'),
     path('catalogo-actividades/', views.CatalogoActividadComplementariaListView.as_view(), name='catalogoactividadcomplementaria_list'),
     path('catalogo-actividades/crear/', views.CatalogoActividadComplementariaCreateView.as_view(), name='catalogoactividadcomplementaria_create'),
     path('catalogo-actividades/<int:pk>/editar/', views.CatalogoActividadComplementariaUpdateView.as_view(), name='catalogoactividadcomplementaria_update'),

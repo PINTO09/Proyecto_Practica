@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+from decimal import Decimal
 
 
 class CurriculoAsignatura(models.Model):
@@ -9,6 +11,15 @@ class CurriculoAsignatura(models.Model):
     horas_semanales_asignatura = models.SmallIntegerField(default=0, db_column='horas_semanales_asignatura')
     nivel_semestre = models.SmallIntegerField(db_column='nivel_semestre')
     es_actividad = models.BooleanField(default=False, db_column='es_actividad')
+    horas_aula = models.DecimalField(
+        'Horas semanales en aula', max_digits=5, decimal_places=2,
+        default=0, db_column='horas_aula',
+    )
+    horas_centro_computo = models.DecimalField(
+        'Horas semanales en centro de cómputo',
+        max_digits=5, decimal_places=2, default=0,
+        db_column='horas_centro_computo',
+    )
 
     class Meta:
         managed = False
@@ -19,6 +30,39 @@ class CurriculoAsignatura(models.Model):
     def __str__(self):
         prefix = '[ACT] ' if self.es_actividad else ''
         return f'{prefix}{self.codigo_asignatura} - {self.nombre_asignatura}'
+
+    def clean(self):
+        super().clean()
+        if self.es_actividad:
+            self.horas_aula = Decimal(self.horas_semanales_asignatura or 0)
+            self.horas_centro_computo = Decimal('0')
+            return
+        aula = self.horas_aula
+        centro = self.horas_centro_computo
+        total = Decimal(self.horas_semanales_asignatura or 0)
+        if aula is None or centro is None or aula + centro != total:
+            raise ValidationError(
+                'Las horas de aula y centro de cómputo '
+                'deben sumar las horas semanales de la asignatura.'
+            )
+
+    @property
+    def porcentaje_aula(self):
+        total = Decimal(self.horas_semanales_asignatura or 0)
+        return round(self.horas_aula * 100 / total, 2) if total else Decimal('0')
+
+    @property
+    def porcentaje_centro_computo(self):
+        total = Decimal(self.horas_semanales_asignatura or 0)
+        return round(self.horas_centro_computo * 100 / total, 2) if total else Decimal('0')
+
+    def save(self, *args, **kwargs):
+        if (
+            (self.horas_semanales_asignatura or 0) > 0
+            and not self.horas_aula and not self.horas_centro_computo
+        ):
+            self.horas_aula = Decimal(self.horas_semanales_asignatura)
+        super().save(*args, **kwargs)
 
 
 class CurriculoAsignaturaCampo(models.Model):

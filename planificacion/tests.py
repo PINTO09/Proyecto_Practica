@@ -3,6 +3,7 @@ from django.test import RequestFactory, SimpleTestCase
 from django.urls import reverse
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from datetime import date
 
 from catalogos.models import CatalogoPeriodoAcademico
 from core.crud_base import CrudListView
@@ -16,6 +17,7 @@ from .views import (
     reporte_horas_docentes,
 )
 from .models import PlanificacionAsignacionDocente, PlanificacionCapacidadEspecial
+from .models import BitacoraUsoLaboratorio
 from .services import activity_workload_key, normalize_parallel, periodo_es_editable
 
 
@@ -25,6 +27,53 @@ def _special_capacity_form_without_database():
 
 
 class PlanificacionRulesTests(SimpleTestCase):
+    def test_laboratory_log_routes_are_registered(self):
+        self.assertEqual(
+            reverse('planificacion:bitacora_laboratorios'),
+            '/planificacion/mi-bitacora/',
+        )
+        self.assertEqual(
+            reverse('planificacion:bitacora_laboratorios_crear'),
+            '/planificacion/mi-bitacora/crear/',
+        )
+        self.assertEqual(
+            reverse('planificacion:consulta_bitacora_laboratorios'),
+            '/planificacion/control-bitacora/',
+        )
+        self.assertEqual(
+            reverse('planificacion:catalogoespacioacademico_list'),
+            '/planificacion/espacios/',
+        )
+
+    def test_laboratory_log_allows_multiple_weekly_records(self):
+        constraint_names = {
+            constraint.name
+            for constraint in BitacoraUsoLaboratorio._meta.constraints
+        }
+        self.assertNotIn('uk_bitacora_docente_semana', constraint_names)
+
+    def test_log_calculates_week_date_range_from_period(self):
+        period = CatalogoPeriodoAcademico(
+            id_periodo=1,
+            fecha_inicio_periodo=date(2026, 5, 4),
+            fecha_fin_periodo=date(2026, 8, 21),
+        )
+        assignment = PlanificacionAsignacionDocente(
+            id_asignacion=1,
+            id_docente_id=2,
+            id_periodo=period,
+            semanas_planificadas=16,
+        )
+        log = BitacoraUsoLaboratorio(
+            id_docente_id=2,
+            id_asignacion=assignment,
+            semana=2,
+        )
+        self.assertEqual(
+            log.rango_semana,
+            (date(2026, 5, 11), date(2026, 5, 17)),
+        )
+
     def test_activity_form_does_not_request_a_career(self):
         self.assertNotIn('id_carrera', PlanificacionActividadDocenteForm().fields)
 

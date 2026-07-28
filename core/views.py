@@ -43,7 +43,8 @@ from accounts.decorators import (
     role_required, ROLES_ADMIN, ROLES_ADMIN_AUTORIDAD,
     ROLES_ADMIN_AUTORIDAD_COORDINADOR, ROLES_ESCRITURA,
     ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE, DOCENTE,
-    funcionario_readonly, can_access_module, module_permission_required,
+    funcionario_readonly, can_access_module, has_role,
+    module_permission_required,
 )
 
 Usuario = get_user_model()
@@ -193,7 +194,21 @@ def dashboard_view(request):
                 'url': reverse('core:modulo_' + slug),
                 'modelos_count': len(info['modelos']),
             })
+    if has_role(request.user, DOCENTE, USUARIO):
+        modulos_acceso.insert(0, {
+            'nombre': 'Registro de actividad',
+            'icono': 'fa-chalkboard-user',
+            'color': '#0d6efd',
+            'bg_color': 'rgba(13,110,253,0.1)',
+            'url': reverse('planificacion:bitacora_laboratorios'),
+            'descripcion': 'Registra las actividades realizadas en aulas y centros de cómputo.',
+        })
     context['modulos_acceso'] = modulos_acceso
+    context['modulos_titulo'] = (
+        'Módulos institucionales'
+        if context['institutional_dashboard']
+        else 'Herramientas docentes'
+    )
 
     docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if docente:
@@ -930,4 +945,3 @@ def api_modelo_info(request):
             else:
                 data[f.name] = val
     return JsonResponse(data)
-

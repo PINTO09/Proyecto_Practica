@@ -1,0 +1,88 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}{{ form_title }} - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h4 class="fw-bold mb-1"><i class="fas fa-clipboard-check text-primary me-2"></i>{{ form_title }}</h4>
+  <p class="text-muted mb-0">Puede realizar varios registros para una misma semana.</p>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    {% if not hay_espacios %}
+    <div class="alert alert-warning">
+      <i class="fas fa-triangle-exclamation me-1"></i>
+      Todavía no existen aulas o centros de cómputo activos en el catálogo.
+      Solicite al administrador que registre los espacios antes de crear la bitácora.
+    </div>
+    {% endif %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      <div id="planningSummary" class="alert alert-info border-0 d-none"></div>
+      <div class="row g-3">
+        {% for field in form %}
+        <div class="{% if field.name == 'actividad_realizada' or field.name == 'observaciones' %}col-12{% else %}col-md-6{% endif %}">
+          <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="d-flex gap-2 mt-4 pt-3 border-top">
+        <button class="btn btn-primary px-4"{% if not hay_espacios %} disabled{% endif %}><i class="fas fa-check me-1"></i>Guardar</button>
+        <a href="{% url 'planificacion:bitacora_laboratorios' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const origin = document.getElementById('id_origen_planificacion');
+  const week = document.getElementById('id_semana');
+  const date = document.getElementById('id_fecha_uso');
+  const summary = document.getElementById('planningSummary');
+  if (!origin || !week) return;
+  const currentWeek = week.value;
+
+  async function updateWeeks() {
+    const response = await fetch(
+      '{% url "planificacion:api_bitacora_semanas" %}?origen=' + encodeURIComponent(origin.value),
+      {headers: {'X-Requested-With': 'XMLHttpRequest'}}
+    );
+    if (!response.ok) return;
+    const data = await response.json();
+    const selected = week.value || currentWeek;
+    week.innerHTML = '<option value="">--- Seleccione ---</option>';
+    data.semanas.forEach(item => {
+      const option = new Option(item.etiqueta, item.numero, false, String(item.numero) === String(selected));
+      option.dataset.start = item.inicio || '';
+      option.dataset.end = item.fin || '';
+      week.add(option);
+    });
+    if (summary) {
+      summary.classList.toggle('d-none', !origin.value);
+      summary.innerHTML = `<i class="fas fa-calendar-check me-1"></i>
+        Horas semanales planificadas para este espacio o actividad:
+        <strong>${data.horas_planificadas} h</strong>.
+        Puede registrar varios usos reales durante una misma semana.`;
+    }
+    updateDateRange();
+  }
+  function updateDateRange() {
+    if (!date) return;
+    const selectedOption = week.options[week.selectedIndex];
+    date.min = selectedOption?.dataset.start || '';
+    date.max = selectedOption?.dataset.end || '';
+  }
+  origin.addEventListener('change', updateWeeks);
+  week.addEventListener('change', updateDateRange);
+  if (origin.value) updateWeeks();
+});
+</script>
+{% endblock %}

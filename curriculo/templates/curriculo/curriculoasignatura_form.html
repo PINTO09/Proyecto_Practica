@@ -1,5 +1,99 @@
 {% extends 'generic_crud/form.html' %}
 
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div>
+    <h4 class="fw-bold mb-1">
+      <i class="fas {% if object %}fa-pen{% else %}fa-plus-circle{% endif %} text-primary me-2"></i>
+      {% if object %}Editar asignatura{% else %}Nueva asignatura{% endif %}
+    </h4>
+    <p class="text-muted mb-0">Registre la información académica y distribuya sus horas según el espacio requerido.</p>
+  </div>
+  <a href="{% url 'curriculo:curriculoasignatura_list' %}" class="btn btn-outline-secondary">
+    <i class="fas fa-arrow-left me-1"></i>Volver
+  </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+      <h6 class="fw-bold mb-0"><i class="fas fa-book text-primary me-2"></i>Identificación</h6>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3">
+        {% for field in form %}
+          {% if field.name == 'id_carrera' or field.name == 'codigo_asignatura' or field.name == 'nombre_asignatura' %}
+          <div class="{% if field.name == 'nombre_asignatura' %}col-lg-6{% else %}col-md-6 col-lg-3{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+      <h6 class="fw-bold mb-0"><i class="fas fa-graduation-cap text-primary me-2"></i>Información académica</h6>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3 align-items-start">
+        {% for field in form %}
+          {% if field.name == 'es_actividad' or field.name == 'nivel_semestre' or field.name == 'horas_semanales_asignatura' or field.name == 'campos_conocimiento' %}
+          <div class="{% if field.name == 'campos_conocimiento' %}col-12{% else %}col-md-4{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+            {% if field.name == 'es_actividad' %}<div class="form-check mt-2">{{ field }}</div>{% else %}{{ field }}{% endif %}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4" id="spaceDistributionCard">
+    <div class="card-header bg-white py-3">
+      <h6 class="fw-bold mb-0"><i class="fas fa-building text-primary me-2"></i>Distribución de horas por espacio</h6>
+    </div>
+    <div class="card-body p-4">
+      <div class="alert alert-info border-0 small">
+        <i class="fas fa-circle-info me-1"></i>
+        Las horas de aula más las horas de centro de cómputo deben coincidir con las horas semanales.
+      </div>
+      <div class="row g-3">
+        {% for field in form %}
+          {% if field.name == 'modalidad_espacio' or field.name == 'horas_aula' or field.name == 'horas_centro_computo' %}
+          <div class="{% if field.name == 'modalidad_espacio' %}col-12{% else %}col-md-6{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+          </div>
+          {% endif %}
+        {% endfor %}
+        <div class="col-12">
+          <div id="distributionFeedbackHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 pb-4">
+    <button type="submit" class="btn btn-primary px-4" id="submitBtn"><i class="fas fa-check me-1"></i>Guardar asignatura</button>
+    <a href="{% url 'curriculo:curriculoasignatura_list' %}" class="btn btn-outline-secondary" id="cancelBtn">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
 {% block extra_js %}
 {{ block.super }}
 <script>
@@ -8,15 +102,117 @@ document.addEventListener('DOMContentLoaded', function() {
   const actividadCheck = document.getElementById('id_es_actividad');
   const nivelSelect = document.getElementById('id_nivel_semestre');
   const camposSelect = document.getElementById('id_campos_conocimiento');
+  const horasInput = document.getElementById('id_horas_semanales_asignatura');
+  const modalidadSelect = document.getElementById('id_modalidad_espacio');
+  const aulaInput = document.getElementById('id_horas_aula');
+  const centroInput = document.getElementById('id_horas_centro_computo');
+  const distributionCard = document.getElementById('spaceDistributionCard');
+  const distributionFeedbackHost = document.getElementById('distributionFeedbackHost');
+  let distributionFeedback = null;
+
+  if (centroInput && distributionFeedbackHost) {
+    distributionFeedback = document.createElement('div');
+    distributionFeedback.className = 'alert border-0 shadow-sm py-3 px-3 mb-0';
+    distributionFeedbackHost.appendChild(distributionFeedback);
+  }
+
+  function setHours(input, value) {
+    input.value = Math.max(0, value).toFixed(2).replace(/\.00$/, '');
+  }
+
+  function autocompleteHours(source) {
+    if (!aulaInput || !centroInput) return;
+    const total = Math.max(0, Number(horasInput?.value || 0));
+    const mode = modalidadSelect?.value;
+
+    if (mode === 'SOLO_AULA') {
+      setHours(aulaInput, total);
+      setHours(centroInput, 0);
+      return;
+    }
+    if (mode === 'SOLO_CENTRO') {
+      setHours(aulaInput, 0);
+      setHours(centroInput, total);
+      return;
+    }
+    if (mode !== 'AULA_CENTRO') return;
+
+    let aula = Math.max(0, Number(aulaInput.value || 0));
+    let centro = Math.max(0, Number(centroInput.value || 0));
+    if (source === 'centro') {
+      centro = Math.min(centro, total);
+      setHours(aulaInput, total - centro);
+    } else if (source === 'modalidad' && (aula <= 0 || centro <= 0)) {
+      setHours(aulaInput, total / 2);
+      setHours(centroInput, total - (total / 2));
+    } else {
+      aula = Math.min(aula, total);
+      setHours(aulaInput, aula);
+      setHours(centroInput, total - aula);
+    }
+  }
+
+  function updateDistribution() {
+    if (!aulaInput || !centroInput || !distributionFeedback) return;
+    const onlyClassroom = modalidadSelect?.value === 'SOLO_AULA';
+    const onlyLab = modalidadSelect?.value === 'SOLO_CENTRO';
+    if (onlyClassroom) {
+      aulaInput.value = Number(horasInput?.value || 0);
+      centroInput.value = 0;
+    } else if (onlyLab) {
+      aulaInput.value = 0;
+      centroInput.value = Number(horasInput?.value || 0);
+    }
+    aulaInput.readOnly = onlyClassroom || onlyLab;
+    centroInput.readOnly = onlyClassroom || onlyLab;
+    const aula = Number(aulaInput.value || 0);
+    const centro = Number(centroInput.value || 0);
+    const distribuido = aula + centro;
+    const horas = Number(horasInput?.value || 0);
+    const mixedNeedsBoth = modalidadSelect?.value === 'AULA_CENTRO';
+    const valid = aula >= 0 && centro >= 0
+      && (!mixedNeedsBoth || (aula > 0 && centro > 0))
+      && Math.abs(distribuido - horas) < 0.001;
+    const aulaPercent = horas > 0 ? aula * 100 / horas : 0;
+    const centroPercent = horas > 0 ? centro * 100 / horas : 0;
+    distributionFeedback.className = `alert border-0 shadow-sm py-3 px-3 mb-0 ${valid ? 'alert-success' : 'alert-warning'}`;
+    distributionFeedback.innerHTML = valid
+      ? `<div class="d-flex align-items-center gap-3">
+           <span class="fs-4"><i class="fas fa-circle-check"></i></span>
+           <div>
+             <div class="fw-bold">Distribución completa</div>
+             <div class="small">Aula: ${aulaPercent.toFixed(2)}% · Centro de cómputo: ${centroPercent.toFixed(2)}%</div>
+           </div>
+         </div>`
+      : `<div class="d-flex align-items-center gap-3">
+           <span class="fs-4"><i class="fas fa-clock"></i></span>
+           <div>
+             <div class="fw-bold">Horas distribuidas: ${distribuido.toFixed(2)} de ${horas.toFixed(2)}</div>
+             <div class="small">Ajuste las cantidades hasta completar las horas semanales.</div>
+           </div>
+         </div>`;
+  }
 
   function toggleNivel() {
     if (!nivelSelect) return;
     if (!actividadCheck) return;
     const isAct = actividadCheck.checked;
+    if (distributionCard) distributionCard.style.display = isAct ? 'none' : '';
     nivelSelect.disabled = isAct;
     nivelSelect.required = !isAct;
     if (isAct) {
       nivelSelect.value = '';
+    }
+    [aulaInput, centroInput].forEach(input => {
+      if (!input) return;
+      const group = input.closest('.col-md-6, .col-12');
+      input.disabled = isAct;
+      if (group) group.style.display = isAct ? 'none' : '';
+    });
+    if (modalidadSelect) {
+      const group = modalidadSelect.closest('.col-md-6, .col-12');
+      modalidadSelect.disabled = isAct;
+      if (group) group.style.display = isAct ? 'none' : '';
     }
     if (camposSelect) {
       const group = camposSelect.closest('.mb-3, .col-md-6, .col-12');
@@ -37,11 +233,29 @@ document.addEventListener('DOMContentLoaded', function() {
   if (actividadCheck) {
     actividadCheck.addEventListener('change', toggleNivel);
   }
+  if (aulaInput) aulaInput.addEventListener('input', () => {
+    autocompleteHours('aula');
+    updateDistribution();
+  });
+  if (centroInput) centroInput.addEventListener('input', () => {
+    autocompleteHours('centro');
+    updateDistribution();
+  });
+  if (horasInput) horasInput.addEventListener('input', () => {
+    autocompleteHours('total');
+    updateDistribution();
+  });
+  if (modalidadSelect) modalidadSelect.addEventListener('change', () => {
+    autocompleteHours('modalidad');
+    updateDistribution();
+  });
   if (carreraSelect) {
     carreraSelect.addEventListener('change', checkCarreraActividad);
     checkCarreraActividad();
   }
   toggleNivel();
+  autocompleteHours('initial');
+  updateDistribution();
 });
 </script>
 {% endblock %}

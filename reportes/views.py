@@ -38,6 +38,7 @@ F4_TEMPLATE_PATH = (
     / 'templates_excel'
     / 'planificacion_mkt_2026_2_v1.xlsx'
 )
+F4_TEACHER_MERGED_COLUMNS = (1, 2, 3, 4, 8, 9, 16)
 
 
 def _style_header(ws, row, cols):
@@ -63,6 +64,19 @@ def _finish_sheet(ws, widths=None):
     for column in range(1, ws.max_column + 1):
         letter = get_column_letter(column)
         ws.column_dimensions[letter].width = widths.get(column, 20)
+
+
+def _merge_f4_teacher_cells(worksheet, start_row, end_row):
+    """Muestra los datos personales una sola vez por bloque de docente."""
+    if end_row <= start_row:
+        return
+    for column in F4_TEACHER_MERGED_COLUMNS:
+        worksheet.merge_cells(
+            start_row=start_row,
+            start_column=column,
+            end_row=end_row,
+            end_column=column,
+        )
 
 
 def _export_filters(request):
@@ -1044,16 +1058,7 @@ def descargar_planificacion_original(request):
             ws_dst.row_dimensions[row].height = 30
             current_row += 1
 
-        if end_row > start_row:
-            for column in [1, 4, 8, 9]:
-                ws_dst.merge_cells(
-                    start_row=start_row, start_column=column,
-                    end_row=end_row, end_column=column,
-                )
-            ws_dst.merge_cells(
-                start_row=start_row, start_column=16,
-                end_row=end_row, end_column=16,
-            )
+        _merge_f4_teacher_cells(ws_dst, start_row, end_row)
 
     data_end = current_row - 1
     for column, width in original_widths.items():

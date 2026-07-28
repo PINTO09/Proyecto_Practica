@@ -1,4 +1,4 @@
-from .decorators import can_access_module
+from .decorators import DOCENTE, USUARIO, can_access_module, has_role
 from django.db import ProgrammingError, OperationalError
 
 
@@ -30,4 +30,7 @@ def module_access(request):
         },
         'profile_photo_url': profile_photo_url,
         'profile_display_name': profile_display_name,
+        'is_docente_role': bool(
+            user and user.is_authenticated and has_role(user, DOCENTE, USUARIO)
+        ),
     }

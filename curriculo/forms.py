@@ -4,6 +4,25 @@ from catalogos.models import CatalogoCampoConocimiento, CatalogoCarrera
 
 
 class CurriculoAsignaturaForm(forms.ModelForm):
+    modalidad_espacio = forms.ChoiceField(
+        label='Uso de espacios',
+        choices=(
+            ('SOLO_AULA', 'Únicamente aula de clases'),
+            (
+                'AULA_CENTRO',
+                'Aula de clases y centro de cómputo',
+            ),
+            (
+                'SOLO_CENTRO',
+                'Únicamente centro de cómputo',
+            ),
+        ),
+        initial='SOLO_AULA',
+        help_text=(
+            'Seleccione si todas las horas se imparten en aula o si una parte '
+            'requiere un centro de cómputo.'
+        ),
+    )
     campos_conocimiento = forms.ModelMultipleChoiceField(
         label='Campos de conocimiento',
         queryset=CatalogoCampoConocimiento.objects.none(),
@@ -20,14 +39,34 @@ class CurriculoAsignaturaForm(forms.ModelForm):
         fields = (
             'id_carrera', 'codigo_asignatura', 'nombre_asignatura',
             'es_actividad', 'nivel_semestre', 'horas_semanales_asignatura',
+            'modalidad_espacio',
+            'horas_aula', 'horas_centro_computo',
             'campos_conocimiento',
         )
         widgets = {
             'nivel_semestre': forms.Select(choices=[('', '--- Seleccione ---')] + [(i, f'Nivel {i}') for i in range(1, 11)]),
+            'horas_aula': forms.NumberInput(attrs={'min': 0, 'step': '0.25'}),
+            'horas_centro_computo': forms.NumberInput(attrs={'min': 0, 'step': '0.25'}),
+        }
+        labels = {
+            'horas_aula': 'Horas semanales en aula',
+            'horas_centro_computo': 'Horas semanales en centro de cómputo',
+        }
+        help_texts = {
+            'horas_aula': 'La suma debe coincidir con las horas semanales de la asignatura.',
+            'horas_centro_computo': 'Horas que requieren equipos del centro de cómputo.',
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        bound_activity = self.is_bound and str(
+            self.data.get('es_actividad', '')
+        ).lower() in ('1', 'true', 'on', 'yes')
+        if bound_activity:
+            self.fields['nivel_semestre'].required = False
+            self.fields['modalidad_espacio'].required = False
+            self.fields['horas_aula'].required = False
+            self.fields['horas_centro_computo'].required = False
         self.fields['id_carrera'].queryset = CatalogoCarrera.objects.all().order_by('nombre_carrera')
         self.fields['campos_conocimiento'].queryset = (
             CatalogoCampoConocimiento.objects.order_by(
@@ -42,7 +81,18 @@ class CurriculoAsignaturaForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
         if self.instance.pk and self.instance.es_actividad:
             self.fields['nivel_semestre'].required = False
+            self.fields['modalidad_espacio'].required = False
+            self.fields['horas_aula'].required = False
+            self.fields['horas_centro_computo'].required = False
             self.fields['nivel_semestre'].widget.attrs['disabled'] = True
+        if self.instance.pk and not self.is_bound:
+            if self.instance.horas_centro_computo <= 0:
+                modalidad_inicial = 'SOLO_AULA'
+            elif self.instance.horas_aula <= 0:
+                modalidad_inicial = 'SOLO_CENTRO'
+            else:
+                modalidad_inicial = 'AULA_CENTRO'
+            self.fields['modalidad_espacio'].initial = modalidad_inicial
         if self.instance.pk:
             self.fields['campos_conocimiento'].initial = (
                 CurriculoAsignaturaCampo.objects.filter(
@@ -59,14 +109,40 @@ class CurriculoAsignaturaForm(forms.ModelForm):
             cleaned['es_actividad'] = True
         if es_actividad:
             cleaned['nivel_semestre'] = 0
+            cleaned['horas_aula'] = cleaned.get('horas_semanales_asignatura') or 0
+            cleaned['horas_centro_computo'] = 0
             cleaned['campos_conocimiento'] = (
                 CatalogoCampoConocimiento.objects.none()
             )
-        elif not cleaned.get('campos_conocimiento'):
-            self.add_error(
-                'campos_conocimiento',
-                'Seleccione al menos un campo de conocimiento.',
-            )
+        else:
+            modalidad = cleaned.get('modalidad_espacio')
+            total = cleaned.get('horas_semanales_asignatura')
+            aula = cleaned.get('horas_aula')
+            centro = cleaned.get('horas_centro_computo')
+            if modalidad == 'SOLO_AULA':
+                aula = total or 0
+                centro = 0
+                cleaned['horas_aula'] = aula
+                cleaned['horas_centro_computo'] = centro
+            elif modalidad == 'SOLO_CENTRO':
+                aula = 0
+                centro = total or 0
+                cleaned['horas_aula'] = aula
+                cleaned['horas_centro_computo'] = centro
+            elif modalidad == 'AULA_CENTRO' and (
+                aula is None or centro is None
+                or aula <= 0 or centro <= 0
+                or total is None or aula + centro != total
+            ):
+                raise forms.ValidationError(
+                    'Para usar aula y centro de cómputo, ambas cantidades '
+                    'deben ser mayores que 0 y sumar las horas semanales.'
+                )
+            if not cleaned.get('campos_conocimiento'):
+                self.add_error(
+                    'campos_conocimiento',
+                    'Seleccione al menos un campo de conocimiento.',
+                )
         return cleaned
 
     def save(self, commit=True):

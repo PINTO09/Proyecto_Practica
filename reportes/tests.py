@@ -3,12 +3,13 @@ from pathlib import Path
 
 from django.test import RequestFactory, SimpleTestCase
 from django.urls import reverse
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from .views import (
     F4_TEMPLATE_PATH,
     _export_filters,
     _filter_teacher_activity_scope,
+    _merge_f4_teacher_cells,
     export_resumen_horas_excel,
 )
 
@@ -71,6 +72,30 @@ class ActivityExportScopeTests(SimpleTestCase):
         )
         for recorded_call in queryset.filter.call_args_list:
             self.assertNotIn('id_carrera_id', recorded_call.kwargs)
+
+
+class F4TeacherGroupingTests(SimpleTestCase):
+    def test_identification_is_shown_once_for_multiple_teacher_rows(self):
+        worksheet = Workbook().active
+        for row in range(8, 11):
+            worksheet.cell(row, 2, '1300000000')
+            worksheet.cell(row, 3, 'DOCENTE DE PRUEBA')
+
+        _merge_f4_teacher_cells(worksheet, 8, 10)
+
+        self.assertIn('B8:B10', {str(item) for item in worksheet.merged_cells.ranges})
+        self.assertIn('C8:C10', {str(item) for item in worksheet.merged_cells.ranges})
+        self.assertEqual(worksheet['B8'].value, '1300000000')
+        self.assertEqual(worksheet['C8'].value, 'DOCENTE DE PRUEBA')
+        self.assertIsNone(worksheet['B9'].value)
+        self.assertIsNone(worksheet['C10'].value)
+
+    def test_single_teacher_row_is_not_merged(self):
+        worksheet = Workbook().active
+
+        _merge_f4_teacher_cells(worksheet, 8, 8)
+
+        self.assertFalse(worksheet.merged_cells.ranges)
 
 
 class InstitutionalF4TemplateTests(SimpleTestCase):

@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -8,6 +9,7 @@ from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo
 from catalogos.models import LimiteHorario, CatalogoCarrera, CatalogoPeriodoAcademico
 
 from .models import (
+    BitacoraUsoLaboratorio, CatalogoEspacioAcademico,
     PlanificacionAsignacionDocente, PlanificacionActividadDocente,
     PlanificacionAulaHorario, PlanificacionCapacidadEspecial,
     PlanificacionDemandaAcademica,
@@ -20,6 +22,172 @@ from .services import (
 
 def _parallel_labels(total):
     return parallel_labels(total)
+
+
+class BitacoraUsoLaboratorioForm(forms.ModelForm):
+    origen_planificacion = forms.ChoiceField(
+        label='Asignatura o actividad complementaria',
+        choices=(),
+        help_text='Solo se muestran registros asignados al docente que inició sesión.',
+    )
+
+    class Meta:
+        model = BitacoraUsoLaboratorio
+        fields = (
+            'origen_planificacion', 'semana', 'fecha_uso', 'id_espacio',
+            'horas_uso', 'actividad_realizada', 'observaciones',
+        )
+        labels = {
+            'semana': 'Semana',
+            'fecha_uso': 'Fecha de uso',
+            'id_espacio': 'Aula o centro de cómputo',
+            'horas_uso': 'Horas utilizadas',
+            'actividad_realizada': 'Actividad realizada',
+            'observaciones': 'Observaciones',
+        }
+        widgets = {
+            'semana': forms.Select(),
+            'fecha_uso': forms.DateInput(attrs={'type': 'date'}),
+            'horas_uso': forms.NumberInput(attrs={'min': '0.25', 'step': '0.25'}),
+            'actividad_realizada': forms.Textarea(attrs={'rows': 3}),
+            'observaciones': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, docente=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.docente = docente
+        asignaciones = PlanificacionAsignacionDocente.objects.none()
+        actividades = PlanificacionActividadDocente.objects.none()
+        if docente:
+            assignment_filter = Q(id_periodo__periodo_activo=True)
+            activity_filter = Q(id_periodo__periodo_activo=True)
+            if self.instance.pk:
+                if self.instance.id_asignacion_id:
+                    assignment_filter |= Q(pk=self.instance.id_asignacion_id)
+                if self.instance.id_actividad_docente_id:
+                    activity_filter |= Q(pk=self.instance.id_actividad_docente_id)
+            asignaciones = PlanificacionAsignacionDocente.objects.filter(
+                assignment_filter,
+                id_docente=docente,
+                id_asignatura__horas_centro_computo__gt=0,
+            ).select_related('id_asignatura', 'id_periodo').order_by(
+                '-id_periodo__fecha_inicio_periodo', 'id_asignatura__nombre_asignatura'
+            )
+            actividades = PlanificacionActividadDocente.objects.filter(
+                activity_filter, id_docente=docente
+            ).select_related('id_actividad', 'id_periodo').order_by(
+                '-id_periodo__fecha_inicio_periodo', 'id_actividad__nombre_actividad'
+            )
+        choices = [('', '--- Seleccione ---')]
+        choices.extend(
+            (
+                f'ASIGNACION:{item.pk}',
+                f'Asignatura · {item.id_asignatura.nombre_asignatura} · '
+                f'{item.paralelo_asignado} · {item.id_periodo} · '
+                f'{item.id_asignatura.horas_centro_computo} h en centro de cómputo',
+            )
+            for item in asignaciones
+        )
+        choices.extend(
+            (
+                f'ACTIVIDAD:{item.pk}',
+                f'Actividad · {item.id_actividad.nombre_actividad} · {item.id_periodo}',
+            )
+            for item in actividades
+        )
+        self.fields['origen_planificacion'].choices = choices
+
+        max_weeks = 30
+        selected = self.data.get('origen_planificacion') if self.is_bound else None
+        if not selected and self.instance.pk:
+            selected = (
+                f'ASIGNACION:{self.instance.id_asignacion_id}'
+                if self.instance.id_asignacion_id
+                else f'ACTIVIDAD:{self.instance.id_actividad_docente_id}'
+            )
+            self.fields['origen_planificacion'].initial = selected
+        if selected and selected.startswith('ASIGNACION:'):
+            assignment_id = selected.partition(':')[2]
+            assignment = asignaciones.filter(pk=assignment_id).first()
+            if assignment:
+                max_weeks = assignment.semanas_planificadas
+        elif selected and selected.startswith('ACTIVIDAD:'):
+            activity_id = selected.partition(':')[2]
+            activity = actividades.filter(pk=activity_id).first()
+            if activity:
+                temporary = BitacoraUsoLaboratorio(id_actividad_docente=activity)
+                max_weeks = temporary.semanas_disponibles
+        origin = assignment if selected and selected.startswith('ASIGNACION:') else (
+            activity if selected and selected.startswith('ACTIVIDAD:') else None
+        )
+        period = origin.id_periodo if origin else None
+        week_choices = [('', '--- Seleccione ---')]
+        for number in range(1, max_weeks + 1):
+            label = f'Semana {number}'
+            if period and period.fecha_inicio_periodo:
+                start = period.fecha_inicio_periodo + timedelta(days=(number - 1) * 7)
+                end = start + timedelta(days=6)
+                if period.fecha_fin_periodo:
+                    end = min(end, period.fecha_fin_periodo)
+                label += f' · {start:%d/%m/%Y} al {end:%d/%m/%Y}'
+            week_choices.append((number, label))
+        self.fields['semana'].widget.choices = week_choices
+        self.fields['horas_uso'].help_text = (
+            'Registre las horas realmente utilizadas. El sistema las comparará '
+            'con las horas semanales planificadas.'
+        )
+        spaces = CatalogoEspacioAcademico.objects.filter(
+            espacio_activo=True
+        )
+        if self.instance.pk and self.instance.id_espacio_id:
+            spaces = CatalogoEspacioAcademico.objects.filter(
+                Q(espacio_activo=True) | Q(pk=self.instance.id_espacio_id)
+            )
+        self.fields['id_espacio'].queryset = spaces.order_by(
+            'tipo_espacio', 'nombre_espacio'
+        )
+        self.fields['id_espacio'].required = True
+        self.fields['id_espacio'].empty_label = '--- Seleccione un espacio registrado ---'
+        for field in self.fields.values():
+            field.widget.attrs['class'] = (
+                'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        selected = cleaned.get('origen_planificacion', '')
+        self.instance.id_docente = self.docente
+        self.instance.id_asignacion = None
+        self.instance.id_actividad_docente = None
+        try:
+            kind, raw_pk = selected.split(':', 1)
+            if kind == 'ASIGNACION':
+                self.instance.id_asignacion = PlanificacionAsignacionDocente.objects.get(
+                    pk=raw_pk, id_docente=self.docente
+                )
+                max_weeks = self.instance.id_asignacion.semanas_planificadas
+            elif kind == 'ACTIVIDAD':
+                self.instance.id_actividad_docente = PlanificacionActividadDocente.objects.get(
+                    pk=raw_pk, id_docente=self.docente
+                )
+                max_weeks = self.instance.semanas_disponibles
+            else:
+                raise ValueError
+        except (ValueError, PlanificacionAsignacionDocente.DoesNotExist,
+                PlanificacionActividadDocente.DoesNotExist):
+            self.add_error(
+                'origen_planificacion',
+                'Seleccione una planificación válida asignada a su usuario.',
+            )
+            return cleaned
+        week = cleaned.get('semana')
+        if week and week > max_weeks:
+            self.add_error('semana', f'Seleccione una semana entre 1 y {max_weeks}.')
+        space = cleaned.get('id_espacio')
+        if space:
+            self.instance.tipo_espacio = space.tipo_espacio
+            self.instance.nombre_espacio = space.nombre_espacio
+        return cleaned
 
 
 class PlanificacionAsignacionDocenteForm(forms.ModelForm):

@@ -1,5 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from math import ceil
+from datetime import timedelta
 
 
 class CatalogoActividadComplementaria(models.Model):
@@ -56,6 +58,161 @@ class PlanificacionActividadDocente(models.Model):
     def clean(self):
         from .services import assert_periodo_editable
         assert_periodo_editable(self.id_periodo)
+
+
+class CatalogoEspacioAcademico(models.Model):
+    TIPOS = (
+        ('AULA', 'Aula de clases'),
+        ('CENTRO_COMPUTO', 'Centro de cómputo'),
+    )
+
+    id_espacio = models.AutoField(primary_key=True)
+    codigo_espacio = models.CharField(max_length=20, unique=True)
+    nombre_espacio = models.CharField(max_length=100)
+    tipo_espacio = models.CharField(max_length=20, choices=TIPOS)
+    ubicacion = models.CharField(max_length=150, blank=True)
+    capacidad = models.PositiveSmallIntegerField(null=True, blank=True)
+    espacio_activo = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'catalogo_espacio_academico'
+        ordering = ('tipo_espacio', 'nombre_espacio')
+        verbose_name = 'Espacio académico'
+        verbose_name_plural = 'Catálogo de aulas y centros de cómputo'
+
+    def __str__(self):
+        return f'{self.codigo_espacio} - {self.nombre_espacio} ({self.get_tipo_espacio_display()})'
+
+
+class BitacoraUsoLaboratorio(models.Model):
+    TIPOS_ESPACIO = (
+        ('AULA', 'Aula de clases'),
+        ('CENTRO_COMPUTO', 'Centro de cómputo'),
+    )
+
+    id_bitacora = models.BigAutoField(primary_key=True)
+    id_docente = models.ForeignKey(
+        'docentes.DocenteFcacc', on_delete=models.RESTRICT, db_column='id_docente'
+    )
+    id_asignacion = models.ForeignKey(
+        'PlanificacionAsignacionDocente', on_delete=models.RESTRICT,
+        db_column='id_asignacion', null=True, blank=True,
+    )
+    id_actividad_docente = models.ForeignKey(
+        PlanificacionActividadDocente, on_delete=models.RESTRICT,
+        db_column='id_actividad_docente', null=True, blank=True,
+    )
+    id_espacio = models.ForeignKey(
+        CatalogoEspacioAcademico, on_delete=models.RESTRICT,
+        db_column='id_espacio', null=True, blank=True,
+    )
+    semana = models.PositiveSmallIntegerField()
+    fecha_uso = models.DateField()
+    tipo_espacio = models.CharField(max_length=20, choices=TIPOS_ESPACIO)
+    nombre_espacio = models.CharField(max_length=100)
+    horas_uso = models.DecimalField(max_digits=4, decimal_places=2)
+    actividad_realizada = models.TextField()
+    observaciones = models.TextField(blank=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'bitacora_uso_laboratorio'
+        ordering = ('-fecha_uso', '-id_bitacora')
+        verbose_name = 'Registro de uso de centro de cómputo'
+        verbose_name_plural = 'Bitácora de centros de cómputo'
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    (models.Q(id_asignacion__isnull=False) & models.Q(id_actividad_docente__isnull=True))
+                    | (models.Q(id_asignacion__isnull=True) & models.Q(id_actividad_docente__isnull=False))
+                ),
+                name='chk_bitacora_un_origen',
+            ),
+            models.CheckConstraint(
+                check=models.Q(semana__gte=1),
+                name='chk_bitacora_semana_positiva',
+            ),
+            models.CheckConstraint(
+                check=models.Q(horas_uso__gt=0),
+                name='chk_bitacora_horas_positivas',
+            ),
+        ]
+
+    @property
+    def origen(self):
+        if self.id_asignacion_id:
+            return self.id_asignacion.id_asignatura
+        return self.id_actividad_docente.id_actividad
+
+    def clean(self):
+        if bool(self.id_asignacion_id) == bool(self.id_actividad_docente_id):
+            raise ValidationError('Seleccione una asignatura o una actividad complementaria.')
+        origen = self.id_asignacion or self.id_actividad_docente
+        if origen and origen.id_docente_id != self.id_docente_id:
+            raise ValidationError('La planificación seleccionada no pertenece al docente.')
+        limite_semanas = self.semanas_disponibles
+        if self.semana and self.semana > limite_semanas:
+            raise ValidationError({
+                'semana': f'La semana debe estar entre 1 y {limite_semanas}.'
+            })
+        periodo = origen.id_periodo if origen else None
+        if periodo and self.fecha_uso:
+            if periodo.fecha_inicio_periodo and self.fecha_uso < periodo.fecha_inicio_periodo:
+                raise ValidationError({'fecha_uso': 'La fecha es anterior al período académico.'})
+            if periodo.fecha_fin_periodo and self.fecha_uso > periodo.fecha_fin_periodo:
+                raise ValidationError({'fecha_uso': 'La fecha es posterior al período académico.'})
+            rango = self.rango_semana
+            if rango and not (rango[0] <= self.fecha_uso <= rango[1]):
+                raise ValidationError({
+                    'fecha_uso': (
+                        f'La fecha debe corresponder a la semana {self.semana}: '
+                        f'del {rango[0].strftime("%d/%m/%Y")} al '
+                        f'{rango[1].strftime("%d/%m/%Y")}.'
+                    )
+                })
+        if self.id_espacio_id:
+            self.tipo_espacio = self.id_espacio.tipo_espacio
+            self.nombre_espacio = self.id_espacio.nombre_espacio
+
+    @property
+    def semanas_disponibles(self):
+        if self.id_asignacion_id:
+            return self.id_asignacion.semanas_planificadas or 16
+        if self.id_actividad_docente_id:
+            periodo = self.id_actividad_docente.id_periodo
+            if periodo.fecha_inicio_periodo and periodo.fecha_fin_periodo:
+                return max(1, min(30, ceil(
+                    ((periodo.fecha_fin_periodo - periodo.fecha_inicio_periodo).days + 1) / 7
+                )))
+        return 16
+
+    @property
+    def periodo(self):
+        if self.id_asignacion_id:
+            return self.id_asignacion.id_periodo
+        if self.id_actividad_docente_id:
+            return self.id_actividad_docente.id_periodo
+        return None
+
+    @property
+    def rango_semana(self):
+        periodo = self.periodo
+        if not periodo or not periodo.fecha_inicio_periodo or not self.semana:
+            return None
+        inicio = periodo.fecha_inicio_periodo + timedelta(days=(self.semana - 1) * 7)
+        fin = inicio + timedelta(days=6)
+        if periodo.fecha_fin_periodo:
+            fin = min(fin, periodo.fecha_fin_periodo)
+        return inicio, fin
+
+    @property
+    def horas_planificadas_espacio(self):
+        if self.id_asignacion_id:
+            return self.id_asignacion.id_asignatura.horas_centro_computo
+        if self.id_actividad_docente_id:
+            return self.id_actividad_docente.horas_asignadas
+        return 0
 
 
 class PlanificacionDemandaAcademica(models.Model):

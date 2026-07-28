@@ -93,23 +93,6 @@
   </div>
 </div>
 
-<div class="row g-3">
-  {% for mod in modulos_acceso %}
-  <div class="col-xl-3 col-lg-4 col-md-6">
-    <a href="{{ mod.url }}" class="text-decoration-none">
-      <div class="card border-0 shadow-sm h-100 module-card">
-        <div class="card-body text-center py-4">
-          <div class="module-icon d-inline-flex align-items-center justify-content-center mb-3">
-            <i class="fas {{ mod.icono }} fs-4"></i>
-          </div>
-          <h6 class="fw-bold mb-1">{{ mod.nombre }}</h6>
-          <p class="text-muted small mb-0">{{ mod.modelos_count }} modelos</p>
-        </div>
-      </div>
-    </a>
-  </div>
-  {% endfor %}
-</div>
 {% endif %}
 
 {# ─── Docente dashboard ───────────────────────────────────────── #}
@@ -282,6 +265,29 @@
     </div>
   </div>
 </div>
+{% endif %}
+
+{% if modulos_acceso %}
+<section class="mt-5">
+  <h5 class="fw-bold mb-3"><i class="fas fa-grid-2 me-2 text-primary"></i>{{ modulos_titulo }}</h5>
+  <div class="row g-3">
+    {% for mod in modulos_acceso %}
+    <div class="col-xl-3 col-lg-4 col-md-6">
+      <a href="{{ mod.url }}" class="text-decoration-none">
+        <div class="card border-0 shadow-sm h-100 module-card">
+          <div class="card-body text-center py-4">
+            <div class="module-icon d-inline-flex align-items-center justify-content-center mb-3">
+              <i class="fas {{ mod.icono }} fs-4"></i>
+            </div>
+            <h6 class="fw-bold mb-1">{{ mod.nombre }}</h6>
+            <p class="text-muted small mb-0">{% if mod.descripcion %}{{ mod.descripcion }}{% else %}{{ mod.modelos_count }} secciones disponibles{% endif %}</p>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
 {% endif %}
 {% endblock %}
 

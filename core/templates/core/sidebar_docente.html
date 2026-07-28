@@ -5,9 +5,9 @@
     </a>
 </div>
 
-<details class="nav-group" data-nav-group="mi-espacio"{% if active_section == 'perfil' or active_section == 'titulos' or active_section == 'publicaciones' or active_section == 'cursos' or active_section == 'documentos' %} open{% endif %}>
+<details class="nav-group" data-nav-group="mi-perfil"{% if active_section == 'perfil' or active_section == 'titulos' or active_section == 'publicaciones' or active_section == 'cursos' or active_section == 'documentos' %} open{% endif %}>
     <summary class="nav-group-toggle">
-        <span class="nav-group-label"><i class="fas fa-user-circle"></i><span>Mi espacio</span></span>
+        <span class="nav-group-label"><i class="fas fa-user-circle"></i><span>Mi perfil académico</span></span>
         <i class="fas fa-chevron-right nav-group-chevron" aria-hidden="true"></i>
     </summary>
     <div class="nav-submenu">
@@ -18,6 +18,18 @@
         <a class="nav-link{% if active_section == 'documentos' %} active{% endif %}" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i><span>Documentos</span></a>
     </div>
 </details>
+
+{% if request.user.is_superuser or request.user.groups.first.name|default:'' == 'Administrador' or request.user.groups.first.name|default:'' == 'Autoridad' or request.user.groups.first.name|default:'' == 'Coordinador' %}
+<details class="nav-group" data-nav-group="control-academico"{% if active_section == 'consulta_bitacora_laboratorios' %} open{% endif %}>
+    <summary class="nav-group-toggle">
+        <span class="nav-group-label"><i class="fas fa-chart-line"></i><span>Control académico</span></span>
+        <i class="fas fa-chevron-right nav-group-chevron" aria-hidden="true"></i>
+    </summary>
+    <div class="nav-submenu">
+        <a class="nav-link{% if active_section == 'consulta_bitacora_laboratorios' %} active{% endif %}" href="{% url 'planificacion:consulta_bitacora_laboratorios' %}"><i class="fas fa-chart-column"></i><span>Uso de espacios</span></a>
+    </div>
+</details>
+{% endif %}
 
 {% if request.user.is_superuser or request.user.groups.first.name|default:'' == 'Administrador' or request.user.groups.first.name|default:'' == 'Autoridad' %}
 <details class="nav-group" data-nav-group="usuarios"{% if active_section == 'usuarios' or role_name %} open{% endif %}>

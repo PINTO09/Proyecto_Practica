@@ -16,6 +16,7 @@ from accounts.decorators import (
     module_permission_required, allowed_career_ids,
 )
 from .forms import (
+    BitacoraUsoLaboratorioForm,
     PlanificacionAsignacionDocenteForm, PlanificacionActividadDocenteForm,
     PlanificacionAulaHorarioForm, PlanificacionCapacidadEspecialForm,
     PlanificacionDemandaAcademicaForm,
@@ -26,7 +27,8 @@ from .services import (
     knowledge_field_maps, normalize_parallel, validate_assignment_business_rules,
 )
 from .models import (
-    CatalogoActividadComplementaria, PlanificacionActividadDocente,
+    BitacoraUsoLaboratorio, CatalogoActividadComplementaria,
+    CatalogoEspacioAcademico, PlanificacionActividadDocente,
     PlanificacionDemandaAcademica, PlanificacionAsignacionDocente,
     PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario,
     PlanificacionCapacidadEspecial,
@@ -35,6 +37,246 @@ from docentes.models import DocenteFcacc, DocenteCampoAfinidad, DocenteTituloAca
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo, RelacionPosgradoCampo
 from catalogos.models import CatalogoCampoConocimiento, CatalogoCarrera, CatalogoDedicacionHoraria, CatalogoModalidadContratacion, CatalogoPeriodoAcademico, LimiteHorario
 import re
+
+
+class CatalogoEspacioAcademicoListView(CrudListView):
+    model = CatalogoEspacioAcademico
+    search_fields = (
+        'codigo_espacio', 'nombre_espacio', 'ubicacion', 'tipo_espacio',
+    )
+
+
+class CatalogoEspacioAcademicoCreateView(CrudCreateView):
+    model = CatalogoEspacioAcademico
+    fields = (
+        'codigo_espacio', 'nombre_espacio', 'tipo_espacio',
+        'ubicacion', 'capacidad', 'espacio_activo',
+    )
+
+
+class CatalogoEspacioAcademicoUpdateView(CrudUpdateView):
+    model = CatalogoEspacioAcademico
+    fields = (
+        'codigo_espacio', 'nombre_espacio', 'tipo_espacio',
+        'ubicacion', 'capacidad', 'espacio_activo',
+    )
+
+
+class CatalogoEspacioAcademicoDeleteView(CrudDeleteView):
+    model = CatalogoEspacioAcademico
+
+
+def _docente_de_usuario(request):
+    cedula = (getattr(request.user, 'cedula', '') or '').strip()
+    if not cedula:
+        raise PermissionDenied('El usuario no tiene una cédula asociada.')
+    docente = DocenteFcacc.objects.filter(cedula_docente=cedula).first()
+    if not docente:
+        raise PermissionDenied('El usuario no está vinculado a un docente registrado.')
+    return docente
+
+
+@login_required
+def bitacora_laboratorios(request):
+    docente = _docente_de_usuario(request)
+    registros = BitacoraUsoLaboratorio.objects.filter(
+        id_docente=docente
+    ).select_related(
+        'id_asignacion__id_asignatura', 'id_asignacion__id_periodo',
+        'id_actividad_docente__id_actividad', 'id_actividad_docente__id_periodo',
+    )
+    tipo = request.GET.get('tipo', '')
+    semana = request.GET.get('semana', '')
+    periodo = request.GET.get('periodo', '')
+    if tipo in dict(BitacoraUsoLaboratorio.TIPOS_ESPACIO):
+        registros = registros.filter(tipo_espacio=tipo)
+    if semana.isdigit():
+        registros = registros.filter(semana=int(semana))
+    if periodo.isdigit():
+        registros = registros.filter(
+            Q(id_asignacion__id_periodo_id=int(periodo))
+            | Q(id_actividad_docente__id_periodo_id=int(periodo))
+        )
+    total_horas = registros.aggregate(total=Sum('horas_uso'))['total'] or 0
+    paginator = Paginator(registros, 20)
+    return render(request, 'planificacion/bitacora_laboratorios_list.html', {
+        'docente': docente,
+        'page_obj': paginator.get_page(request.GET.get('page')),
+        'tipos_espacio': BitacoraUsoLaboratorio.TIPOS_ESPACIO,
+        'tipo_filtro': tipo,
+        'semana_filtro': semana,
+        'periodo_filtro': periodo,
+        'periodos': CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo'),
+        'total_horas': total_horas,
+        'total_registros': registros.count(),
+        'active_section': 'bitacora_laboratorios',
+    })
+
+
+@module_permission_required('planificacion', 'view')
+def consulta_bitacora_laboratorios(request):
+    registros = BitacoraUsoLaboratorio.objects.select_related(
+        'id_docente', 'id_espacio',
+        'id_asignacion__id_asignatura', 'id_asignacion__id_periodo',
+        'id_actividad_docente__id_actividad', 'id_actividad_docente__id_periodo',
+    )
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        registros = registros.filter(id_asignacion__id_carrera_id__in=permitted)
+    accessible_docente_ids = registros.values_list('id_docente_id', flat=True).distinct()
+    accessible_space_ids = registros.exclude(
+        id_espacio_id__isnull=True
+    ).values_list('id_espacio_id', flat=True).distinct()
+
+    periodo = request.GET.get('periodo', '')
+    docente = request.GET.get('docente', '')
+    espacio = request.GET.get('espacio', '')
+    semana = request.GET.get('semana', '')
+    if periodo.isdigit():
+        registros = registros.filter(
+            Q(id_asignacion__id_periodo_id=int(periodo))
+            | Q(id_actividad_docente__id_periodo_id=int(periodo))
+        )
+    if docente.isdigit():
+        registros = registros.filter(id_docente_id=int(docente))
+    if espacio.isdigit():
+        registros = registros.filter(id_espacio_id=int(espacio))
+    if semana.isdigit():
+        registros = registros.filter(semana=int(semana))
+
+    total_horas = registros.aggregate(total=Sum('horas_uso'))['total'] or 0
+    paginator = Paginator(registros, 30)
+    return render(request, 'planificacion/bitacora_laboratorios_consulta.html', {
+        'page_obj': paginator.get_page(request.GET.get('page')),
+        'periodos': CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo'),
+        'docentes': DocenteFcacc.objects.filter(
+            pk__in=accessible_docente_ids
+        ).order_by('nombres_completos'),
+        'espacios': CatalogoEspacioAcademico.objects.filter(
+            pk__in=accessible_space_ids
+        ).order_by('tipo_espacio', 'nombre_espacio'),
+        'periodo_filtro': periodo,
+        'docente_filtro': docente,
+        'espacio_filtro': espacio,
+        'semana_filtro': semana,
+        'total_horas': total_horas,
+        'total_registros': registros.count(),
+        'active_section': 'consulta_bitacora_laboratorios',
+    })
+
+
+@login_required
+def bitacora_laboratorios_crear(request):
+    docente = _docente_de_usuario(request)
+    form = BitacoraUsoLaboratorioForm(
+        request.POST or None, docente=docente
+    )
+    if request.method == 'POST' and form.is_valid():
+        registro = form.save(commit=False)
+        registro.id_docente = docente
+        registro.full_clean()
+        registro.save()
+        messages.success(request, 'El uso del centro de cómputo fue registrado correctamente.')
+        return redirect('planificacion:bitacora_laboratorios')
+    return render(request, 'planificacion/bitacora_laboratorios_form.html', {
+        'form': form,
+        'hay_espacios': CatalogoEspacioAcademico.objects.filter(espacio_activo=True).exists(),
+        'active_section': 'bitacora_laboratorios',
+        'form_title': 'Nuevo registro de actividad',
+    })
+
+
+@login_required
+def bitacora_laboratorios_editar(request, pk):
+    docente = _docente_de_usuario(request)
+    registro = get_object_or_404(
+        BitacoraUsoLaboratorio, pk=pk, id_docente=docente
+    )
+    form = BitacoraUsoLaboratorioForm(
+        request.POST or None, instance=registro, docente=docente
+    )
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'El registro fue actualizado correctamente.')
+        return redirect('planificacion:bitacora_laboratorios')
+    return render(request, 'planificacion/bitacora_laboratorios_form.html', {
+        'form': form,
+        'hay_espacios': CatalogoEspacioAcademico.objects.filter(espacio_activo=True).exists(),
+        'active_section': 'bitacora_laboratorios',
+        'form_title': 'Editar registro de actividad',
+    })
+
+
+@login_required
+def bitacora_laboratorios_eliminar(request, pk):
+    docente = _docente_de_usuario(request)
+    registro = get_object_or_404(
+        BitacoraUsoLaboratorio, pk=pk, id_docente=docente
+    )
+    if request.method == 'POST':
+        registro.delete()
+        messages.success(request, 'El registro fue eliminado.')
+        return redirect('planificacion:bitacora_laboratorios')
+    return render(request, 'planificacion/bitacora_laboratorios_confirm_delete.html', {
+        'registro': registro,
+        'active_section': 'bitacora_laboratorios',
+    })
+
+
+@login_required
+def api_bitacora_semanas(request):
+    docente = _docente_de_usuario(request)
+    selected = request.GET.get('origen', '')
+    total = 0
+    origin = None
+    planned_hours = 0
+    try:
+        kind, raw_pk = selected.split(':', 1)
+        if kind == 'ASIGNACION':
+            origin = PlanificacionAsignacionDocente.objects.select_related(
+                'id_periodo', 'id_asignatura'
+            ).get(
+                pk=raw_pk, id_docente=docente,
+                id_asignatura__horas_centro_computo__gt=0,
+            )
+            total = origin.semanas_planificadas
+            planned_hours = origin.id_asignatura.horas_centro_computo
+        elif kind == 'ACTIVIDAD':
+            origin = PlanificacionActividadDocente.objects.select_related(
+                'id_periodo'
+            ).get(pk=raw_pk, id_docente=docente)
+            total = BitacoraUsoLaboratorio(
+                id_actividad_docente=origin
+            ).semanas_disponibles
+            planned_hours = origin.horas_asignadas
+        else:
+            raise ValueError
+    except (ValueError, PlanificacionAsignacionDocente.DoesNotExist,
+            PlanificacionActividadDocente.DoesNotExist):
+        total = 0
+        origin = None
+        planned_hours = 0
+    weeks = []
+    if origin:
+        period = origin.id_periodo
+        for number in range(1, total + 1):
+            item = {'numero': number, 'etiqueta': f'Semana {number}'}
+            if period.fecha_inicio_periodo:
+                from datetime import timedelta
+                start = period.fecha_inicio_periodo + timedelta(days=(number - 1) * 7)
+                end = start + timedelta(days=6)
+                if period.fecha_fin_periodo:
+                    end = min(end, period.fecha_fin_periodo)
+                item.update({
+                    'inicio': start.isoformat(),
+                    'fin': end.isoformat(),
+                    'etiqueta': f'Semana {number} · {start:%d/%m/%Y} al {end:%d/%m/%Y}',
+                })
+            weeks.append(item)
+    return JsonResponse({
+        'semanas': weeks,
+        'horas_planificadas': str(planned_hours),
+    })
 
 
 class PeriodEditableDeleteMixin:

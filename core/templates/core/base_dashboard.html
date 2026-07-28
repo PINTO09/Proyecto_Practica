@@ -88,7 +88,15 @@
         <nav class="sidebar-nav" id="sidebarNavigation" aria-label="Navegación principal">
             {% block sidebar_menu %}{% endblock %}
             <hr class="mx-3 my-2" style="border-color:var(--sidebar-border);">
-            <div class="nav-module">Módulos institucionales</div>
+            <div class="nav-module">{% if is_docente_role and not module_access.planificacion %}Módulos docentes{% else %}Módulos institucionales{% endif %}</div>
+
+            {% if is_docente_role %}
+            <div class="nav-item">
+                <a class="nav-link{% if active_section == 'bitacora_laboratorios' %} active{% endif %}" href="{% url 'planificacion:bitacora_laboratorios' %}">
+                    <i class="fas fa-chalkboard-user"></i><span>Registro de actividad</span>
+                </a>
+            </div>
+            {% endif %}
 
             {% if module_access.catalogos %}<details class="nav-group" data-nav-group="catalogos"{% if request.resolver_match.namespace == 'catalogos' or active_section == 'modulo_catalogos' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-database"></i><span>M1 · Catálogos</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
