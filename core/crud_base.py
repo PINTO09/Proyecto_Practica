@@ -14,10 +14,10 @@ def _scope_queryset_by_career(queryset, user):
     career_ids = allowed_career_ids(user)
     if career_ids is None:
         return queryset
-    field_names = {field.name for field in queryset.model._meta.get_fields()}
+    field_map = {field.name: field for field in queryset.model._meta.get_fields()}
     for candidate in ('id_carrera', 'carrera'):
-        if candidate in field_names:
-            return queryset.filter(**{f'{candidate}_id__in': career_ids})
+        if candidate in field_map:
+            return queryset.filter(**{f'{field_map[candidate].attname}__in': career_ids})
     return queryset
 
 

@@ -37,4 +37,5 @@ urlpatterns = [
     path('modulo/planificacion/', views.modulo_view, {'slug': 'planificacion'}, name='modulo_planificacion'),
     path('modulo/auditoria/', views.modulo_view, {'slug': 'auditoria'}, name='modulo_auditoria'),
     path('modulo/restricciones/', views.modulo_view, {'slug': 'restricciones'}, name='modulo_restricciones'),
+    path('modulo/documentos-titulos/', views.modulo_view, {'slug': 'self_service'}, name='modulo_self_service'),
 ]

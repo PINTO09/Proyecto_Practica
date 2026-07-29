@@ -1,0 +1,145 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}Dedicación y posgrados - ULEAM{% endblock %}
+
+{% block content %}
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 no-print">
+  <div>
+    <div class="page-eyebrow mb-1">M2 · Docentes</div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-chart-pie me-2 text-primary"></i>Dedicación y formación de posgrado</h4>
+    <p class="text-muted small mb-0">Distribución actual de docentes y títulos académicos de cuarto nivel registrados.</p>
+  </div>
+  <button class="btn btn-outline-primary" type="button" onclick="window.print()">
+    <i class="fas fa-print me-1"></i>Imprimir / guardar PDF
+  </button>
+</div>
+
+<div class="card border-0 shadow-sm mb-4 no-print">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-xl-3 col-md-6">
+        <label class="form-label small fw-semibold">Estado del docente</label>
+        <select name="estado" class="form-select">
+          <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Solo activos</option>
+          <option value="inactivos" {% if estado == 'inactivos' %}selected{% endif %}>Solo inactivos</option>
+          <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
+        </select>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <label class="form-label small fw-semibold">Dedicación</label>
+        <select name="dedicacion" class="form-select">
+          <option value="">Todas</option>
+          {% for item in dedicaciones %}
+          <option value="{{ item.id_dedicacion }}" {% if dedicacion_filter == item.id_dedicacion|slugify %}selected{% endif %}>{{ item.nombre_dedicacion }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small fw-semibold">Formación</label>
+        <select name="formacion" class="form-select">
+          <option value="todos" {% if formacion == 'todos' %}selected{% endif %}>Todos</option>
+          <option value="con" {% if formacion == 'con' %}selected{% endif %}>Con posgrado</option>
+          <option value="maestria" {% if formacion == 'maestria' %}selected{% endif %}>Con maestría</option>
+          <option value="sin" {% if formacion == 'sin' %}selected{% endif %}>Sin posgrado registrado</option>
+        </select>
+      </div>
+      <div class="col-xl-2 col-md-6">
+        <label class="form-label small fw-semibold">Docente</label>
+        <input name="q" class="form-control" value="{{ search_value }}" placeholder="Nombre o cédula">
+      </div>
+      <div class="col-xl-2 d-grid">
+        <button class="btn btn-primary" type="submit"><i class="fas fa-filter me-1"></i>Aplicar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="d-none print-header mb-4">
+  <h3 class="mb-1">Reporte de dedicación y formación de posgrado</h3>
+  <div class="text-muted">Facultad de Ciencias Administrativas, Contables y Comercio</div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Docentes analizados</div><div class="fs-4 fw-bold">{{ summary.teacher_count }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Con posgrado</div><div class="fs-4 fw-bold">{{ summary.teachers_with_postgraduate }}</div><div class="small text-muted">docentes</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Maestrías</div><div class="fs-4 fw-bold">{{ summary.masters }}</div><div class="small text-muted">títulos únicos</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Total posgrados</div><div class="fs-4 fw-bold">{{ summary.total_postgraduate_titles }}</div><div class="small text-muted">títulos únicos</div></div></div></div>
+</div>
+
+{% if summary.total_postgraduate_titles == 0 %}
+<div class="alert alert-warning">
+  <i class="fas fa-circle-exclamation me-2"></i>No existen títulos de posgrado registrados para los docentes incluidos en esta consulta.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Docentes por dedicación</div>
+      <div class="card-body">
+        {% for row in dedication_rows %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1"><span>{{ row.dedication.nombre_dedicacion }}</span><strong>{{ row.count }} <span class="text-muted small">({{ row.percentage }}%)</span></strong></div>
+          <div class="progress" style="height:8px;"><div class="progress-bar" style="width:{{ row.percentage|stringformat:'f' }}%"></div></div>
+        </div>
+        {% empty %}<p class="text-muted mb-0">No hay docentes para los filtros seleccionados.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Títulos de posgrado por tipo</div>
+      <div class="card-body">
+        <div class="row g-3 text-center">
+          <div class="col-6"><div class="p-3 rounded bg-body-tertiary"><div class="fs-4 fw-bold">{{ summary.masters }}</div><div class="small text-muted">Maestrías</div></div></div>
+          <div class="col-6"><div class="p-3 rounded bg-body-tertiary"><div class="fs-4 fw-bold">{{ summary.doctorates }}</div><div class="small text-muted">Doctorados / PhD</div></div></div>
+          <div class="col-6"><div class="p-3 rounded bg-body-tertiary"><div class="fs-4 fw-bold">{{ summary.specializations }}</div><div class="small text-muted">Especializaciones</div></div></div>
+          <div class="col-6"><div class="p-3 rounded bg-body-tertiary"><div class="fs-4 fw-bold">{{ summary.other }}</div><div class="small text-muted">Otros posgrados</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Detalle por docente</span>
+    <span class="text-muted small">{{ summary.teacher_count }} resultado(s)</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light"><tr><th class="ps-3">Docente</th><th>Dedicación</th><th>Maestrías</th><th>Doctorados</th><th>Especializaciones</th><th>Total posgrados</th><th class="pe-3">Títulos registrados</th></tr></thead>
+      <tbody>
+        {% for row in teacher_rows %}
+        <tr>
+          <td class="ps-3"><strong>{{ row.teacher.nombres_completos }}</strong><div class="small text-muted font-monospace">{{ row.teacher.cedula_docente }}</div></td>
+          <td>{{ row.teacher.id_dedicacion.nombre_dedicacion }}</td>
+          <td>{{ row.counts.masters }}</td>
+          <td>{{ row.counts.doctorates }}</td>
+          <td>{{ row.counts.specializations }}</td>
+          <td><strong>{{ row.postgraduate_count }}</strong></td>
+          <td class="pe-3">{% if row.title_names %}{{ row.title_names|join:'; ' }}{% else %}<span class="text-muted">Sin posgrado registrado</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No hay docentes para los filtros seleccionados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<p class="small text-muted mt-3">
+  Se consideran posgrados los títulos con nivel académico 4 o superior, o vinculados al catálogo de posgrados. Los títulos repetidos del mismo docente se contabilizan una sola vez.
+</p>
+
+<style>
+@media print {
+  .sidebar, .topbar, .no-print, .sidebar-overlay { display:none !important; }
+  .main-content { margin-left:0 !important; }
+  .content-area { padding:0 !important; }
+  .print-header { display:block !important; }
+  .card { box-shadow:none !important; border:1px solid #dee2e6 !important; break-inside:avoid; }
+  body { background:#fff !important; }
+}
+</style>
+{% endblock %}

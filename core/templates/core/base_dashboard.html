@@ -110,6 +110,19 @@
                     <a class="nav-link" href="{% url 'docentes:docentetituloacademico_list' %}"><i class="fas fa-user-graduate"></i><span>Títulos académicos</span></a>
                     <a class="nav-link" href="{% url 'docentes:docentecampoafinidad_list' %}"><i class="fas fa-link"></i><span>Campos de afinidad</span></a>
                     <a class="nav-link" href="{% url 'docentes:docenteasignacioncarreraperiodo_list' %}"><i class="fas fa-building-user"></i><span>Carrera por período</span></a>
+                    <a class="nav-link{% if active_section == 'reporte_historial_docente' %} active{% endif %}" href="{% url 'docentes:reporte_historial_docente' %}"><i class="fas fa-clock-rotate-left"></i><span>Historial del docente</span></a>
+                    <a class="nav-link{% if active_section == 'reporte_dedicacion_formacion_docente' %} active{% endif %}" href="{% url 'docentes:reporte_dedicacion_formacion_docente' %}"><i class="fas fa-chart-pie"></i><span>Dedicación y posgrados</span></a>
+                </div>
+            </details>{% endif %}
+
+            {% if module_access.self_service %}<details class="nav-group" data-nav-group="self_service"{% if active_section == 'modulo_self_service' or active_section == 'titulos' or active_section == 'documentos' or active_section == 'publicaciones' or active_section == 'cursos' or request.resolver_match.url_name == 'mis_titulos' or request.resolver_match.url_name == 'mis_documentos' or request.resolver_match.url_name == 'subir_documento' or request.resolver_match.url_name == 'crear_titulo' or request.resolver_match.url_name == 'crear_publicacion' or request.resolver_match.url_name == 'mis_publicaciones' or request.resolver_match.url_name == 'mis_cursos' or request.resolver_match.url_name == 'crear_curso' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-folder-open"></i><span>M3 · Documentos y Títulos</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_self_service' %} active{% endif %}" href="{% url 'core:modulo_self_service' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link{% if active_section == 'titulos' %} active{% endif %}" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i><span>Mis títulos</span></a>
+                    <a class="nav-link{% if active_section == 'documentos' %} active{% endif %}" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i><span>Documentos</span></a>
+                    <a class="nav-link{% if active_section == 'publicaciones' %} active{% endif %}" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i><span>Publicaciones</span></a>
+                    <a class="nav-link{% if active_section == 'cursos' %} active{% endif %}" href="{% url 'core:mis_cursos' %}"><i class="fas fa-graduation-cap"></i><span>Cursos</span></a>
                 </div>
             </details>{% endif %}
 
