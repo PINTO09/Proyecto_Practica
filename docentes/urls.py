@@ -5,7 +5,7 @@ app_name = 'docentes'
 
 urlpatterns = [
     path('api/docente-por-documento/', views.api_docente_por_documento, name='api_docente_por_documento'),
-    path('api/buscar-docentes/', views.api_buscar_docentes, name='api_buscar_docentes'),
+    path('api/buscar/', views.api_buscar_docentes, name='api_buscar_docentes'),
     path('reportes/historial-docente/', views.reporte_historial_docente, name='reporte_historial_docente'),
     path('reportes/dedicacion-formacion/', views.reporte_dedicacion_formacion_docente, name='reporte_dedicacion_formacion_docente'),
     path('docentes/', views.DocenteFcaccListView.as_view(), name='docentefcacc_list'),
