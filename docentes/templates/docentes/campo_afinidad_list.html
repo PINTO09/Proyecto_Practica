@@ -21,9 +21,8 @@
         <label class="small fw-semibold text-muted mb-1">Buscar</label>
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent"><i class="fas fa-magnifying-glass text-muted"></i></span>
-          <input type="search" name="q" class="form-control" placeholder="Docente, título o posgrado..." value="{{ search_value }}" id="searchInput" autocomplete="off">
+          <input type="search" name="q" class="form-control" placeholder="Docente, título o posgrado..." value="{{ search_value }}" id="searchInput">
           {% if search_value %}<a href="?{% querystring q='' page='' campo='' posgrado='' %}" class="btn btn-outline-secondary"><i class="fas fa-xmark"></i></a>{% endif %}
-        </div>
         </div>
       </div>
       <div class="col-lg-3">
@@ -159,117 +158,28 @@
 {% endblock %}
 
 {% block extra_js %}
-<style>
-.ac-wrapper { position: relative; }
-.ac-dropdown {
-  position: absolute; top: 100%; left: 0; right: 0; z-index: 1050;
-  background: var(--card-bg, #fff); border: 1px solid var(--line-color, #e4eaf2);
-  border-radius: 0 0 8px 8px; box-shadow: var(--soft-shadow, 0 6px 18px rgba(15,23,42,0.06));
-  max-height: 260px; overflow-y: auto; display: none;
-}
-.ac-item {
-  padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.85rem;
-  border-bottom: 1px solid var(--line-color, #e4eaf2);
-}
-.ac-item:last-child { border-bottom: none; }
-.ac-item:hover, .ac-item.active { background: var(--topbar-hover-bg, #eff6ff); }
-.ac-item small { color: var(--text-muted, #64748b); }
-</style>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const searchInput = document.getElementById('searchInput');
-  const filterForm = document.getElementById('filterForm');
   const cantSelect = document.getElementById('cantSelect');
+  const filterForm = document.getElementById('filterForm');
 
-  if (!searchInput) return;
-  searchInput.focus();
-  searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'ac-wrapper';
-  searchInput.parentNode.insertBefore(wrapper, searchInput);
-  wrapper.appendChild(searchInput);
-
-  const dropdown = document.createElement('div');
-  dropdown.className = 'ac-dropdown';
-  wrapper.appendChild(dropdown);
-
-  let selectedIndex = -1;
-
-  function showDropdown(items) {
-    selectedIndex = -1;
-    if (!items.length) { dropdown.style.display = 'none'; return; }
-    dropdown.innerHTML = items.map((item, i) =>
-      `<div class="ac-item" data-id="${item.id}" data-nombres="${item.nombres}" data-cedula="${item.cedula}">
-        <div class="fw-semibold">${item.nombres}</div>
-        <small>${item.cedula}</small>
-      </div>`
-    ).join('');
-    dropdown.style.display = 'block';
-    dropdown.querySelectorAll('.ac-item').forEach((el, i) => {
-      el.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        searchInput.value = this.dataset.nombres;
-        dropdown.style.display = 'none';
-        filterForm.submit();
-      });
-      el.addEventListener('mouseenter', function() {
-        dropdown.querySelectorAll('.ac-item').forEach(e => e.classList.remove('active'));
-        this.classList.add('active');
-        selectedIndex = i;
-      });
+  if (searchInput) {
+    searchInput.focus();
+    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    let debounceTimer;
+    let currentValue = searchInput.value;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      if (this.value === currentValue) return;
+      currentValue = this.value;
+      debounceTimer = setTimeout(() => filterForm.submit(), 800);
     });
   }
-
-  let debounceTimer;
-  let currentValue = searchInput.value;
-  searchInput.addEventListener('input', function() {
-    clearTimeout(debounceTimer);
-    const val = this.value;
-    if (val === currentValue) return;
-    currentValue = val;
-    if (val.length < 2) { dropdown.style.display = 'none'; return; }
-    debounceTimer = setTimeout(() => {
-      fetch('{% url "docentes:api_buscar_docentes" %}?q=' + encodeURIComponent(val))
-        .then(r => r.json())
-        .then(data => showDropdown(data.results))
-        .catch(() => {});
-    }, 250);
-  });
-
-  searchInput.addEventListener('keydown', function(e) {
-    const items = dropdown.querySelectorAll('.ac-item');
-    if (e.key === 'Enter') {
-      if (selectedIndex >= 0 && items.length) {
-        e.preventDefault();
-        items[selectedIndex].click();
-      } else if (items.length) {
-        e.preventDefault();
-        items[0].click();
-      }
-      return;
-    }
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      selectedIndex = Math.max(selectedIndex - 1, -1);
-    } else if (e.key === 'Escape') {
-      dropdown.style.display = 'none';
-      return;
-    } else return;
-    items.forEach((el, i) => el.classList.toggle('active', i === selectedIndex));
-    if (selectedIndex >= 0) items[selectedIndex].scrollIntoView({ block: 'nearest' });
-  });
-
-  document.addEventListener('click', function(e) {
-    if (!wrapper.contains(e.target)) dropdown.style.display = 'none';
-  });
-
   if (cantSelect) {
-    cantSelect.addEventListener('change', function() { filterForm.submit(); });
+    cantSelect.addEventListener('change', function() {
+      filterForm.submit();
+    });
   }
 });
 </script>
