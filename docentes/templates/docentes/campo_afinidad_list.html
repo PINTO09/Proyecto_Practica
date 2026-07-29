@@ -165,13 +165,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const filterForm = document.getElementById('filterForm');
 
   if (searchInput) {
+    searchInput.focus();
+    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
     let debounceTimer;
     let currentValue = searchInput.value;
     searchInput.addEventListener('input', function() {
       clearTimeout(debounceTimer);
       if (this.value === currentValue) return;
       currentValue = this.value;
-      debounceTimer = setTimeout(() => filterForm.submit(), 350);
+      debounceTimer = setTimeout(() => filterForm.submit(), 800);
     });
   }
   if (cantSelect) {
