@@ -57,6 +57,42 @@
 </section>
 {% endif %}
 
+{% if modelos %}
+<section class="mb-4" aria-labelledby="moduleRecordsTitle">
+    <div class="mb-2">
+        <h6 class="fw-bold mb-1" id="moduleRecordsTitle">Otros registros del módulo</h6>
+        <p class="text-muted small mb-0">
+            Acceda a los catálogos y relaciones complementarias sin repetir las opciones principales.
+        </p>
+    </div>
+    <div class="row g-3">
+        {% for m in modelos %}
+        <div class="col-xl-4 col-md-6">
+            {% if m.crud_url != '#' %}<a href="{{ m.crud_url }}" class="text-decoration-none">{% endif %}
+                <div class="card border-0 shadow-sm h-100 module-card module-action-card{% if m.crud_url == '#' %} module-card-disabled{% endif %}">
+                    <div class="card-body d-flex gap-3 align-items-center p-3">
+                        <div class="module-icon d-flex align-items-center justify-content-center">
+                            <i class="fas fa-table-list"></i>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <h6 class="fw-semibold text-body mb-1">{{ m.label }}</h6>
+                            <p class="text-muted small mb-0">
+                                {% if m.crud_url != '#' %}Consultar y administrar registros{% else %}Consulta no disponible{% endif %}
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <div class="module-stat-number">{{ m.count }}</div>
+                            <span class="text-muted" style="font-size:.68rem;">registros</span>
+                        </div>
+                    </div>
+                </div>
+            {% if m.crud_url != '#' %}</a>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 {% if not modelos and not acciones %}
 <div class="alert alert-info">
     <i class="fas fa-info-circle me-1"></i>No hay opciones disponibles para este módulo.
@@ -88,6 +124,9 @@
     width: 46px;
     height: 46px;
     min-width: 46px;
+}
+.module-card-disabled {
+    opacity: .65;
 }
 .min-w-0 { min-width: 0; }
 @media (max-width: 575.98px) {

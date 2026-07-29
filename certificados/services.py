@@ -73,7 +73,11 @@ def build_certificate_snapshot(certificate_type, teacher):
             'id_periodo__fecha_inicio_periodo', 'id_actividad__nombre_actividad'
         )
         common['filas'] = [{
-            'descripcion': activity.id_actividad.nombre_actividad,
+            'descripcion': (
+                activity.observaciones.strip()
+                if activity.observaciones and activity.observaciones.strip()
+                else activity.id_actividad.nombre_actividad
+            ),
             'unidad': teacher.unidad_organica or 'Facultad de Ciencias Administrativas, Contables y Comercio',
             'desde': _date_value(activity.id_periodo.fecha_inicio_periodo),
             'hasta': _date_value(activity.id_periodo.fecha_fin_periodo),

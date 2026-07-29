@@ -845,8 +845,10 @@ MODULOS = {
             ('Generar certificado', 'certificados:generar', 'fa-file-circle-plus', 'Seleccione docente, tipo de certificado, fecha y autoridad firmante.', None, 'change'),
             ('Certificados emitidos', 'certificados:emisiones', 'fa-folder-open', 'Consulte y vuelva a imprimir los documentos generados.', 'CertificadoEmitido'),
             ('Firmantes', 'certificados:firmantes', 'fa-signature', 'Administre las autoridades habilitadas para firmar certificados.', 'FirmanteCertificado', 'change'),
-            ('Historial del docente', 'docentes:reporte_historial_docente', 'fa-clock-rotate-left', 'Consulte el historial de períodos y carreras antes de certificarlo.'),
-            ('Dedicación y posgrados', 'docentes:reporte_dedicacion_formacion_docente', 'fa-chart-pie', 'Revise la distribución contractual y la formación registrada.'),
+            ('Dedicación por período', 'certificados:reporte_base', 'fa-business-time', 'Revise períodos, carreras y dedicación antes de emitir el certificado.', None, 'view', {'tipo': 'dedicacion'}),
+            ('Funciones y comisiones', 'certificados:reporte_base', 'fa-people-group', 'Consulte cargos y actividades institucionales registrados.', None, 'view', {'tipo': 'funciones'}),
+            ('Cátedras impartidas', 'certificados:reporte_base', 'fa-chalkboard-user', 'Revise asignaturas, unidades académicas y fechas por docente.', None, 'view', {'tipo': 'catedras'}),
+            ('Estadística docente', 'docentes:reporte_dedicacion_formacion_docente', 'fa-chart-pie', 'Analice dedicaciones, maestrías y otros posgrados registrados.'),
         ],
         'modelos': [
             ('Certificados emitidos', 'CertificadoEmitido'),
@@ -966,8 +968,17 @@ def modulo_view(request, slug):
     if not can_access_module(request.user, slug, 'view'):
         raise PermissionDenied
 
+    action_model_names = {
+        action[4]
+        for action in info.get('acciones', [])
+        if len(action) > 4 and action[4]
+    }
     modelos_con_stats = []
     for label, class_name in info['modelos']:
+        # Los modelos que ya tienen una acción principal se muestran una sola
+        # vez en el resumen. El resto conserva el acceso CRUD que antes existía.
+        if class_name in action_model_names:
+            continue
         cls = _obtener_modelo(class_name)
         if cls is None:
             continue
@@ -986,12 +997,13 @@ def modulo_view(request, slug):
         label, url_name, icon, description = action[:4]
         count_model_name = action[4] if len(action) > 4 else None
         required_action = action[5] if len(action) > 5 else 'view'
+        url_kwargs = action[6] if len(action) > 6 else None
         if not can_access_module(request.user, slug, required_action):
             continue
         count_model = _obtener_modelo(count_model_name) if count_model_name else None
         acciones.append({
             'label': label,
-            'url': reverse(url_name),
+            'url': reverse(url_name, kwargs=url_kwargs),
             'icon': icon,
             'description': description,
             'count': _stats_modelo(count_model) if count_model else None,

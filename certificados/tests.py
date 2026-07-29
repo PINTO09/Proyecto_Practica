@@ -9,6 +9,10 @@ class CertificateModuleTests(SimpleTestCase):
         self.assertEqual(reverse('certificados:generar'), '/certificados/')
         self.assertEqual(reverse('certificados:emisiones'), '/certificados/emitidos/')
         self.assertEqual(reverse('certificados:firmantes'), '/certificados/firmantes/')
+        self.assertEqual(
+            reverse('certificados:reporte_base', kwargs={'tipo': 'catedras'}),
+            '/certificados/reportes/catedras/',
+        )
 
     def test_supported_certificate_types_match_official_samples(self):
         self.assertEqual(

@@ -3,10 +3,77 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import module_permission_required
+from docentes.models import DocenteFcacc
 
 from .forms import FirmanteCertificadoForm, GenerarCertificadoForm
 from .models import CertificadoEmitido, FirmanteCertificado
 from .services import build_certificate_snapshot
+
+
+REPORT_TYPES = {
+    'dedicacion': {
+        'certificate_type': 'DEDICACION',
+        'title': 'Dedicación por período',
+        'icon': 'fa-business-time',
+        'description': 'Períodos, carreras, fechas y tiempo de dedicación registrados.',
+    },
+    'funciones': {
+        'certificate_type': 'FUNCIONES',
+        'title': 'Funciones y comisiones',
+        'icon': 'fa-people-group',
+        'description': 'Cargos, comisiones y actividades institucionales desempeñadas.',
+    },
+    'catedras': {
+        'certificate_type': 'CATEDRAS',
+        'title': 'Cátedras impartidas',
+        'icon': 'fa-chalkboard-user',
+        'description': 'Asignaturas impartidas, unidad académica, dedicación y fechas.',
+    },
+}
+
+
+@module_permission_required('certificados', 'view')
+def reporte_base(request, tipo):
+    report_info = REPORT_TYPES.get(tipo)
+    if not report_info:
+        from django.http import Http404
+        raise Http404('Tipo de reporte no disponible.')
+
+    cedula = (request.GET.get('cedula') or '').strip().upper()
+    context = {
+        'active_section': f'reporte_certificado_{tipo}',
+        'report_type': tipo,
+        'report_info': report_info,
+        'report_types': REPORT_TYPES,
+        'cedula': cedula,
+        'searched': bool(cedula),
+    }
+    if not cedula:
+        return render(request, 'certificados/reporte_base.html', context)
+    if not cedula.isalnum() or len(cedula) < 5 or len(cedula) > 13:
+        context['error'] = 'Ingrese un número de identificación válido.'
+        return render(request, 'certificados/reporte_base.html', context)
+
+    teacher = DocenteFcacc.objects.select_related(
+        'id_dedicacion', 'id_modalidad', 'id_tipo_docente'
+    ).filter(cedula_docente=cedula).first()
+    if not teacher:
+        context['error'] = 'No se encontró un docente con esa identificación.'
+        return render(request, 'certificados/reporte_base.html', context)
+
+    data = build_certificate_snapshot(report_info['certificate_type'], teacher)
+    context.update({
+        'docente': teacher,
+        'datos': data,
+        'rows': data['filas'],
+        'warnings': data['advertencias'],
+    })
+    if not data['filas']:
+        context['error'] = (
+            f'El docente no tiene datos registrados para el reporte '
+            f'“{report_info["title"]}”.'
+        )
+    return render(request, 'certificados/reporte_base.html', context)
 
 
 @module_permission_required('certificados', 'change')

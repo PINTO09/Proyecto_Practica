@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.views.generic import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 
-from accounts.decorators import ADMIN, allowed_career_ids, has_role, module_permission_required
+from accounts.decorators import ADMIN, has_role, module_permission_required
 from core.crud_base import RoleAccessMixin
 
 from catalogos.models import CatalogoTituloPosgrado, CatalogoCampoConocimiento
@@ -17,130 +17,14 @@ from curriculo.models import RelacionPosgradoCampo
 
 from .forms import DocenteFcaccForm
 from .models import DocenteFcacc, DocenteTituloAcademico, DocenteCampoAfinidad, DocenteAsignacionCarreraPeriodo, DocenteCursoCapacitacion, DocenteParticipacionCurso, DocentePublicacionAcademica
-from .services import humanize_duration, inclusive_days, unique_postgraduate_titles
-
-
-def _duration_data(ranges):
-    days = inclusive_days(ranges)
-    return {
-        'days': days,
-        'label': humanize_duration(days),
-    }
+from .services import unique_postgraduate_titles
 
 
 @module_permission_required('certificados', 'view')
 def reporte_historial_docente(request):
-    cedula = (request.GET.get('cedula') or '').strip().upper()
-    context = {
-        'active_section': 'reporte_historial_docente',
-        'cedula': cedula,
-        'searched': bool(cedula),
-    }
-    if not cedula:
-        return render(request, 'docentes/reporte_historial_docente.html', context)
-
-    if not cedula.isalnum() or len(cedula) < 5 or len(cedula) > 13:
-        context['error'] = 'Ingrese un número de identificación válido.'
-        return render(request, 'docentes/reporte_historial_docente.html', context)
-
-    assignments = DocenteAsignacionCarreraPeriodo.objects.filter(
-        id_docente__cedula_docente=cedula
-    ).select_related(
-        'id_docente', 'id_docente__id_tipo_docente',
-        'id_docente__id_modalidad', 'id_docente__id_dedicacion',
-        'id_carrera', 'id_periodo', 'id_licencia',
-    )
-
-    scope = allowed_career_ids(request.user)
-    if scope is not None:
-        assignments = assignments.filter(id_carrera_id__in=scope)
-
-    assignments = list(assignments.order_by(
-        'id_periodo__fecha_inicio_periodo',
-        'id_periodo__fecha_fin_periodo',
-        'id_periodo__nombre_periodo',
-        'id_carrera__nombre_carrera',
-    ))
-    if not assignments:
-        context['error'] = (
-            'No se encontró historial para esa identificación dentro de las carreras '
-            'que puede consultar.'
-        )
-        return render(request, 'docentes/reporte_historial_docente.html', context)
-
-    docente = assignments[0].id_docente
-    period_rows = OrderedDict()
-    career_data = OrderedDict()
-    incomplete_periods = set()
-
-    for assignment in assignments:
-        period = assignment.id_periodo
-        career = assignment.id_carrera
-        key = period.id_periodo
-        row = period_rows.setdefault(key, {
-            'period': period,
-            'careers': [],
-            'licenses': [],
-            'observations': [],
-            'hours_other_units': 0,
-            'valid_dates': bool(period.fecha_inicio_periodo and period.fecha_fin_periodo
-                                and period.fecha_inicio_periodo <= period.fecha_fin_periodo),
-        })
-        if career not in row['careers']:
-            row['careers'].append(career)
-        license_name = str(assignment.id_licencia)
-        if license_name not in row['licenses']:
-            row['licenses'].append(license_name)
-        if assignment.observacion_periodo and assignment.observacion_periodo not in row['observations']:
-            row['observations'].append(assignment.observacion_periodo)
-        row['hours_other_units'] += assignment.horas_otras_unidades_academicas or 0
-
-        career_summary = career_data.setdefault(career.id_carrera, {
-            'career': career, 'period_ids': set(), 'ranges': [],
-        })
-        career_summary['period_ids'].add(period.id_periodo)
-        if row['valid_dates']:
-            career_summary['ranges'].append(
-                (period.fecha_inicio_periodo, period.fecha_fin_periodo)
-            )
-        else:
-            incomplete_periods.add(period.id_periodo)
-
-    rows = list(period_rows.values())
-    global_ranges = []
-    for row in rows:
-        period = row['period']
-        if row['valid_dates']:
-            date_range = (period.fecha_inicio_periodo, period.fecha_fin_periodo)
-            global_ranges.append(date_range)
-            row['duration'] = _duration_data([date_range])
-        else:
-            row['duration'] = None
-
-    career_summaries = []
-    for item in career_data.values():
-        item['duration'] = _duration_data(item['ranges'])
-        item['period_count'] = len(item['period_ids'])
-        item['first_date'] = min((start for start, _ in item['ranges']), default=None)
-        item['last_date'] = max((end for _, end in item['ranges']), default=None)
-        career_summaries.append(item)
-    career_summaries.sort(key=lambda item: item['career'].nombre_carrera)
-
-    valid_periods = [row['period'] for row in rows if row['valid_dates']]
-    context.update({
-        'docente': docente,
-        'rows': rows,
-        'career_summaries': career_summaries,
-        'summary': {
-            'duration': _duration_data(global_ranges),
-            'first_date': min((p.fecha_inicio_periodo for p in valid_periods), default=None),
-            'last_date': max((p.fecha_fin_periodo for p in valid_periods), default=None),
-            'period_count': len(rows),
-            'career_count': len(career_data),
-        },
-        'incomplete_period_count': len(incomplete_periods),
-    })
-    return render(request, 'docentes/reporte_historial_docente.html', context)
+    # Compatibilidad con enlaces anteriores: el reporte oficial ahora vive en M3.
+    from certificados.views import reporte_base
+    return reporte_base(request, 'dedicacion')
 
 
 @module_permission_required('certificados', 'view')
