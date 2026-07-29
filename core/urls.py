@@ -32,6 +32,7 @@ urlpatterns = [
     # Módulos CRUD (7 módulos)
     path('modulo/catalogos/', views.modulo_view, {'slug': 'catalogos'}, name='modulo_catalogos'),
     path('modulo/docentes/', views.modulo_view, {'slug': 'docentes'}, name='modulo_docentes'),
+    path('modulo/certificados/', views.modulo_view, {'slug': 'certificados'}, name='modulo_certificados'),
     path('modulo/seguridad/', views.modulo_view, {'slug': 'seguridad'}, name='modulo_seguridad'),
     path('modulo/curriculo/', views.modulo_view, {'slug': 'curriculo'}, name='modulo_curriculo'),
     path('modulo/planificacion/', views.modulo_view, {'slug': 'planificacion'}, name='modulo_planificacion'),

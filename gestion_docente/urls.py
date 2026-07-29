@@ -18,6 +18,7 @@ urlpatterns = [
     path('auditoria/', include('auditoria.urls')),
     path('restricciones/', include('restricciones.urls')),
     path('reportes/', include('reportes.urls')),
+    path('certificados/', include('certificados.urls')),
 ]
 
 if settings.DEBUG:

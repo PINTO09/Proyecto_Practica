@@ -1,0 +1,118 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ certificado.codigo }} - ULEAM{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3 no-print">
+  <a class="btn btn-outline-secondary" href="{% url 'certificados:emisiones' %}"><i class="fas fa-arrow-left me-1"></i>Emitidos</a>
+  <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print me-1"></i>Imprimir / guardar PDF</button>
+</div>
+
+{% if datos.advertencias %}
+<div class="alert alert-warning no-print">
+  <strong>Revise antes de firmar:</strong>
+  <ul class="mb-0">{% for warning in datos.advertencias %}<li>{{ warning }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<article class="certificate-page">
+  <header class="certificate-header">
+    <div class="uleam-brand">
+      <img src="{% static 'certificados/img/logo_uleam_oficial.png' %}" alt="Universidad Laica Eloy Alfaro de Manabí">
+    </div>
+    <div class="faculty-brand">
+      <strong>Facultad de Ciencias Administrativas,<br>Contables y Comercio</strong>
+      <span>Decanato</span>
+    </div>
+  </header>
+
+  <main class="certificate-body">
+    <h1>CERTIFICACIÓN</h1>
+    <p>
+      A petición de la parte interesada, se certifica que
+      <strong>{{ datos.docente.nombres }}</strong>, con identificación
+      <strong>{{ datos.docente.cedula }}</strong>, registra en los archivos de la
+      Facultad de Ciencias Administrativas, Contables y Comercio la información
+      que se detalla a continuación:
+    </p>
+
+    {% if certificado.tipo == 'DEDICACION' %}
+    <p>Historial de períodos académicos y tiempo de dedicación:</p>
+    <table><thead><tr><th class="period-column">Período</th><th>Unidad académica / carrera</th><th class="date-column">Desde</th><th class="date-column">Hasta</th><th class="dedication-column">Tiempo de dedicación</th></tr></thead>
+      <tbody>{% for row in datos.filas %}<tr><td class="nowrap">{{ row.periodo }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td><td class="nowrap">{{ row.dedicacion }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% elif certificado.tipo == 'CATEDRAS' %}
+    <p>Historial de cátedras impartidas:</p>
+    <table><thead><tr><th class="number-column">No.</th><th>Cátedra</th><th>Unidad académica</th><th class="dedication-column">Dedicación</th><th class="date-column">Desde</th><th class="date-column">Hasta</th></tr></thead>
+      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}
+    <p>Historial de funciones sustantivas, comisiones y actividades institucionales:</p>
+    <table><thead><tr><th class="number-column">No.</th><th>Cargo / función</th><th>Unidad académica</th><th class="date-column">Desde</th><th class="date-column">Hasta</th></tr></thead>
+      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+
+    <p class="closing">Es todo cuanto se puede informar en honor a la verdad.</p>
+    <p>{{ certificado.ciudad }}, {{ certificado.fecha_emision|date:'d \\d\\e F \\d\\e Y' }}.</p>
+    <p class="attentively">Atentamente,</p>
+
+    <section class="signature-block">
+      <div class="manual-signature-space" aria-label="Espacio para firma manual"></div>
+      <img class="seal-image" src="{% static 'certificados/img/sello_decanato.png' %}" alt="Sello del Decanato">
+      <strong>{{ certificado.firmante_nombre }}</strong>
+      <span>{{ certificado.firmante_cargo }}</span>
+    </section>
+  </main>
+
+  <footer class="certificate-footer">
+    <div class="institutional-contact">
+      <div>Av. Circunvalación Vía a San Mateo</div>
+      <strong>www.uleam.edu.ec</strong>
+      <img src="{% static 'certificados/img/redes_uleam_ecuador.png' %}" alt="Redes sociales UleamEcuador">
+    </div>
+    <div class="certificate-code">{{ certificado.codigo }}</div>
+  </footer>
+</article>
+
+<style>
+.certificate-page { width:210mm; min-height:297mm; margin:0 auto; padding:15mm 17mm 20mm; background:#fff; color:#111; box-shadow:0 5px 25px rgba(0,0,0,.12); position:relative; font-family:Arial,sans-serif; }
+.certificate-header { display:flex; justify-content:space-between; align-items:flex-start; min-height:33mm; }
+.uleam-brand img { width:59mm; height:27mm; object-fit:contain; object-position:left center; mix-blend-mode:multiply; }
+.faculty-brand { text-align:right; border-right:3px solid #0d47a1; padding-right:8px; font-size:12px; line-height:1.25; }
+.faculty-brand span { display:block; font-family:cursive; font-size:20px; font-style:italic; margin-top:3px; }
+.certificate-body { font-size:11pt; line-height:1.35; padding:8mm 8mm 25mm; }
+.certificate-body h1 { text-align:center; letter-spacing:7px; font-size:19px; margin:0 0 12mm; }
+.certificate-body p { text-align:justify; }
+.certificate-body table { width:100%; border-collapse:collapse; margin:6mm 0; font-size:9pt; }
+.certificate-body th,.certificate-body td { border:1px solid #222; padding:4px 5px; vertical-align:middle; }
+.certificate-body th { text-align:center; font-weight:700; }
+.certificate-body .nowrap { white-space:nowrap; }
+.number-column { width:8mm; }
+.period-column { width:20mm; }
+.date-column { width:23mm; white-space:nowrap; }
+.dedication-column { width:31mm; white-space:nowrap; }
+.text-center { text-align:center; }
+.closing { margin-top:8mm; }
+.attentively { margin:5mm 0 0; }
+.signature-block { position:relative; margin-top:0; width:128mm; min-height:43mm; display:flex; flex-direction:column; justify-content:flex-end; }
+.signature-block span { font-size:10pt; font-weight:600; }
+.manual-signature-space { height:27mm; width:68mm; }
+.seal-image { position:absolute; left:64mm; bottom:2mm; width:31mm; height:31mm; object-fit:contain; opacity:.92; mix-blend-mode:multiply; }
+.certificate-footer { position:absolute; bottom:8mm; left:12mm; right:12mm; font-size:8.5pt; display:flex; align-items:flex-end; justify-content:space-between; }
+.institutional-contact { width:61mm; text-align:center; line-height:1.2; }
+.institutional-contact img { display:block; width:61mm; height:13mm; margin-top:2mm; object-fit:cover; mix-blend-mode:multiply; }
+.certificate-code { font-family:monospace; color:#555; }
+@media (max-width:900px) { .certificate-page { transform-origin:top left; width:100%; min-height:auto; padding:24px; } }
+@media print {
+  @page { size:A4 portrait; margin:0; }
+  .sidebar,.topbar,.no-print,.sidebar-overlay { display:none !important; }
+  .main-content { margin:0 !important; }
+  .content-area { padding:0 !important; }
+  body { background:#fff !important; }
+  .certificate-page { width:210mm; min-height:297mm; margin:0; box-shadow:none; break-after:page; }
+  .certificate-body thead { display:table-header-group; }
+}
+</style>
+{% endblock %}

@@ -28,7 +28,7 @@ def _duration_data(ranges):
     }
 
 
-@module_permission_required('docentes', 'view')
+@module_permission_required('certificados', 'view')
 def reporte_historial_docente(request):
     cedula = (request.GET.get('cedula') or '').strip().upper()
     context = {
@@ -143,7 +143,7 @@ def reporte_historial_docente(request):
     return render(request, 'docentes/reporte_historial_docente.html', context)
 
 
-@module_permission_required('docentes', 'view')
+@module_permission_required('certificados', 'view')
 def reporte_dedicacion_formacion_docente(request):
     from django.db.models import Prefetch, Q
 

@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'auditoria',
     'restricciones',
     'reportes',
+    'certificados',
 ]
 
 MIDDLEWARE = [
@@ -162,5 +163,4 @@ ROLES = [
     GRUPO_USUARIO,
     GRUPO_FUNCIONARIO,
 ]
-
 

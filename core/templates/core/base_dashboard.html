@@ -110,6 +110,16 @@
                     <a class="nav-link" href="{% url 'docentes:docentetituloacademico_list' %}"><i class="fas fa-user-graduate"></i><span>Títulos académicos</span></a>
                     <a class="nav-link" href="{% url 'docentes:docentecampoafinidad_list' %}"><i class="fas fa-link"></i><span>Campos de afinidad</span></a>
                     <a class="nav-link" href="{% url 'docentes:docenteasignacioncarreraperiodo_list' %}"><i class="fas fa-building-user"></i><span>Carrera por período</span></a>
+                </div>
+            </details>{% endif %}
+
+            {% if module_access.certificados %}<details class="nav-group" data-nav-group="certificados"{% if request.resolver_match.namespace == 'certificados' or active_section == 'modulo_certificados' or active_section == 'reporte_historial_docente' or active_section == 'reporte_dedicacion_formacion_docente' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-file-signature"></i><span>M3 · Certificados</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_certificados' %} active{% endif %}" href="{% url 'core:modulo_certificados' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    {% if module_change.certificados %}<a class="nav-link{% if active_section == 'certificado_generar' %} active{% endif %}" href="{% url 'certificados:generar' %}"><i class="fas fa-file-circle-plus"></i><span>Generar certificado</span></a>{% endif %}
+                    <a class="nav-link{% if active_section == 'certificado_emisiones' %} active{% endif %}" href="{% url 'certificados:emisiones' %}"><i class="fas fa-folder-open"></i><span>Certificados emitidos</span></a>
+                    {% if module_change.certificados %}<a class="nav-link{% if active_section == 'certificado_firmantes' %} active{% endif %}" href="{% url 'certificados:firmantes' %}"><i class="fas fa-signature"></i><span>Firmantes</span></a>{% endif %}
                     <a class="nav-link{% if active_section == 'reporte_historial_docente' %} active{% endif %}" href="{% url 'docentes:reporte_historial_docente' %}"><i class="fas fa-clock-rotate-left"></i><span>Historial del docente</span></a>
                     <a class="nav-link{% if active_section == 'reporte_dedicacion_formacion_docente' %} active{% endif %}" href="{% url 'docentes:reporte_dedicacion_formacion_docente' %}"><i class="fas fa-chart-pie"></i><span>Dedicación y posgrados</span></a>
                 </div>

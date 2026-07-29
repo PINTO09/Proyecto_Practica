@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, ProgrammingError, OperationalError, transaction
 from django.db.models import Q
 from django.core.paginator import Paginator
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.apps import apps
 from django.core.cache import cache
 from django.utils import timezone
@@ -181,6 +181,7 @@ def dashboard_view(request):
     slug_modulos = [
         ('catalogos', 'Catálogos', 'fa-database', '#0d6efd', 'rgba(13,110,253,0.1)'),
         ('docentes', 'Docentes', 'fa-chalkboard-teacher', '#0d6efd', 'rgba(13,110,253,0.1)'),
+        ('certificados', 'Certificados', 'fa-file-signature', '#198754', 'rgba(25,135,84,0.1)'),
         ('curriculo', 'Currículo', 'fa-book-open', '#6f42c1', 'rgba(111,66,193,0.1)'),
         ('planificacion', 'Planificación', 'fa-calendar-check', '#ffc107', 'rgba(255,193,7,0.1)'),
         ('auditoria', 'Auditoría', 'fa-history', '#6c757d', 'rgba(108,117,125,0.1)'),
@@ -825,18 +826,6 @@ MODULOS = {
                 'Registre la vinculación histórica de docentes con carreras y períodos.',
                 'DocenteAsignacionCarreraPeriodo',
             ),
-            (
-                'Historial del docente',
-                'docentes:reporte_historial_docente',
-                'fa-clock-rotate-left',
-                'Consulte por identificación el tiempo registrado, las carreras y el detalle cronológico de cada docente.',
-            ),
-            (
-                'Dedicación y posgrados',
-                'docentes:reporte_dedicacion_formacion_docente',
-                'fa-chart-pie',
-                'Analice cuántos docentes existen por dedicación y su formación de cuarto nivel.',
-            ),
         ],
         'modelos': [
             ('Docentes FCACC', 'DocenteFcacc'),
@@ -846,6 +835,22 @@ MODULOS = {
             ('Cursos de Capacitación', 'DocenteCursoCapacitacion'),
             ('Participación en Cursos', 'DocenteParticipacionCurso'),
             ('Publicaciones Académicas', 'DocentePublicacionAcademica'),
+        ],
+    },
+    'certificados': {
+        'nombre': 'Certificados',
+        'icono': 'fa-file-signature',
+        'descripcion': 'Genere certificaciones institucionales, seleccione el firmante y conserve la trazabilidad de cada emisión.',
+        'acciones': [
+            ('Generar certificado', 'certificados:generar', 'fa-file-circle-plus', 'Seleccione docente, tipo de certificado, fecha y autoridad firmante.', None, 'change'),
+            ('Certificados emitidos', 'certificados:emisiones', 'fa-folder-open', 'Consulte y vuelva a imprimir los documentos generados.', 'CertificadoEmitido'),
+            ('Firmantes', 'certificados:firmantes', 'fa-signature', 'Administre las autoridades habilitadas para firmar certificados.', 'FirmanteCertificado', 'change'),
+            ('Historial del docente', 'docentes:reporte_historial_docente', 'fa-clock-rotate-left', 'Consulte el historial de períodos y carreras antes de certificarlo.'),
+            ('Dedicación y posgrados', 'docentes:reporte_dedicacion_formacion_docente', 'fa-chart-pie', 'Revise la distribución contractual y la formación registrada.'),
+        ],
+        'modelos': [
+            ('Certificados emitidos', 'CertificadoEmitido'),
+            ('Firmantes habilitados', 'FirmanteCertificado'),
         ],
     },
     'curriculo': {
@@ -944,9 +949,11 @@ def _stats_modelo(model_class):
 def _build_crud_url(model_name, action='list'):
     for app_config in apps.get_app_configs():
         try:
-            app_config.get_model(model_name)
+            model = app_config.get_model(model_name)
+            if model is None:
+                continue
             return reverse(f'{app_config.label}:{model_name.lower()}_{action}')
-        except LookupError:
+        except (LookupError, NoReverseMatch):
             continue
     return '#'
 
@@ -978,6 +985,9 @@ def modulo_view(request, slug):
     for action in info.get('acciones', []):
         label, url_name, icon, description = action[:4]
         count_model_name = action[4] if len(action) > 4 else None
+        required_action = action[5] if len(action) > 5 else 'view'
+        if not can_access_module(request.user, slug, required_action):
+            continue
         count_model = _obtener_modelo(count_model_name) if count_model_name else None
         acciones.append({
             'label': label,

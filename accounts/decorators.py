@@ -25,17 +25,20 @@ MODULE_ACCESS = {
     ADMIN: {'*': {'view', 'change'}},
     AUTORIDAD: {
         'catalogos': {'view', 'change'}, 'docentes': {'view', 'change'},
+        'certificados': {'view', 'change'},
         'curriculo': {'view', 'change'}, 'planificacion': {'view', 'change'},
         'reportes': {'view'}, 'restricciones': {'view', 'change'},
         'auditoria': {'view'}, 'self_service': {'view', 'change'},
     },
     COORDINADOR: {
         'catalogos': {'view'}, 'docentes': {'view'}, 'curriculo': {'view'},
+        'certificados': {'view', 'change'},
         'planificacion': {'view', 'change'}, 'reportes': {'view'},
         'restricciones': {'view'}, 'self_service': {'view', 'change'},
     },
     FUNCIONARIO: {
         'catalogos': {'view'}, 'docentes': {'view'}, 'curriculo': {'view'},
+        'certificados': {'view'},
         'planificacion': {'view'}, 'reportes': {'view'},
         'self_service': {'view', 'change'},
     },

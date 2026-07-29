@@ -4,7 +4,11 @@ from django.db import ProgrammingError, OperationalError
 
 def module_access(request):
     user = getattr(request, 'user', None)
-    modules = ('catalogos', 'docentes', 'curriculo', 'planificacion', 'reportes', 'auditoria', 'restricciones', 'self_service')
+    modules = (
+        'catalogos', 'docentes', 'certificados', 'curriculo',
+        'planificacion', 'reportes', 'auditoria', 'restricciones',
+        'self_service',
+    )
     profile_photo_url = ''
     profile_display_name = ''
     if user and user.is_authenticated:

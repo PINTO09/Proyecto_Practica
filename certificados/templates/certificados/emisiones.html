@@ -1,0 +1,45 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}Certificados emitidos - ULEAM{% endblock %}
+
+{% block content %}
+<div class="page-heading d-flex flex-wrap justify-content-between gap-3 mb-4">
+  <div>
+    <div class="page-eyebrow mb-1">M3 · Certificados</div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-folder-open me-2 text-primary"></i>Certificados emitidos</h4>
+    <p class="text-muted small mb-0">Documentos generados y datos utilizados en cada emisión.</p>
+  </div>
+  <a class="btn btn-primary align-self-start" href="{% url 'certificados:generar' %}"><i class="fas fa-plus me-1"></i>Nuevo certificado</a>
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="input-group">
+      <span class="input-group-text bg-transparent"><i class="fas fa-search text-muted"></i></span>
+      <input class="form-control" name="q" value="{{ search_value }}" placeholder="Código, nombre o cédula del docente">
+      <button class="btn btn-primary">Buscar</button>
+      {% if search_value %}<a class="btn btn-outline-secondary" href="{% url 'certificados:emisiones' %}">Limpiar</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light"><tr><th class="ps-3">Código</th><th>Docente</th><th>Tipo</th><th>Fecha</th><th>Firmante</th><th class="text-end pe-3">Documento</th></tr></thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="ps-3 font-monospace small">{{ item.codigo }}</td>
+          <td><strong>{{ item.docente.nombres_completos }}</strong><div class="small text-muted">{{ item.docente.cedula_docente }}</div></td>
+          <td>{{ item.get_tipo_display }}</td>
+          <td>{{ item.fecha_emision|date:'d/m/Y' }}</td>
+          <td>{{ item.firmante_nombre }}<div class="small text-muted">{{ item.firmante_cargo }}</div></td>
+          <td class="text-end pe-3"><a class="btn btn-sm btn-outline-primary" href="{% url 'certificados:previsualizar' item.pk %}"><i class="fas fa-eye me-1"></i>Ver</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="6" class="text-center text-muted py-5">No hay certificados emitidos.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
