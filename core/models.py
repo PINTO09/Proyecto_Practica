@@ -290,6 +290,7 @@ class DocenteTransaccional(models.Model):
         Licencia, on_delete=models.SET_NULL,
         null=True, blank=True, verbose_name='Licencia'
     )
+    fecha_documento = models.DateField('Fecha del documento', null=True, blank=True)
     observacion = models.TextField('Observación', blank=True, null=True)
     adj_archivo = models.FileField(
         'Archivo adjunto', upload_to='documentos/', blank=True, null=True
