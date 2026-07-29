@@ -274,3 +274,25 @@ def api_docente_por_documento(request):
         'docente_activo': docente.docente_activo,
         'edit_url': reverse('docentes:docentefcacc_update', kwargs={'pk': docente.id_docente}),
     })
+
+
+@login_required
+def api_buscar_docentes(request):
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 1:
+        return JsonResponse({'results': []})
+    from django.db.models import Q
+    docentes = DocenteFcacc.objects.filter(
+        Q(nombres_completos__icontains=q) | Q(cedula_docente__icontains=q)
+    ).values('id_docente', 'nombres_completos', 'cedula_docente')[:10]
+    return JsonResponse({
+        'results': [
+            {
+                'id': d['id_docente'],
+                'nombres': d['nombres_completos'],
+                'cedula': d['cedula_docente'],
+                'label': f"{d['nombres_completos']} ({d['cedula_docente']})"
+            }
+            for d in docentes
+        ]
+    })

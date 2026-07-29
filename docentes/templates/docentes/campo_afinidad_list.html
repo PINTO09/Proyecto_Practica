@@ -158,28 +158,112 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+.ac-wrapper { position: relative; }
+.ac-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 1050;
+  background: var(--card-bg, #fff); border: 1px solid var(--line-color, #e4eaf2);
+  border-radius: 0 0 8px 8px; box-shadow: var(--soft-shadow, 0 6px 18px rgba(15,23,42,0.06));
+  max-height: 260px; overflow-y: auto; display: none;
+}
+.ac-item {
+  padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.85rem;
+  border-bottom: 1px solid var(--line-color, #e4eaf2);
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.active { background: var(--topbar-hover-bg, #eff6ff); }
+.ac-item small { color: var(--text-muted, #64748b); }
+</style>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const searchInput = document.getElementById('searchInput');
-  const cantSelect = document.getElementById('cantSelect');
   const filterForm = document.getElementById('filterForm');
+  const cantSelect = document.getElementById('cantSelect');
 
-  if (searchInput) {
-    searchInput.focus();
-    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
-    let debounceTimer;
-    let currentValue = searchInput.value;
-    searchInput.addEventListener('input', function() {
-      clearTimeout(debounceTimer);
-      if (this.value === currentValue) return;
-      currentValue = this.value;
-      debounceTimer = setTimeout(() => filterForm.submit(), 800);
+  if (!searchInput) return;
+  searchInput.focus();
+  searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ac-wrapper';
+  searchInput.parentNode.insertBefore(wrapper, searchInput);
+  wrapper.appendChild(searchInput);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'ac-dropdown';
+  wrapper.appendChild(dropdown);
+
+  let selectedIndex = -1;
+  let results = [];
+
+  function showDropdown(items) {
+    results = items;
+    selectedIndex = -1;
+    if (!items.length) { dropdown.style.display = 'none'; return; }
+    dropdown.innerHTML = items.map((item, i) =>
+      `<div class="ac-item" data-id="${item.id}" data-label="${item.label}">
+        <div class="fw-semibold">${item.nombres}</div>
+        <small>${item.cedula}</small>
+      </div>`
+    ).join('');
+    dropdown.style.display = 'block';
+    dropdown.querySelectorAll('.ac-item').forEach((el, i) => {
+      el.addEventListener('click', function() {
+        searchInput.value = this.dataset.label;
+        dropdown.style.display = 'none';
+        filterForm.submit();
+      });
+      el.addEventListener('mouseenter', function() {
+        dropdown.querySelectorAll('.ac-item').forEach(e => e.classList.remove('active'));
+        this.classList.add('active');
+        selectedIndex = i;
+      });
     });
   }
+
+  let debounceTimer;
+  let currentValue = searchInput.value;
+  searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    const val = this.value;
+    if (val === currentValue) return;
+    currentValue = val;
+    if (val.length < 2) { dropdown.style.display = 'none'; return; }
+    debounceTimer = setTimeout(() => {
+      fetch('{% url "docentes:api_buscar_docentes" %}?q=' + encodeURIComponent(val))
+        .then(r => r.json())
+        .then(data => showDropdown(data.results))
+        .catch(() => {});
+    }, 250);
+  });
+
+  searchInput.addEventListener('keydown', function(e) {
+    const items = dropdown.querySelectorAll('.ac-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, -1);
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+      e.preventDefault();
+      items[selectedIndex].click();
+      return;
+    } else if (e.key === 'Escape') {
+      dropdown.style.display = 'none';
+      return;
+    } else return;
+    items.forEach((el, i) => el.classList.toggle('active', i === selectedIndex));
+    if (selectedIndex >= 0) items[selectedIndex].scrollIntoView({ block: 'nearest' });
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!wrapper.contains(e.target)) dropdown.style.display = 'none';
+  });
+
   if (cantSelect) {
-    cantSelect.addEventListener('change', function() {
-      filterForm.submit();
-    });
+    cantSelect.addEventListener('change', function() { filterForm.submit(); });
   }
 });
 </script>
