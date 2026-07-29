@@ -1171,134 +1171,252 @@ def export_reporte_asignacion_carreras(request):
 @login_required
 @module_permission_required('reportes', 'view')
 def export_matriz_f4_filtrada(request):
-    """Exporta la Matriz F4 aplicando los mismos filtros que la vista lista."""
+    """Exporta la Matriz F4 aplicando los mismos filtros que la vista lista.
+    Misma configuración y fuentes que la descarga desde Reportes y Control."""
     from collections import OrderedDict
-    from types import SimpleNamespace
     from django.http import Http404
     from openpyxl import load_workbook
     from openpyxl.styles import PatternFill
     from copy import copy
+    import re
+    import unicodedata
     from docentes.models import DocenteTituloAcademico
-    from planificacion.models import PlanificacionMatrizF4
+    from planificacion.models import (
+        CatalogoActividadComplementaria,
+        PlanificacionActividadDocente,
+        PlanificacionMatrizF4,
+    )
     from planificacion.services import docente_tiene_afinidad
     from django.db.models import Q
-    from planificacion.views import _nombre_sin_codigo, _ensure_career_access
     from catalogos.models import CatalogoPeriodoAcademico, CatalogoCarrera
 
     if not F4_TEMPLATE_PATH.exists():
         raise Http404('La plantilla institucional de la Matriz F4 no está instalada.')
 
-    periodo_id = request.GET.get('periodo') or None
-    carrera_id = request.GET.get('carrera') or None
+    # ── Filtros ──────────────────────────────────────────────────────────
+    periodo_id, carrera_id = _export_filters(request)
     docente_id = request.GET.get('docente') or None
     tipo = request.GET.get('tipo') or ''
     search = (request.GET.get('q') or '').strip()
-    permitted = _ensure_career_access(request, carrera_id)
 
-    # ── Asignaciones agrupadas ──────────────────────────────────────────
-    asg_qs = PlanificacionAsignacionDocente.objects.select_related(
-        'id_docente__id_tipo_docente', 'id_docente__id_modalidad',
-        'id_docente__id_dedicacion', 'id_asignatura', 'id_carrera', 'id_periodo',
-    )
-    if permitted is not None:
-        asg_qs = asg_qs.filter(id_carrera_id__in=permitted)
-    if periodo_id:
-        asg_qs = asg_qs.filter(id_periodo_id=periodo_id)
-    if carrera_id:
-        asg_qs = asg_qs.filter(id_carrera_id=carrera_id)
-    if docente_id:
-        asg_qs = asg_qs.filter(id_docente_id=docente_id)
-    if tipo and tipo != 'ASIGNATURA':
-        asg_qs = asg_qs.none()
-    if search:
-        asg_qs = asg_qs.filter(
-            Q(id_docente__nombres_completos__icontains=search) |
-            Q(id_asignatura__nombre_asignatura__icontains=search)
+    def normalize_name(value):
+        value = unicodedata.normalize('NFKD', str(value or ''))
+        value = ''.join(ch for ch in value if not unicodedata.combining(ch))
+        return re.sub(r'[^A-Z0-9]+', ' ', value.upper()).strip()
+
+    # ── 1) Asignaturas agrupadas ─────────────────────────────────────────
+    assignments = list(
+        _filtered_assignments(periodo_id, carrera_id, request.user)
+        .select_related(
+            'id_docente__id_tipo_docente',
+            'id_docente__id_modalidad',
+            'id_docente__id_dedicacion',
+            'id_asignatura', 'id_carrera', 'id_periodo',
         )
+        .order_by(
+            'id_docente__nombres_completos',
+            'id_carrera__nombre_carrera',
+            'id_asignatura__nivel_semestre',
+            'id_asignatura__nombre_asignatura',
+            'paralelo_asignado',
+        )
+    )
+    if docente_id:
+        assignments = [a for a in assignments if a.id_docente_id == int(docente_id)]
+    if search:
+        assignments = [
+            a for a in assignments
+            if search.lower() in (a.id_docente.nombres_completos or '').lower()
+            or search.lower() in (a.id_asignatura.nombre_asignatura or '').lower()
+        ]
 
-    grouped = OrderedDict()
-    for item in asg_qs.order_by(
-        'id_docente__nombres_completos', 'id_carrera__nombre_carrera',
-        'id_asignatura__nivel_semestre', 'id_asignatura__nombre_asignatura',
-        'paralelo_asignado',
-    ):
+    grouped_assignments = OrderedDict()
+    represented_names = set()
+    for item in assignments:
         affinity = docente_tiene_afinidad(item.id_docente, item.id_asignatura)
-        key = (item.id_docente_id, item.id_periodo_id, item.id_carrera_id,
-               item.id_asignatura_id, item.horas_clase, affinity)
-        entry = grouped.setdefault(key, {
-            'id_docente': item.id_docente,
-            'id_carrera': item.id_carrera,
-            'tipo_actividad': 'ASIGNATURA',
-            'nombre_asignatura_actividad': (
+        key = (
+            item.id_docente_id, item.id_periodo_id, item.id_carrera_id,
+            item.id_asignatura_id, item.horas_clase, affinity,
+        )
+        entry = grouped_assignments.setdefault(key, {
+            'teacher': item.id_docente,
+            'period_id': item.id_periodo_id,
+            'rank': 1,
+            'type': 'ASIGNATURA',
+            'career_or_type': item.id_carrera.nombre_carrera,
+            'name': (
                 f'{item.id_asignatura.codigo_asignatura} - '
                 f'{item.id_asignatura.nombre_asignatura} '
                 f'(Nivel {item.nivel_semestre_asignado})'
             ),
-            'id_grado_afinidad': None,
-            'horas_actividad': item.horas_clase or 0,
-            'numero_paralelos_actividad': 0,
-            'pk': None,
+            'affinity': 'AFÍN' if affinity else 'NO AFÍN',
+            'hours': item.horas_clase or 0,
+            'parallels': set(),
         })
-        entry['numero_paralelos_actividad'] += 1
+        entry['parallels'].add(item.paralelo_asignado or str(item.pk))
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(item.id_asignatura.nombre_asignatura),
+        ))
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(
+                f'{item.id_asignatura.codigo_asignatura} '
+                f'{item.id_asignatura.nombre_asignatura}'
+            ),
+        ))
 
-    assignment_rows = []
-    for entry in grouped.values():
-        row = SimpleNamespace(**entry)
-        row.total_horas_f4 = row.horas_actividad * row.numero_paralelos_actividad
-        assignment_rows.append(row)
+    final_rows = []
+    for entry in grouped_assignments.values():
+        entry['parallels'] = len(entry['parallels'])
+        final_rows.append(entry)
 
-    # ── Registros F4 históricos ────────────────────────────────────────
-    f4_qs = PlanificacionMatrizF4.objects.select_related(
-        'id_docente__id_tipo_docente', 'id_docente__id_modalidad',
-        'id_docente__id_dedicacion', 'id_carrera', 'id_periodo', 'id_grado_afinidad',
+    # ── 2) Actividades complementarias ───────────────────────────────────
+    teacher_scope = _teacher_ids_for_scope(
+        periodo_id, carrera_id, request.user
     )
-    if permitted is not None:
-        f4_qs = f4_qs.filter(id_carrera_id__in=permitted)
-    if periodo_id:
-        f4_qs = f4_qs.filter(id_periodo_id=periodo_id)
-    if carrera_id:
-        f4_qs = f4_qs.filter(id_carrera_id=carrera_id)
+    activities = (
+        PlanificacionActividadDocente.objects
+        .select_related(
+            'id_docente__id_tipo_docente',
+            'id_docente__id_modalidad',
+            'id_docente__id_dedicacion',
+            'id_periodo', 'id_actividad',
+        )
+        .order_by(
+            'id_docente__nombres_completos',
+            'id_actividad__tipo_actividad',
+            'id_actividad__nombre_actividad',
+        )
+    )
+    activities = _filter_teacher_activity_scope(
+        activities, periodo_id, teacher_scope
+    )
     if docente_id:
-        f4_qs = f4_qs.filter(id_docente_id=docente_id)
-    if tipo and tipo != 'ASIGNATURA':
-        f4_qs = f4_qs.filter(tipo_actividad=tipo)
+        activities = [a for a in activities if a.id_docente_id == int(docente_id)]
     if search:
-        f4_qs = f4_qs.filter(
+        activities = [
+            a for a in activities
+            if search.lower() in (a.id_docente.nombres_completos or '').lower()
+            or search.lower() in (a.id_actividad.nombre_actividad or '').lower()
+        ]
+
+    activity_labels = dict(CatalogoActividadComplementaria.TIPOS)
+    for item in activities:
+        activity_name = item.id_actividad.nombre_actividad
+        final_rows.append({
+            'teacher': item.id_docente,
+            'period_id': item.id_periodo_id,
+            'rank': 2,
+            'type': item.id_actividad.tipo_actividad,
+            'career_or_type': activity_labels.get(
+                item.id_actividad.tipo_actividad,
+                item.id_actividad.tipo_actividad,
+            ),
+            'name': (
+                f'{item.id_actividad.codigo_actividad} - {activity_name}'
+            ),
+            'affinity': 'NO APLICA',
+            'hours': item.horas_asignadas or 0,
+            'parallels': 1,
+        })
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(activity_name),
+        ))
+        represented_names.add((
+            item.id_docente_id, item.id_periodo_id,
+            normalize_name(
+                f'{item.id_actividad.codigo_actividad} {activity_name}'
+            ),
+        ))
+
+    # ── 3) Registros F4 históricos no duplicados ─────────────────────────
+    historical = (
+        PlanificacionMatrizF4.objects
+        .select_related(
+            'id_docente__id_tipo_docente',
+            'id_docente__id_modalidad',
+            'id_docente__id_dedicacion',
+            'id_carrera', 'id_periodo', 'id_grado_afinidad',
+        )
+        .order_by(
+            'id_docente__nombres_completos',
+            'tipo_actividad', 'nombre_asignatura_actividad',
+        )
+    )
+    historical = _filter_teacher_activity_scope(
+        historical, periodo_id, teacher_scope
+    )
+    if tipo and tipo != 'ASIGNATURA':
+        historical = historical.filter(tipo_actividad=tipo)
+    if docente_id:
+        historical = [h for h in historical if h.id_docente_id == int(docente_id)]
+    if search:
+        historical = historical.filter(
             Q(id_docente__nombres_completos__icontains=search) |
             Q(nombre_asignatura_actividad__icontains=search) |
             Q(tipo_actividad__icontains=search)
         )
-    f4_rows = list(f4_qs)
-    for row in f4_rows:
-        row.total_horas_f4 = (row.horas_actividad or 0) * (row.numero_paralelos_actividad or 1)
 
-    # ── Combinar y ordenar ─────────────────────────────────────────────
-    all_rows = assignment_rows + f4_rows
-    all_rows.sort(key=lambda r: (
-        r.id_docente.nombres_completos,
-        0 if r.tipo_actividad == 'ASIGNATURA' else 1,
-        r.tipo_actividad or '',
-        r.nombre_asignatura_actividad or '',
+    historical_seen = set()
+    for item in historical:
+        name = item.nombre_asignatura_actividad or ''
+        represented_key = (
+            item.id_docente_id, item.id_periodo_id, normalize_name(name),
+        )
+        history_key = (
+            represented_key, item.horas_actividad,
+            item.numero_paralelos_actividad,
+        )
+        if represented_key in represented_names or history_key in historical_seen:
+            continue
+        historical_seen.add(history_key)
+        final_rows.append({
+            'teacher': item.id_docente,
+            'period_id': item.id_periodo_id,
+            'rank': 3,
+            'type': item.tipo_actividad,
+            'career_or_type': item.tipo_actividad or item.id_carrera.nombre_carrera,
+            'name': name,
+            'affinity': (
+                item.id_grado_afinidad.nombre_grado_afinidad
+                if item.id_grado_afinidad else 'NO APLICA'
+            ),
+            'hours': item.horas_actividad or 0,
+            'parallels': item.numero_paralelos_actividad or 1,
+        })
+
+    # ── 4) Filtrar por tipo (post-dedup) ─────────────────────────────────
+    if tipo and tipo != 'ASIGNATURA':
+        final_rows = [r for r in final_rows if r['type'] == tipo]
+
+    # ── 5) Ordenar ───────────────────────────────────────────────────────
+    final_rows.sort(key=lambda r: (
+        r['teacher'].nombres_completos,
+        r['teacher'].id_docente,
+        r['rank'],
+        r['career_or_type'],
+        r['name'],
     ))
-    for row in all_rows:
-        row.nombre_display = _nombre_sin_codigo(row.nombre_asignatura_actividad)
+    rows_by_teacher = OrderedDict()
+    for row in final_rows:
+        rows_by_teacher.setdefault(row['teacher'].id_docente, []).append(row)
 
-    # ── Estadísticas ───────────────────────────────────────────────────
-    teacher_ids = set(r.id_docente.id_docente for r in all_rows)
-    titulos_qs = DocenteTituloAcademico.objects.filter(
-        id_docente__in=teacher_ids
-    ).order_by('id_docente_id', '-nivel_titulo')
-    titulos_por_docente = {}
-    for t in titulos_qs:
-        level = 'cuarto' if t.nivel_titulo >= 4 else 'tercer'
-        titulos_por_docente.setdefault(t.id_docente_id, {'tercer': [], 'cuarto': []})[level].append(t.nombre_titulo)
+    # ── 6) Títulos académicos ────────────────────────────────────────────
+    teacher_ids = list(rows_by_teacher)
+    titles_map = {}
+    for title in (
+        DocenteTituloAcademico.objects
+        .filter(id_docente_id__in=teacher_ids)
+        .order_by('id_docente_id', 'nivel_titulo', 'nombre_titulo')
+    ):
+        level = 'cuarto' if title.nivel_titulo >= 4 else 'tercer'
+        titles_map.setdefault(
+            title.id_docente_id, {'tercer': [], 'cuarto': []}
+        )[level].append(title.nombre_titulo)
 
-    carga_por_docente = {}
-    for row in all_rows:
-        did = row.id_docente.id_docente
-        carga_por_docente[did] = carga_por_docente.get(did, 0) + row.total_horas_f4
-
-    # ── Generar Excel con plantilla ────────────────────────────────────
+    # ── 7) Generar Excel con plantilla ───────────────────────────────────
     wb_dst = load_workbook(F4_TEMPLATE_PATH)
     ws_dst = wb_dst['MATRIZ F4 V1']
     for worksheet in list(wb_dst.worksheets):
@@ -1337,81 +1455,99 @@ def export_matriz_f4_filtrada(request):
         ws_dst.data_validations.dataValidation = []
     for row in ws_dst.iter_rows():
         for cell in row:
-            if cell.comment:
+            if cell.comment is not None:
                 cell.comment = None
 
-    period = (CatalogoPeriodoAcademico.objects.filter(pk=periodo_id).first() if periodo_id else None)
-    career = (CatalogoCarrera.objects.filter(pk=carrera_id).first() if carrera_id else None)
-    ws_dst['A6'] = f'PERÍODO ACADÉMICO:   {period.nombre_periodo if period else "TODOS LOS PERÍODOS"}'
-    ws_dst['G6'] = f'UNIDAD ACADÉMICA:    {career.nombre_carrera if career else "CIENCIAS ADMINISTRATIVAS, CONTABLES Y COMERCIO"}'
+    period = (
+        CatalogoPeriodoAcademico.objects.filter(pk=periodo_id).first()
+        if periodo_id else None
+    )
+    career = (
+        CatalogoCarrera.objects.filter(pk=carrera_id).first()
+        if carrera_id else None
+    )
+    period_text = period.nombre_periodo if period else 'TODOS LOS PERÍODOS'
+    unit_text = (
+        career.nombre_carrera if career
+        else 'CIENCIAS ADMINISTRATIVAS, CONTABLES Y COMERCIO'
+    )
+    ws_dst['A6'] = f'PERÍODO ACADÉMICO:   {period_text}'
+    ws_dst['G6'] = f'UNIDAD ACADÉMICA:    {unit_text}'
     ws_dst['I7'] = 'Título de cuarto nivel'
 
     neutral_fill = PatternFill(fill_type=None)
-    rows_by_teacher = OrderedDict()
-    for row in all_rows:
-        rows_by_teacher.setdefault(row.id_docente.id_docente, []).append(row)
-
     current_row = 8
     for sequence, teacher_rows in enumerate(rows_by_teacher.values(), start=1):
-        teacher = teacher_rows[0].id_docente
+        teacher = teacher_rows[0]['teacher']
         start_row = current_row
-        title_values = titulos_por_docente.get(
+        title_values = titles_map.get(
             teacher.id_docente, {'tercer': [], 'cuarto': []}
         )
-        tercer = title_values['tercer']
-        cuarto = title_values['cuarto']
         teacher_type = teacher.id_tipo_docente
-        is_titular = bool(teacher_type and teacher_type.codigo_tipo_docente.upper() == 'TITULAR')
+        modality = teacher.id_modalidad
+        dedication = teacher.id_dedicacion
+        is_titular = bool(
+            teacher_type
+            and teacher_type.codigo_tipo_docente.upper() == 'TITULAR'
+        )
         category = ' · '.join(filter(None, [
-            teacher.id_modalidad.nombre_modalidad if teacher.id_modalidad else '',
-            teacher.id_dedicacion.codigo_dedicacion if teacher.id_dedicacion else '',
+            modality.nombre_modalidad if modality else '',
+            dedication.codigo_dedicacion if dedication else '',
         ]))
 
         end_row = current_row + len(teacher_rows) - 1
         for i, item in enumerate(teacher_rows):
             row = current_row
-            ws_dst.cell(row, 1, value=sequence if i == 0 else '')
-            ws_dst.cell(row, 2, value=teacher.cedula_docente)
-            ws_dst.cell(row, 3, value=teacher.nombres_completos)
-            ws_dst.cell(row, 4, value='')
-            ws_dst.cell(row, 5, value=teacher.unidad_organica or '')
-            ws_dst.cell(row, 6, value='SÍ' if is_titular else 'NO')
-            ws_dst.cell(row, 7, value=category)
-            ws_dst.cell(row, 8, value='; '.join(tercer))
-            ws_dst.cell(row, 9, value='; '.join(cuarto))
-            ws_dst.cell(row, 10, value=item.id_carrera.nombre_carrera if hasattr(item, 'id_carrera') and item.id_carrera else item.tipo_actividad)
-            ws_dst.cell(row, 11, value=item.nombre_asignatura_actividad)
-            ws_dst.cell(row, 12, value=(item.id_grado_afinidad.nombre_grado_afinidad if item.id_grado_afinidad else 'NO APLICA'))
-            ws_dst.cell(row, 13, value=item.horas_actividad)
-            ws_dst.cell(row, 14, value=item.numero_paralelos_actividad)
-            ws_dst.cell(row, 15, value=f'=M{row}*N{row}')
-            ws_dst.cell(row, 16, value=f'=SUM(O{start_row}:O{end_row})' if i == 0 else '')
+            personal_values = {
+                1: sequence if i == 0 else '',
+                2: teacher.cedula_docente,
+                3: teacher.nombres_completos,
+                4: '',
+                5: teacher.unidad_organica or '',
+                6: 'SÍ' if is_titular else 'NO',
+                7: category,
+                8: '; '.join(title_values['tercer']),
+                9: '; '.join(title_values['cuarto']),
+            }
+            detail_values = {
+                10: item['career_or_type'],
+                11: item['name'],
+                12: item['affinity'],
+                13: item['hours'],
+                14: item['parallels'],
+            }
+            for column, value in {**personal_values, **detail_values}.items():
+                ws_dst.cell(row, column).value = value
+            ws_dst.cell(row, 15).value = f'=M{row}*N{row}'
+            ws_dst.cell(row, 16).value = f'=SUM(O{start_row}:O{end_row})' if i == 0 else ''
 
-            for col in range(1, 10):
-                ws_dst.cell(row, col)._style = copy(personal_styles[col])
-                ws_dst.cell(row, col).fill = copy(neutral_fill)
-            for col in range(10, 16):
-                ws_dst.cell(row, col)._style = copy(detail_styles[col])
-                ws_dst.cell(row, col).fill = copy(neutral_fill)
-            ws_dst.cell(row, 16)._style = copy(load_style)
-            ws_dst.cell(row, 16).fill = copy(neutral_fill)
+            for column in range(1, 10):
+                cell = ws_dst.cell(row, column)
+                cell._style = copy(personal_styles[column])
+                cell.fill = copy(neutral_fill)
+            for column in range(10, 16):
+                cell = ws_dst.cell(row, column)
+                cell._style = copy(detail_styles[column])
+                cell.fill = copy(neutral_fill)
+            load_cell = ws_dst.cell(row, 16)
+            load_cell._style = copy(load_style)
+            load_cell.fill = copy(neutral_fill)
             ws_dst.row_dimensions[row].height = 30
             current_row += 1
 
-        if end_row > start_row:
-            for col in [1, 4, 8, 9]:
-                ws_dst.merge_cells(start_row=start_row, start_column=col, end_row=end_row, end_column=col)
-            ws_dst.merge_cells(start_row=start_row, start_column=16, end_row=end_row, end_column=16)
+        _merge_f4_teacher_cells(ws_dst, start_row, end_row)
 
     data_end = current_row - 1
-    for col, width in original_widths.items():
-        dim = ws_dst.column_dimensions[get_column_letter(col)]
-        dim.width = width
-        dim.hidden = original_hidden_columns[col]
+    for column, width in original_widths.items():
+        dimension = ws_dst.column_dimensions[get_column_letter(column)]
+        dimension.width = width
+        dimension.hidden = original_hidden_columns[column]
     ws_dst.column_dimensions['I'].hidden = True
-    for r in range(1, data_end + 1):
-        ws_dst.row_dimensions[r].hidden = False
-    ws_dst.auto_filter.ref = f'A7:P{data_end}' if data_end >= 8 else 'A7:P7'
+    for row in range(1, data_end + 1):
+        ws_dst.row_dimensions[row].hidden = False
+    ws_dst.auto_filter.ref = (
+        f'A7:P{data_end}' if data_end >= 8 else 'A7:P7'
+    )
     ws_dst.print_title_rows = '1:7'
     ws_dst.print_area = f'A1:P{data_end}' if data_end >= 8 else 'A1:P7'
     ws_dst.sheet_properties.pageSetUpPr.fitToPage = True
