@@ -6,7 +6,7 @@
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
     <div>
         <div class="page-eyebrow mb-1">Módulo institucional</div>
         <h4 class="fw-bold mb-0"><i class="fas {{ modulo.icono }} me-2 text-primary"></i>{{ modulo.nombre }}</h4>
@@ -14,7 +14,7 @@
             {% if modulo.descripcion %}
                 {{ modulo.descripcion }}
             {% else %}
-                Gestion completa del modulo - {{ modelos|length }} tabla(s)
+                Gestión completa del módulo.
             {% endif %}
         </p>
     </div>
@@ -22,54 +22,80 @@
 </div>
 
 {% if acciones %}
-<div class="row g-3 mb-4">
+<section class="mb-4" aria-labelledby="moduleActionsTitle">
+<div class="mb-2">
+    <h6 class="fw-bold mb-1" id="moduleActionsTitle">Resumen y accesos principales</h6>
+    <p class="text-muted small mb-0">Consulte los registros disponibles y seleccione la tarea que desea realizar.</p>
+</div>
+<div class="row g-3">
     {% for accion in acciones %}
     <div class="col-xl-4 col-md-6">
         <a href="{{ accion.url }}" class="text-decoration-none">
-            <div class="card border-0 shadow-sm h-100 module-card">
-                <div class="card-body d-flex gap-3 align-items-start">
-                    <div class="module-icon d-flex align-items-center justify-content-center" style="width:46px;height:46px;min-width:46px;">
+            <div class="card border-0 shadow-sm h-100 module-card module-action-card">
+                <div class="card-body d-flex gap-3 align-items-start p-3">
+                    <div class="module-icon d-flex align-items-center justify-content-center">
                         <i class="fas {{ accion.icon }}"></i>
                     </div>
-                    <div>
+                    <div class="flex-grow-1 min-w-0">
                         <h6 class="fw-semibold text-body mb-1">{{ accion.label }}</h6>
                         <p class="text-muted small mb-0">{{ accion.description }}</p>
                     </div>
+                    {% if accion.count != None %}
+                    <div class="text-end">
+                        <div class="module-stat-number">{{ accion.count }}</div>
+                        <span class="text-muted" style="font-size:.68rem;">registros</span>
+                    </div>
+                    {% else %}
+                    <i class="fas fa-chevron-right text-muted small mt-1"></i>
+                    {% endif %}
                 </div>
             </div>
         </a>
     </div>
     {% endfor %}
 </div>
+</section>
 {% endif %}
 
-{% if modelos %}
-<div class="row g-4">
-    {% for m in modelos %}
-    <div class="col-xl-4 col-md-6">
-        <div class="card border-0 shadow-sm h-100 module-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h6 class="fw-semibold mb-1">{{ m.label }}</h6>
-                        <p class="text-muted small mb-0">{{ m.class_name }}</p>
-                    </div>
-                    <div class="text-end">
-                        <span class="badge bg-primary fs-6 rounded-pill px-3 py-2">{{ m.count }}</span>
-                    </div>
-                </div>
-                <hr>
-                <a href="{{ m.crud_url }}" class="btn btn-sm btn-primary w-100">
-                    <i class="fas fa-eye me-1"></i>Ver m&aacute;s
-                </a>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% elif not acciones %}
+{% if not modelos and not acciones %}
 <div class="alert alert-info">
-    <i class="fas fa-info-circle me-1"></i>No hay modelos disponibles para este modulo.
+    <i class="fas fa-info-circle me-1"></i>No hay opciones disponibles para este módulo.
 </div>
 {% endif %}
+
+<style>
+.module-action-card {
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    border: 1px solid transparent !important;
+}
+.module-action-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(37, 99, 235, .2) !important;
+}
+.module-stat-number {
+    display: grid;
+    place-items: center;
+    min-width: 46px;
+    height: 46px;
+    padding: 0 .65rem;
+    border-radius: 14px;
+    color: var(--bs-primary);
+    background: rgba(37, 99, 235, .1);
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.module-action-card .module-icon {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+}
+.min-w-0 { min-width: 0; }
+@media (max-width: 575.98px) {
+    .module-stat-number { min-width: 42px; height: 42px; }
+}
+[data-bs-theme="dark"] .module-stat-number {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, .18);
+}
+</style>
 {% endblock %}

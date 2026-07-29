@@ -1,0 +1,149 @@
+{% extends 'core/base_dashboard.html' %}
+
+{% block title %}Historial del docente - ULEAM{% endblock %}
+
+{% block content %}
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 no-print">
+  <div>
+    <div class="page-eyebrow mb-1">M2 · Docentes</div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-clock-rotate-left me-2 text-primary"></i>Historial del docente</h4>
+    <p class="text-muted small mb-0">Consulte el tiempo registrado y las carreras en las que ha trabajado un docente.</p>
+  </div>
+  {% if docente %}
+  <button class="btn btn-outline-primary" type="button" onclick="window.print()">
+    <i class="fas fa-print me-1"></i>Imprimir / guardar PDF
+  </button>
+  {% endif %}
+</div>
+
+<div class="card border-0 shadow-sm mb-4 no-print">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-lg-8">
+        <label for="cedula" class="form-label fw-semibold">Número de cédula o identificación</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent"><i class="fas fa-id-card text-muted"></i></span>
+          <input id="cedula" name="cedula" class="form-control" value="{{ cedula }}"
+                 maxlength="13" autocomplete="off" required
+                 placeholder="Ejemplo: 1300000000">
+        </div>
+      </div>
+      <div class="col-lg-2 d-grid">
+        <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Consultar</button>
+      </div>
+      <div class="col-lg-2 d-grid">
+        <a class="btn btn-outline-secondary" href="{% url 'docentes:reporte_historial_docente' %}">Limpiar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning"><i class="fas fa-circle-exclamation me-2"></i>{{ error }}</div>
+{% endif %}
+
+{% if docente %}
+<section id="teacherReport">
+  <div class="d-none print-header mb-4">
+    <h3 class="mb-1">Historial laboral del docente</h3>
+    <div class="text-muted">Facultad de Ciencias Administrativas, Contables y Comercio</div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-center">
+        <div class="col-lg-6">
+          <div class="text-muted small">Docente</div>
+          <h5 class="mb-1">{{ docente.nombres_completos }}</h5>
+          <span class="font-monospace">{{ docente.cedula_docente }}</span>
+          <span class="badge ms-2 {% if docente.docente_activo %}bg-success-subtle text-success-emphasis{% else %}bg-secondary-subtle text-secondary-emphasis{% endif %}">
+            {% if docente.docente_activo %}Activo{% else %}Inactivo{% endif %}
+          </span>
+        </div>
+        <div class="col-lg-6">
+          <div class="row g-2 small">
+            <div class="col-sm-4"><span class="text-muted d-block">Tipo actual</span><strong>{{ docente.id_tipo_docente }}</strong></div>
+            <div class="col-sm-4"><span class="text-muted d-block">Modalidad actual</span><strong>{{ docente.id_modalidad }}</strong></div>
+            <div class="col-sm-4"><span class="text-muted d-block">Dedicación actual</span><strong>{{ docente.id_dedicacion }}</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Tiempo registrado</div><div class="fs-5 fw-bold">{{ summary.duration.label }}</div><div class="small text-muted">{{ summary.duration.days }} días calendario</div></div></div></div>
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Rango del historial</div><div class="fw-bold">{{ summary.first_date|date:'d/m/Y'|default:'Sin fecha' }}</div><div class="small text-muted">hasta {{ summary.last_date|date:'d/m/Y'|default:'Sin fecha' }}</div></div></div></div>
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Períodos</div><div class="fs-5 fw-bold">{{ summary.period_count }}</div><div class="small text-muted">sin repetir por carrera</div></div></div></div>
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Carreras</div><div class="fs-5 fw-bold">{{ summary.career_count }}</div><div class="small text-muted">registradas</div></div></div></div>
+  </div>
+
+  {% if incomplete_period_count %}
+  <div class="alert alert-warning py-2">
+    {{ incomplete_period_count }} período(s) no tienen fechas completas y no se incluyeron en el cálculo del tiempo.
+  </div>
+  {% endif %}
+
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white fw-semibold">Resumen por carrera</div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th class="ps-3">Carrera</th><th>Primer registro</th><th>Último registro</th><th>Períodos</th><th class="pe-3">Tiempo registrado</th></tr></thead>
+        <tbody>
+          {% for item in career_summaries %}
+          <tr>
+            <td class="ps-3"><strong>{{ item.career.nombre_carrera }}</strong><div class="small text-muted">{{ item.career.codigo_carrera }}</div></td>
+            <td>{{ item.first_date|date:'d/m/Y'|default:'Sin fecha' }}</td>
+            <td>{{ item.last_date|date:'d/m/Y'|default:'Sin fecha' }}</td>
+            <td>{{ item.period_count }}</td>
+            <td class="pe-3">{{ item.duration.label }} <span class="text-muted small">({{ item.duration.days }} días)</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-semibold">Detalle cronológico</div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th class="ps-3">Período</th><th>Fechas</th><th>Duración</th><th>Carrera(s)</th><th>Licencia</th><th class="pe-3">Observación</th></tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="ps-3"><strong>{{ row.period.nombre_periodo }}</strong><div class="small text-muted">{{ row.period.codigo_periodo }}</div></td>
+            <td>{% if row.valid_dates %}{{ row.period.fecha_inicio_periodo|date:'d/m/Y' }} – {{ row.period.fecha_fin_periodo|date:'d/m/Y' }}{% else %}<span class="text-warning">Fechas incompletas</span>{% endif %}</td>
+            <td>{% if row.duration %}{{ row.duration.label }}<div class="small text-muted">{{ row.duration.days }} días</div>{% else %}—{% endif %}</td>
+            <td>{% for career in row.careers %}<div>{{ career.nombre_carrera }}</div>{% endfor %}</td>
+            <td>{{ row.licenses|join:', ' }}</td>
+            <td class="pe-3">{% if row.observations %}{{ row.observations|join:'; ' }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="small text-muted mt-3">
+    El tiempo se calcula con las fechas de los períodos académicos. Los períodos simultáneos en varias carreras se cuentan una sola vez en el total institucional.
+  </p>
+</section>
+{% elif not searched %}
+<div class="text-center text-muted py-5">
+  <i class="fas fa-id-card fa-3x mb-3 opacity-50"></i>
+  <p>Ingrese la identificación del docente para generar el reporte.</p>
+</div>
+{% endif %}
+
+<style>
+@media print {
+  .sidebar, .topbar, .no-print, .sidebar-overlay { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .content-area { padding: 0 !important; }
+  .print-header { display: block !important; }
+  .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; break-inside: avoid; }
+  body { background: #fff !important; }
+}
+</style>
+{% endblock %}

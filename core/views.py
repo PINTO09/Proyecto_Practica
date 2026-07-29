@@ -768,6 +768,14 @@ MODULOS = {
     'catalogos': {
         'nombre': 'Catálogos',
         'icono': 'fa-database',
+        'descripcion': 'Administre la información base que utilizan los módulos académicos y de planificación.',
+        'acciones': [
+            ('Carreras', 'catalogos:catalogocarrera_list', 'fa-building-columns', 'Consulte y mantenga las carreras disponibles en la facultad.', 'CatalogoCarrera'),
+            ('Períodos académicos', 'catalogos:catalogoperiodoacademico_list', 'fa-calendar-days', 'Configure fechas, vigencia y estado de cada período académico.', 'CatalogoPeriodoAcademico'),
+            ('Modalidades', 'catalogos:catalogomodalidadcontratacion_list', 'fa-file-signature', 'Gestione las modalidades de contratación de los docentes.', 'CatalogoModalidadContratacion'),
+            ('Campos de conocimiento', 'catalogos:catalogocampoconocimiento_list', 'fa-diagram-project', 'Organice las áreas utilizadas para establecer afinidades académicas.', 'CatalogoCampoConocimiento'),
+            ('Límites horarios', 'catalogos:limitehorario_list', 'fa-gauge-high', 'Defina los límites que se aplican durante la planificación.', 'LimiteHorario'),
+        ],
         'modelos': [
             ('Carreras', 'CatalogoCarrera'),
             ('Modalidades Contratación', 'CatalogoModalidadContratacion'),
@@ -788,6 +796,42 @@ MODULOS = {
     'docentes': {
         'nombre': 'Docentes',
         'icono': 'fa-chalkboard-teacher',
+        'descripcion': 'Gestión de docentes, formación académica, vinculación por carrera y consulta de su historial institucional.',
+        'acciones': [
+            (
+                'Gestionar docentes',
+                'docentes:docentefcacc_list',
+                'fa-address-card',
+                'Consulte los docentes registrados y mantenga actualizada su información institucional.',
+                'DocenteFcacc',
+            ),
+            (
+                'Títulos académicos',
+                'docentes:docentetituloacademico_list',
+                'fa-user-graduate',
+                'Revise la formación académica y los títulos registrados para cada docente.',
+                'DocenteTituloAcademico',
+            ),
+            (
+                'Carrera por período',
+                'docentes:docenteasignacioncarreraperiodo_list',
+                'fa-building-user',
+                'Registre la vinculación histórica de docentes con carreras y períodos.',
+                'DocenteAsignacionCarreraPeriodo',
+            ),
+            (
+                'Historial del docente',
+                'docentes:reporte_historial_docente',
+                'fa-clock-rotate-left',
+                'Consulte por identificación el tiempo registrado, las carreras y el detalle cronológico de cada docente.',
+            ),
+            (
+                'Dedicación y posgrados',
+                'docentes:reporte_dedicacion_formacion_docente',
+                'fa-chart-pie',
+                'Analice cuántos docentes existen por dedicación y su formación de cuarto nivel.',
+            ),
+        ],
         'modelos': [
             ('Docentes FCACC', 'DocenteFcacc'),
             ('Títulos Académicos', 'DocenteTituloAcademico'),
@@ -801,6 +845,12 @@ MODULOS = {
     'curriculo': {
         'nombre': 'Currículo',
         'icono': 'fa-book-open',
+        'descripcion': 'Organice las asignaturas y sus relaciones con los campos de conocimiento y posgrados.',
+        'acciones': [
+            ('Asignaturas', 'curriculo:curriculoasignatura_list', 'fa-book', 'Consulte y gestione la oferta de asignaturas y su distribución de horas.', 'CurriculoAsignatura'),
+            ('Asignatura por campo', 'curriculo:curriculoasignaturacampo_list', 'fa-code-branch', 'Relacione cada asignatura con sus campos de conocimiento.', 'CurriculoAsignaturaCampo'),
+            ('Posgrado por campo', 'curriculo:relacionposgradocampo_list', 'fa-graduation-cap', 'Configure la afinidad entre posgrados y campos de conocimiento.', 'RelacionPosgradoCampo'),
+        ],
         'modelos': [
             ('Asignaturas', 'CurriculoAsignatura'),
             ('Asignatura-Campo', 'CurriculoAsignaturaCampo'),
@@ -810,11 +860,11 @@ MODULOS = {
     'planificacion': {
         'nombre': 'Planificación',
         'icono': 'fa-calendar-check',
-        'descripcion': 'Flujo principal para construir, revisar y controlar la planificacion docente.',
+        'descripcion': 'Flujo principal para construir, revisar y controlar la planificación docente.',
         'acciones': [
-            ('Planificación', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Gestionar demanda, paralelos, recomendaciones y asignaciones desde un solo flujo.'),
-            ('Carga y actividades', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revisar la carga docente y registrar las actividades complementarias.'),
-            ('Horarios', 'planificacion:planificacionaulahorario_list', 'fa-calendar-days', 'Organizar aulas, días y horas sin cruces de docente o espacio.'),
+            ('Planificación', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Gestionar demanda, paralelos, recomendaciones y asignaciones desde un solo flujo.', 'PlanificacionDemandaAcademica'),
+            ('Carga y actividades', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revisar la carga docente y registrar las actividades complementarias.', 'PlanificacionAsignacionDocente'),
+            ('Horarios', 'planificacion:planificacionaulahorario_list', 'fa-calendar-days', 'Organizar aulas, días y horas sin cruces de docente o espacio.', 'PlanificacionAulaHorario'),
             ('Reportes y control', 'reportes:centro_reportes', 'fa-file-excel', 'Validar la planificación y descargar reportes generales o detallados.'),
         ],
         'modelos': [
@@ -828,6 +878,10 @@ MODULOS = {
     'auditoria': {
         'nombre': 'Auditoría',
         'icono': 'fa-history',
+        'descripcion': 'Consulte la trazabilidad de los cambios realizados sobre la información institucional.',
+        'acciones': [
+            ('Registro de cambios', 'auditoria:auditoriaregistrocambios_list', 'fa-clock-rotate-left', 'Revise quién realizó cada cambio, cuándo ocurrió y qué información fue afectada.', 'AuditoriaRegistroCambios'),
+        ],
         'modelos': [
             ('Registro de Cambios', 'AuditoriaRegistroCambios'),
         ],
@@ -835,6 +889,11 @@ MODULOS = {
     'restricciones': {
         'nombre': 'Restricciones',
         'icono': 'fa-exclamation-triangle',
+        'descripcion': 'Administre las limitaciones docentes y conserve su evolución histórica.',
+        'acciones': [
+            ('Limitaciones', 'restricciones:limitacion_list', 'fa-ban', 'Consulte y registre las restricciones vigentes de los docentes.', 'Limitacion'),
+            ('Historial de limitaciones', 'restricciones:historiallimitacion_list', 'fa-clock', 'Revise los cambios y antecedentes de cada limitación registrada.', 'HistorialLimitacion'),
+        ],
         'modelos': [
             ('Limitaciones', 'Limitacion'),
             ('Historial Limitaciones', 'HistorialLimitacion'),
@@ -896,15 +955,18 @@ def modulo_view(request, slug):
             'crud_url': list_url if list_url != '#' else '#',
         })
 
-    acciones = [
-        {
+    acciones = []
+    for action in info.get('acciones', []):
+        label, url_name, icon, description = action[:4]
+        count_model_name = action[4] if len(action) > 4 else None
+        count_model = _obtener_modelo(count_model_name) if count_model_name else None
+        acciones.append({
             'label': label,
             'url': reverse(url_name),
             'icon': icon,
             'description': description,
-        }
-        for label, url_name, icon, description in info.get('acciones', [])
-    ]
+            'count': _stats_modelo(count_model) if count_model else None,
+        })
 
     context = {
         'active_section': f'modulo_{slug}',
