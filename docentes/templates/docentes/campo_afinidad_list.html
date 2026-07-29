@@ -21,8 +21,9 @@
         <label class="small fw-semibold text-muted mb-1">Buscar</label>
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent"><i class="fas fa-magnifying-glass text-muted"></i></span>
-          <input type="search" name="q" class="form-control" placeholder="Docente, título o posgrado..." value="{{ search_value }}" id="searchInput">
+          <input type="search" name="q" class="form-control" placeholder="Docente, título o posgrado..." value="{{ search_value }}" id="searchInput" autocomplete="off">
           {% if search_value %}<a href="?{% querystring q='' page='' campo='' posgrado='' %}" class="btn btn-outline-secondary"><i class="fas fa-xmark"></i></a>{% endif %}
+        </div>
         </div>
       </div>
       <div class="col-lg-3">
@@ -194,22 +195,21 @@ document.addEventListener('DOMContentLoaded', function() {
   wrapper.appendChild(dropdown);
 
   let selectedIndex = -1;
-  let results = [];
 
   function showDropdown(items) {
-    results = items;
     selectedIndex = -1;
     if (!items.length) { dropdown.style.display = 'none'; return; }
     dropdown.innerHTML = items.map((item, i) =>
-      `<div class="ac-item" data-id="${item.id}" data-label="${item.label}">
+      `<div class="ac-item" data-id="${item.id}" data-nombres="${item.nombres}" data-cedula="${item.cedula}">
         <div class="fw-semibold">${item.nombres}</div>
         <small>${item.cedula}</small>
       </div>`
     ).join('');
     dropdown.style.display = 'block';
     dropdown.querySelectorAll('.ac-item').forEach((el, i) => {
-      el.addEventListener('click', function() {
-        searchInput.value = this.dataset.label;
+      el.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        searchInput.value = this.dataset.nombres;
         dropdown.style.display = 'none';
         filterForm.submit();
       });
@@ -239,6 +239,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
   searchInput.addEventListener('keydown', function(e) {
     const items = dropdown.querySelectorAll('.ac-item');
+    if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && items.length) {
+        e.preventDefault();
+        items[selectedIndex].click();
+      } else if (items.length) {
+        e.preventDefault();
+        items[0].click();
+      }
+      return;
+    }
     if (!items.length) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -246,10 +256,6 @@ document.addEventListener('DOMContentLoaded', function() {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       selectedIndex = Math.max(selectedIndex - 1, -1);
-    } else if (e.key === 'Enter' && selectedIndex >= 0) {
-      e.preventDefault();
-      items[selectedIndex].click();
-      return;
     } else if (e.key === 'Escape') {
       dropdown.style.display = 'none';
       return;
