@@ -115,6 +115,17 @@
                 </div>
             </details>{% endif %}
 
+            {% if module_access.self_service %}<details class="nav-group" data-nav-group="self_service"{% if active_section == 'modulo_self_service' or active_section == 'titulos' or active_section == 'documentos' or active_section == 'publicaciones' or active_section == 'cursos' or request.resolver_match.url_name == 'mis_titulos' or request.resolver_match.url_name == 'mis_documentos' or request.resolver_match.url_name == 'subir_documento' or request.resolver_match.url_name == 'crear_titulo' or request.resolver_match.url_name == 'crear_publicacion' or request.resolver_match.url_name == 'mis_publicaciones' or request.resolver_match.url_name == 'mis_cursos' or request.resolver_match.url_name == 'crear_curso' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-folder-open"></i><span>M3 · Documentos y Títulos</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_self_service' %} active{% endif %}" href="{% url 'core:modulo_self_service' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link{% if active_section == 'titulos' %} active{% endif %}" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i><span>Mis títulos</span></a>
+                    <a class="nav-link{% if active_section == 'documentos' %} active{% endif %}" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i><span>Documentos</span></a>
+                    <a class="nav-link{% if active_section == 'publicaciones' %} active{% endif %}" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i><span>Publicaciones</span></a>
+                    <a class="nav-link{% if active_section == 'cursos' %} active{% endif %}" href="{% url 'core:mis_cursos' %}"><i class="fas fa-graduation-cap"></i><span>Cursos</span></a>
+                </div>
+            </details>{% endif %}
+
             {% if module_access.curriculo %}<details class="nav-group" data-nav-group="curriculo"{% if request.resolver_match.namespace == 'curriculo' or active_section == 'modulo_curriculo' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-book-open"></i><span>M4 · Currículo</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">

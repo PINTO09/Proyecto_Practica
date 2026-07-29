@@ -143,10 +143,15 @@ def login_view(request):
 @login_required
 def dashboard_view(request):
     usuario = request.user
+    from accounts.decorators import allowed_career_ids, has_role, COORDINADOR
+    carrera_ids = allowed_career_ids(usuario)
     context = {
         'active_section': 'dashboard', 'db_ready': False,
         'institutional_dashboard': can_access_module(usuario, 'planificacion', 'view'),
+        'carrera_scope': None,
     }
+    if carrera_ids is not None and has_role(usuario, COORDINADOR):
+        context['carrera_scope'] = CatalogoCarrera.objects.filter(pk__in=carrera_ids)
 
     def db_stats():
         try:
@@ -180,6 +185,7 @@ def dashboard_view(request):
         ('planificacion', 'Planificación', 'fa-calendar-check', '#ffc107', 'rgba(255,193,7,0.1)'),
         ('auditoria', 'Auditoría', 'fa-history', '#6c757d', 'rgba(108,117,125,0.1)'),
         ('restricciones', 'Restricciones', 'fa-exclamation-triangle', '#dc3545', 'rgba(220,53,69,0.1)'),
+        ('self_service', 'Documentos y Títulos', 'fa-folder-open', '#0d6efd', 'rgba(13,110,253,0.1)'),
     ]
     for slug, nombre, icono, color, bg_color in slug_modulos:
         if not can_access_module(request.user, slug, 'view'):
@@ -900,6 +906,19 @@ MODULOS = {
             ('Cabecera', 'Cabecera'),
             ('Cuerpo', 'Cuerpo'),
         ],
+    },
+    'self_service': {
+        'nombre': 'Documentos y Títulos',
+        'icono': 'fa-folder-open',
+        'descripcion': 'Gestione sus títulos académicos, documentos, publicaciones y cursos de capacitación.',
+        'acciones': [
+            ('Mis títulos', 'core:mis_titulos', 'fa-award', 'Consulte y registre sus títulos académicos de tercer nivel, maestría o doctorado.'),
+            ('Subir documento', 'core:subir_documento', 'fa-folder-open', 'Sube certificados, actas y respaldos académicos.'),
+            ('Mis documentos', 'core:mis_documentos', 'fa-file-lines', 'Revise los documentos que ha subido al sistema.'),
+            ('Publicaciones', 'core:mis_publicaciones', 'fa-book', 'Registre sus artículos, libros, capítulos y otros trabajos académicos.'),
+            ('Cursos', 'core:mis_cursos', 'fa-graduation-cap', 'Gestione sus cursos de capacitación y formación continua.'),
+        ],
+        'modelos': [],
     },
 }
 
