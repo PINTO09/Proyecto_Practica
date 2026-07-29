@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 from django import forms
 from django.core.validators import RegexValidator
@@ -277,7 +278,8 @@ class DocumentoForm(forms.ModelForm):
         model = DocenteTransaccional
         fields = [
             'id_modalidad', 'id_dedicacion', 'id_carrera',
-            'id_periodo', 'id_licencia', 'observacion', 'adj_archivo'
+            'id_periodo', 'id_licencia', 'fecha_documento',
+            'observacion', 'adj_archivo'
         ]
         widgets = {
             'id_modalidad': forms.Select(attrs={'class': 'form-select'}),
@@ -285,6 +287,9 @@ class DocumentoForm(forms.ModelForm):
             'id_carrera': forms.Select(attrs={'class': 'form-select'}),
             'id_periodo': forms.Select(attrs={'class': 'form-select'}),
             'id_licencia': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_documento': forms.DateInput(attrs={
+                'class': 'form-control', 'type': 'date'
+            }),
             'observacion': forms.Textarea(attrs={
                 'class': 'form-control', 'rows': 3,
                 'placeholder': 'Observaciones (opcional)'
@@ -297,6 +302,7 @@ class DocumentoForm(forms.ModelForm):
             'id_carrera': 'Carrera',
             'id_periodo': 'Período académico',
             'id_licencia': 'Licencia',
+            'fecha_documento': 'Fecha del documento',
             'adj_archivo': 'Archivo adjunto',
         }
 
@@ -318,30 +324,53 @@ class DocumentoForm(forms.ModelForm):
         for field in self.fields:
             self.fields[field].required = False
         self.fields['adj_archivo'].required = False
-        if not self.instance.pk and not self.is_bound and docente_fcacc:
+        self.fields['fecha_documento'].initial = date.today()
+        if not self.instance.pk and docente_fcacc:
             from docentes.models import DocenteFcacc
             if isinstance(docente_fcacc, DocenteFcacc):
                 modalidad = Modalidad.objects.filter(
-                    nombre_modalidad__icontains=str(docente_fcacc.id_modalidad or '')
+                    pk=docente_fcacc.id_modalidad_id
                 ).first()
                 if modalidad:
                     self.fields['id_modalidad'].initial = modalidad.pk
                 dedicacion = Dedicacion.objects.filter(
-                    nombre_dedicacion__icontains=str(docente_fcacc.id_dedicacion or '')
+                    pk=docente_fcacc.id_dedicacion_id
                 ).first()
                 if dedicacion:
                     self.fields['id_dedicacion'].initial = dedicacion.pk
                 if cedula_docente:
                     from docentes.models import DocenteAsignacionCarreraPeriodo
-                    asignacion = DocenteAsignacionCarreraPeriodo.objects.filter(
+                    from catalogos.models import CatalogoPeriodoAcademico
+                    asignaciones = DocenteAsignacionCarreraPeriodo.objects.filter(
                         id_docente=docente_fcacc,
-                    ).select_related('id_licencia').first()
-                    if asignacion and asignacion.id_licencia:
-                        lic = Licencia.objects.filter(
-                            pk=asignacion.id_licencia_id
+                    ).select_related('id_licencia', 'id_carrera')
+                    ids = [a.id_carrera_id for a in asignaciones if a.id_carrera_id]
+                    if ids:
+                        self.fields['id_carrera'].queryset = Carrera.objects.filter(pk__in=ids)
+                    primera = asignaciones.first()
+                    if primera:
+                        carrera = Carrera.objects.filter(
+                            pk=primera.id_carrera_id
                         ).first()
-                        if lic:
-                            self.fields['id_licencia'].initial = lic.pk
+                        if carrera:
+                            self.fields['id_carrera'].initial = carrera.pk
+                        if primera.id_licencia:
+                            lic = Licencia.objects.filter(
+                                pk=primera.id_licencia_id
+                            ).first()
+                            if lic:
+                                self.fields['id_licencia'].initial = lic.pk
+                    cat_periodo = CatalogoPeriodoAcademico.objects.filter(
+                        periodo_activo=True
+                    ).first()
+                    if cat_periodo:
+                        periodo = Periodo.objects.filter(
+                            pk=cat_periodo.id_periodo
+                        ).first()
+                        if periodo:
+                            self.fields['id_periodo'].initial = periodo.pk
+                for field_name in ('id_modalidad', 'id_dedicacion', 'id_periodo'):
+                    self.fields[field_name].disabled = True
 
 
 class UsuarioAccessFormMixin(forms.Form):

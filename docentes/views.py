@@ -1,4 +1,5 @@
-﻿from core.crud_base import CrudListView, ReadOnlyCrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView, DisabledCrudMutationMixin
+﻿from django import forms
+from core.crud_base import CrudListView, ReadOnlyCrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView, DisabledCrudMutationMixin
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.urls import reverse
@@ -47,9 +48,27 @@ class DocenteTituloAcademicoCreateView(CrudCreateView):
         'numero_registro_senescyt', 'fecha_registro_senescyt',
     )
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        for field_name in ('fecha_obtencion_titulo', 'fecha_registro_senescyt'):
+            if field_name in form.fields:
+                form.fields[field_name].widget = forms.DateInput(
+                    attrs={'class': 'form-control', 'type': 'date'}
+                )
+        return form
+
 class DocenteTituloAcademicoUpdateView(CrudUpdateView):
     model = DocenteTituloAcademico
     form_field_order = DocenteTituloAcademicoCreateView.form_field_order
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        for field_name in ('fecha_obtencion_titulo', 'fecha_registro_senescyt'):
+            if field_name in form.fields:
+                form.fields[field_name].widget = forms.DateInput(
+                    attrs={'class': 'form-control', 'type': 'date'}
+                )
+        return form
 
 class DocenteTituloAcademicoDeleteView(CrudDeleteView):
     model = DocenteTituloAcademico
