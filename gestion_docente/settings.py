@@ -103,7 +103,7 @@ DATABASES = {
         'PORT': config('DB_PORT', default='5432'),
         'CONN_MAX_AGE': 300,
         'OPTIONS': {
-            'client_encoding': 'latin1',
+            'client_encoding': 'UTF8',
         },
     }
 }

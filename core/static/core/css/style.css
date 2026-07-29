@@ -409,6 +409,63 @@ a {
     background: var(--topbar-hover-bg);
 }
 
+.topbar-nav {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    flex: 1;
+}
+.topbar-nav::-webkit-scrollbar { height: 4px; }
+.topbar-nav::-webkit-scrollbar-thumb { background: var(--line-color); border-radius: 4px; }
+
+.topbar-nav-link,
+.topbar-nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--topbar-color);
+    border-radius: 6px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+    cursor: pointer;
+}
+.topbar-nav-link:hover,
+.topbar-nav-link.active,
+.topbar-nav-btn:hover,
+.topbar-nav-btn.active {
+    background: var(--topbar-hover-bg);
+    color: var(--uleam-blue);
+}
+.topbar-nav .dropdown-menu {
+    min-width: 220px;
+    margin-top: 0.35rem;
+}
+.topbar-nav .dropdown-item {
+    font-size: 0.84rem;
+    padding: 0.45rem 1rem;
+}
+.topbar-nav .dropdown-item.active {
+    background: var(--topbar-hover-bg);
+    color: var(--uleam-blue);
+    font-weight: 600;
+}
+.topbar-nav .btn-group {
+    margin: 0;
+}
+.topbar-nav .btn-group .topbar-nav-link {
+    border-radius: 6px 0 0 6px;
+}
+.topbar-nav .btn-group .dropdown-toggle-split {
+    border-radius: 0 6px 6px 0;
+    padding: 0.35rem 0.3rem;
+    border-left: 1px solid transparent;
+}
+.topbar-nav .btn-group:hover .dropdown-toggle-split {
+    border-left-color: var(--line-color);
+}
+
 .topbar-user .btn,
 .topbar-user .btn-light {
     background: var(--card-bg);
@@ -839,6 +896,22 @@ a {
 
 [data-bs-theme="dark"] .topbar {
     border-bottom-color: var(--line-color);
+}
+
+[data-bs-theme="dark"] .topbar-nav-link,
+[data-bs-theme="dark"] .topbar-nav-btn {
+    color: var(--topbar-color);
+}
+[data-bs-theme="dark"] .topbar-nav-link:hover,
+[data-bs-theme="dark"] .topbar-nav-link.active,
+[data-bs-theme="dark"] .topbar-nav-btn:hover,
+[data-bs-theme="dark"] .topbar-nav-btn.active {
+    background: var(--topbar-hover-bg);
+    color: var(--uleam-blue-light);
+}
+[data-bs-theme="dark"] .topbar-nav .dropdown-item.active {
+    background: var(--topbar-hover-bg);
+    color: var(--uleam-blue-light);
 }
 
 [data-bs-theme="dark"] .card,
