@@ -181,6 +181,7 @@ def bitacora_laboratorios_crear(request):
     return render(request, 'planificacion/bitacora_laboratorios_form.html', {
         'form': form,
         'hay_espacios': CatalogoEspacioAcademico.objects.filter(espacio_activo=True).exists(),
+        'hay_planificaciones': len(form.fields['origen_planificacion'].choices) > 1,
         'active_section': 'bitacora_laboratorios',
         'form_title': 'Nuevo registro de actividad',
     })
@@ -202,6 +203,7 @@ def bitacora_laboratorios_editar(request, pk):
     return render(request, 'planificacion/bitacora_laboratorios_form.html', {
         'form': form,
         'hay_espacios': CatalogoEspacioAcademico.objects.filter(espacio_activo=True).exists(),
+        'hay_planificaciones': len(form.fields['origen_planificacion'].choices) > 1,
         'active_section': 'bitacora_laboratorios',
         'form_title': 'Editar registro de actividad',
     })
