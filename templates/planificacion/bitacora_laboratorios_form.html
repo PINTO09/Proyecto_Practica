@@ -17,6 +17,14 @@
       Solicite al administrador que registre los espacios antes de crear la bitácora.
     </div>
     {% endif %}
+    {% if not hay_planificaciones %}
+    <div class="alert alert-info">
+      <i class="fas fa-circle-info me-1"></i>
+      No tiene asignaturas con horas de centro de cómputo ni actividades complementarias
+      registradas en un período activo. La planificación debe estar cargada antes de
+      crear este registro.
+    </div>
+    {% endif %}
     <form method="post" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
@@ -32,7 +40,7 @@
         {% endfor %}
       </div>
       <div class="d-flex gap-2 mt-4 pt-3 border-top">
-        <button class="btn btn-primary px-4"{% if not hay_espacios %} disabled{% endif %}><i class="fas fa-check me-1"></i>Guardar</button>
+        <button class="btn btn-primary px-4"{% if not hay_espacios or not hay_planificaciones %} disabled{% endif %}><i class="fas fa-check me-1"></i>Guardar</button>
         <a href="{% url 'planificacion:bitacora_laboratorios' %}" class="btn btn-outline-secondary">Cancelar</a>
       </div>
     </form>

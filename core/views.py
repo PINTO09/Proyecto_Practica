@@ -892,6 +892,7 @@ MODULOS = {
             ('Planificación', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Gestionar demanda, paralelos, recomendaciones y asignaciones desde un solo flujo.', 'PlanificacionDemandaAcademica'),
             ('Carga y actividades', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revisar la carga docente y registrar las actividades complementarias.', 'PlanificacionAsignacionDocente'),
             ('Horarios', 'planificacion:planificacionaulahorario_list', 'fa-calendar-days', 'Organizar aulas, días y horas sin cruces de docente o espacio.', 'PlanificacionAulaHorario'),
+            ('Aulas y centros de cómputo', 'planificacion:catalogoespacioacademico_list', 'fa-building', 'Registre los espacios que los docentes podrán seleccionar en su registro de actividad.', 'CatalogoEspacioAcademico', 'change'),
             ('Reportes y control', 'reportes:centro_reportes', 'fa-file-excel', 'Validar la planificación y descargar reportes generales o detallados.'),
         ],
         'modelos': [
