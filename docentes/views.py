@@ -8,7 +8,6 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.generic import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.paginator import Paginator
 
 from accounts.decorators import ADMIN, has_role, module_permission_required
 from core.crud_base import RoleAccessMixin
@@ -112,7 +111,6 @@ def reporte_dedicacion_formacion_docente(request):
     for row in dedication_rows:
         row['percentage'] = round(row['count'] * 100 / teacher_count, 1) if teacher_count else 0
     total_postgraduate_titles = sum(category_totals.values())
-    page_obj = Paginator(teacher_rows, 25).get_page(request.GET.get('page'))
 
     from catalogos.models import CatalogoDedicacionHoraria
     context = {
@@ -122,8 +120,7 @@ def reporte_dedicacion_formacion_docente(request):
         'formacion': formacion,
         'search_value': search,
         'dedicaciones': CatalogoDedicacionHoraria.objects.all().order_by('nombre_dedicacion'),
-        'teacher_rows': page_obj,
-        'page_obj': page_obj,
+        'teacher_rows': teacher_rows,
         'dedication_rows': dedication_rows,
         'summary': {
             'teacher_count': teacher_count,

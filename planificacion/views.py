@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Sum, Q, Prefetch, F, Max
+from django.db.models import Count, Sum, Q, Prefetch, F
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -2244,13 +2244,11 @@ def planificacion_paralelos_matriz(request):
             Q(id_asignatura__codigo_asignatura__icontains=search)
         )
 
-    total_subjects = demanda_qs.count()
-    max_paralelos = demanda_qs.aggregate(value=Max('numero_paralelos'))['value'] or 0
-    page_obj = Paginator(demanda_qs, 20).get_page(request.GET.get('page'))
-    demandas = list(page_obj.object_list)
+    demandas = list(demanda_qs)
     subject_ids = [d.id_asignatura_id for d in demandas]
 
     # Determine all paralelo labels across all filtered demandas
+    max_paralelos = max((d.numero_paralelos for d in demandas), default=0)
     all_paralelo_labels = _build_parallel_labels(max_paralelos)
 
     # Lookup existing assignments for these subjects
@@ -2309,9 +2307,7 @@ def planificacion_paralelos_matriz(request):
         'level_options': level_options,
         'all_paralelo_labels': all_paralelo_labels,
         'rows': rows,
-        'page_obj': page_obj,
-        'paginator': page_obj.paginator,
-        'total_subjects': total_subjects,
+        'total_subjects': len(rows),
     }
     return render(request, 'planificacion/planificacion_paralelos_matriz.html', context)
 

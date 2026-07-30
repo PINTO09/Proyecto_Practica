@@ -187,16 +187,11 @@
                     aria-label="Abrir menú principal" aria-controls="sidebar" aria-expanded="false">
                 <i class="fas fa-bars"></i>
             </button>
-            <div class="topbar-mobile-title d-lg-none">
-                <span>Gestión académica</span>
-                <small>ULEAM</small>
-            </div>
-            <nav class="topbar-nav d-none d-lg-flex align-items-center" aria-label="Navegación principal">
+            <nav class="topbar-nav d-none d-lg-flex align-items-center mx-3" aria-label="Navegación">
                 <a class="topbar-nav-link{% if active_section == 'dashboard' %} active{% endif %}" href="{% url 'core:dashboard' %}"><i class="fas fa-house"></i> Inicio</a>
                 <div class="dropdown" data-topbar-dropdown>
-                    <button class="btn topbar-dropdown-btn dropdown-toggle{% if active_section == 'perfil' or active_section == 'titulos' or active_section == 'publicaciones' or active_section == 'cursos' or active_section == 'documentos' %} active{% endif %}" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-user-graduate"></i> Perfil académico</button>
-                    <div class="dropdown-menu topbar-menu shadow-sm">
-                        <div class="dropdown-menu-heading"><i class="fas fa-user-graduate"></i><div><strong>Mi perfil académico</strong><small>Información y trayectoria personal</small></div></div>
+                    <button class="btn topbar-dropdown-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-user-circle"></i> Mi perfil académico</button>
+                    <div class="dropdown-menu shadow-sm">
                         <a class="dropdown-item{% if active_section == 'perfil' %} active{% endif %}" href="{% url 'core:mi_perfil' %}"><i class="fas fa-user"></i> Mi perfil</a>
                         <a class="dropdown-item{% if active_section == 'titulos' %} active{% endif %}" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i> Mis títulos</a>
                         <a class="dropdown-item{% if active_section == 'publicaciones' %} active{% endif %}" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i> Publicaciones</a>
@@ -206,9 +201,8 @@
                 </div>
                 {% if request.user.is_superuser or request.user.groups.first.name|default:'' == 'Administrador' or request.user.groups.first.name|default:'' == 'Autoridad' or request.user.groups.first.name|default:'' == 'Coordinador' %}
                 <div class="dropdown" data-topbar-dropdown>
-                    <button class="btn topbar-dropdown-btn dropdown-toggle{% if active_section == 'consulta_bitacora_laboratorios' %} active{% endif %}" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-chart-line"></i> Control académico</button>
-                    <div class="dropdown-menu topbar-menu shadow-sm">
-                        <div class="dropdown-menu-heading"><i class="fas fa-chart-line"></i><div><strong>Control académico</strong><small>Seguimiento institucional</small></div></div>
+                    <button class="btn topbar-dropdown-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-chart-line"></i> Control académico</button>
+                    <div class="dropdown-menu shadow-sm">
                         <a class="dropdown-item{% if active_section == 'consulta_bitacora_laboratorios' %} active{% endif %}" href="{% url 'planificacion:consulta_bitacora_laboratorios' %}"><i class="fas fa-chart-column"></i> Uso de espacios</a>
                     </div>
                 </div>
@@ -218,28 +212,17 @@
                 {% endif %}
             </nav>
             <div class="topbar-user dropdown">
-                <button class="btn topbar-user-trigger dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Abrir menú de usuario">
+                <button class="btn btn-light btn-sm dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
                     {% if profile_photo_url %}<img src="{{ profile_photo_url }}" alt="Foto de perfil" class="avatar" style="object-fit:cover;">{% else %}<span class="avatar">{{ profile_display_name|default:request.user.cedula|first|upper }}</span>{% endif %}
-                    <span class="topbar-user-copy">
-                        <strong>{% firstof profile_display_name request.user.cedula %}</strong>
-                        <small>{% if request.user.is_superuser %}Administrador{% else %}{{ request.user.groups.first.name|default:'Usuario' }}{% endif %}</small>
-                    </span>
+                    <small>{% firstof profile_display_name request.user.cedula %}</small>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end topbar-user-menu shadow-sm">
-                    <li class="user-menu-heading">
-                        <span class="user-menu-name">{% firstof profile_display_name request.user.cedula %}</span>
-                        <span class="user-menu-meta">{{ request.user.cedula }} · {% if request.user.is_superuser %}Administrador{% else %}{{ request.user.groups.first.name|default:'Usuario' }}{% endif %}</span>
-                    </li>
-                    <li><a class="dropdown-item" href="{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}"><i class="fas fa-user"></i>Mi perfil</a></li>
-                    <li class="d-lg-none"><a class="dropdown-item" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i>Mis títulos</a></li>
-                    <li class="d-lg-none"><a class="dropdown-item" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i>Publicaciones</a></li>
-                    <li class="d-lg-none"><a class="dropdown-item" href="{% url 'core:mis_cursos' %}"><i class="fas fa-graduation-cap"></i>Cursos</a></li>
-                    <li class="d-lg-none"><a class="dropdown-item" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i>Documentos</a></li>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <li><a class="dropdown-item" href="{% block perfil_url %}{% url 'core:mi_perfil' %}{% endblock %}"><i class="fas fa-user me-2"></i>Mi Perfil</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><button class="dropdown-item" id="themeToggleAvatar" type="button"><i class="fas fa-moon" id="themeIconAvatar"></i><span id="themeLabelAvatar">Modo oscuro</span></button></li>
-                    <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#accessibilityModal"><i class="fas fa-universal-access"></i>Accesibilidad</button></li>
+                    <li><button class="dropdown-item" id="themeToggleAvatar" type="button"><i class="fas fa-moon me-2" id="themeIconAvatar"></i><span id="themeLabelAvatar">Modo Oscuro</span></button></li>
+                    <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#accessibilityModal"><i class="fas fa-universal-access me-2"></i>Accesibilidad</button></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}"><i class="fas fa-sign-out-alt"></i>Cerrar sesión</a></li>
+                    <li><a class="dropdown-item text-danger" href="{% url 'core:logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión</a></li>
                 </ul>
             </div>
         </header>
