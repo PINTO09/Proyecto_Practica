@@ -1,8 +1,9 @@
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
-from accounts.decorators import module_permission_required
+from accounts.decorators import ADMIN, AUTORIDAD, allowed_career_ids, module_permission_required, role_required
 from docentes.models import DocenteFcacc
 
 from .forms import FirmanteCertificadoForm, GenerarCertificadoForm
@@ -57,6 +58,11 @@ def reporte_base(request, tipo):
     teacher = DocenteFcacc.objects.select_related(
         'id_dedicacion', 'id_modalidad', 'id_tipo_docente'
     ).filter(cedula_docente=cedula).first()
+    permitted = allowed_career_ids(request.user)
+    if teacher and permitted is not None and not teacher.docenteasignacioncarreraperiodo_set.filter(
+        id_carrera_id__in=permitted
+    ).exists():
+        teacher = None
     if not teacher:
         context['error'] = 'No se encontró un docente con esa identificación.'
         return render(request, 'certificados/reporte_base.html', context)
@@ -78,7 +84,9 @@ def reporte_base(request, tipo):
 
 @module_permission_required('certificados', 'change')
 def generar_certificado(request):
-    form = GenerarCertificadoForm(request.POST or None)
+    form = GenerarCertificadoForm(
+        request.POST or None, allowed_career_ids=allowed_career_ids(request.user)
+    )
     if request.method == 'POST' and form.is_valid():
         snapshot = build_certificate_snapshot(
             form.cleaned_data['tipo'], form.cleaned_data['docente']
@@ -113,6 +121,11 @@ def generar_certificado(request):
 def emisiones(request):
     query = (request.GET.get('q') or '').strip()
     items = CertificadoEmitido.objects.select_related('docente', 'firmante', 'emitido_por')
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        items = items.filter(
+            docente__docenteasignacioncarreraperiodo__id_carrera_id__in=permitted
+        ).distinct()
     if query:
         from django.db.models import Q
         items = items.filter(
@@ -131,6 +144,11 @@ def previsualizar(request, pk):
     certificate = get_object_or_404(
         CertificadoEmitido.objects.select_related('firmante', 'docente'), pk=pk
     )
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None and not certificate.docente.docenteasignacioncarreraperiodo_set.filter(
+        id_carrera_id__in=permitted
+    ).exists():
+        raise PermissionDenied
     return render(request, 'certificados/documento.html', {
         'certificado': certificate,
         'datos': certificate.datos_certificados,
@@ -138,6 +156,7 @@ def previsualizar(request, pk):
     })
 
 
+@role_required(ADMIN, AUTORIDAD)
 @module_permission_required('certificados', 'change')
 def firmantes(request, pk=None):
     instance = get_object_or_404(FirmanteCertificado, pk=pk) if pk else None

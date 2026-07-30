@@ -208,15 +208,8 @@ def centro_reportes(request):
 @login_required
 @module_permission_required('reportes', 'view')
 def reporte_carga_docente(request):
-    periodo_id = request.GET.get('periodo')
-    carrera_id = request.GET.get('carrera')
-    qs = PlanificacionAsignacionDocente.objects.select_related(
-        'id_docente', 'id_asignatura', 'id_carrera', 'id_periodo', 'id_campo'
-    )
-    if periodo_id:
-        qs = qs.filter(id_periodo_id=periodo_id)
-    if carrera_id:
-        qs = qs.filter(id_carrera_id=carrera_id)
+    periodo_id, carrera_id = _export_filters(request)
+    qs = _filtered_assignments(periodo_id=periodo_id, carrera_id=carrera_id, user=request.user)
 
     data = []
     for a in qs[:500]:
@@ -239,13 +232,15 @@ def reporte_carga_docente(request):
 @login_required
 @module_permission_required('reportes', 'view')
 def reporte_resumen_horas(request):
-    periodo_id = request.GET.get('periodo')
-    carrera_id = request.GET.get('carrera')
+    periodo_id, carrera_id = _export_filters(request)
     qs = PlanificacionMatrizF4.objects.select_related('id_docente', 'id_carrera', 'id_periodo')
     if periodo_id:
         qs = qs.filter(id_periodo_id=periodo_id)
     if carrera_id:
         qs = qs.filter(id_carrera_id=carrera_id)
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        qs = qs.filter(id_carrera_id__in=permitted)
 
     data = []
     for m in qs[:500]:
@@ -265,10 +260,14 @@ def reporte_resumen_horas(request):
 @login_required
 @module_permission_required('reportes', 'view')
 def reporte_malla_curricular(request):
-    carrera_id = request.GET.get('carrera')
+    _, carrera_id = _export_filters(request)
     qs = CurriculoAsignatura.objects.select_related('id_carrera').all()
     if carrera_id:
         qs = qs.filter(id_carrera_id=carrera_id)
+    else:
+        permitted = allowed_career_ids(request.user)
+        if permitted is not None:
+            qs = qs.filter(id_carrera_id__in=permitted)
 
     data = []
     for a in qs.order_by('id_carrera_id', 'nivel_semestre', 'nombre_asignatura')[:500]:

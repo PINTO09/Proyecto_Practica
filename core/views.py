@@ -201,7 +201,7 @@ def dashboard_view(request):
                 'url': reverse('core:modulo_' + slug),
                 'modelos_count': len(info['modelos']),
             })
-    if has_role(request.user, DOCENTE, USUARIO):
+    if has_role(request.user, DOCENTE, USUARIO, COORDINADOR):
         modulos_acceso.insert(0, {
             'nombre': 'Registro de actividad',
             'icono': 'fa-chalkboard-user',

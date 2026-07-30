@@ -13,6 +13,7 @@
   <div class="d-flex gap-2 flex-wrap justify-content-end">
     {% if periodo_seleccionado %}
       <span class="badge bg-primary-subtle text-primary border align-self-center px-3 py-2">{{ periodo_seleccionado.get_estado_planificacion_display }}</span>
+      {% if is_admin_or_autoridad %}
       {% if periodo_seleccionado.estado_planificacion == 'BORRADOR' %}
       <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="EN_REVISION"><button class="btn btn-outline-primary">Enviar a revisión</button></form>
       {% elif periodo_seleccionado.estado_planificacion == 'EN_REVISION' %}
@@ -28,6 +29,7 @@
         <select name="origen" class="form-select" required><option value="">Copiar desde…</option>{% for periodo in periodos_origen %}<option value="{{ periodo.id_periodo }}">{{ periodo.nombre_periodo }}</option>{% endfor %}</select>
         <button class="btn btn-outline-primary" type="submit" title="Copiar demanda, asignaciones y actividades"><i class="fas fa-copy"></i></button>
       </form>
+      {% endif %}
       {% endif %}
     {% endif %}
     <a href="{% url 'planificacion:planificaciondemandaacademica_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Demanda</a>

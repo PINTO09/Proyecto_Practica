@@ -20,11 +20,14 @@ class GenerarCertificadoForm(forms.Form):
     )
     ciudad = forms.CharField(initial='Manta', max_length=80)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, allowed_career_ids=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['docente'].queryset = DocenteFcacc.objects.select_related(
-            'id_dedicacion'
-        ).order_by('nombres_completos')
+        docentes_qs = DocenteFcacc.objects.select_related('id_dedicacion')
+        if allowed_career_ids is not None:
+            docentes_qs = docentes_qs.filter(
+                docenteasignacioncarreraperiodo__id_carrera_id__in=allowed_career_ids
+            ).distinct()
+        self.fields['docente'].queryset = docentes_qs.order_by('nombres_completos')
         self.fields['firmante'].queryset = FirmanteCertificado.objects.filter(
             activo=True
         ).order_by('orden', 'nombres_completos')

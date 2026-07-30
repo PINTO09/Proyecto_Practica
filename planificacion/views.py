@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 from accounts.decorators import (
-    ADMIN, has_role, role_required, ROLES_ESCRITURA,
+    ADMIN, AUTORIDAD, has_role, role_required, ROLES_ESCRITURA,
     module_permission_required, allowed_career_ids,
 )
 from .forms import (
@@ -1335,7 +1335,7 @@ class PlanificacionRepartoHorasDeleteView(AdminOnlyMixin, PeriodEditableDeleteMi
     model = PlanificacionRepartoHoras
 
 
-class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, LenientPaginationMixin, CrudListView):
+class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationMixin, CrudListView):
     planning_active_section = 'planificacionmatrizf4_list'
     model = PlanificacionMatrizF4
     template_name = 'planificacion/planificacionmatrizf4_list.html'
@@ -1536,7 +1536,7 @@ class PlanificacionMatrizF4ListView(AdminOnlyMixin, PlanningFlowContextMixin, Le
         return ctx
 
 
-class PlanificacionMatrizF4CreateView(AdminOnlyMixin, PlanningFlowContextMixin, CrudCreateView):
+class PlanificacionMatrizF4CreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionMatrizF4
     form_field_order = (
         'id_periodo', 'id_carrera', 'id_docente', 'tipo_actividad',
@@ -1573,7 +1573,7 @@ class PlanificacionMatrizF4CreateView(AdminOnlyMixin, PlanningFlowContextMixin, 
         ctx['form_subtitle'] = 'Registra actividades, investigación u otras horas que suman a la carga docente.'
         return ctx
 
-class PlanificacionMatrizF4UpdateView(AdminOnlyMixin, PlanningFlowContextMixin, CrudUpdateView):
+class PlanificacionMatrizF4UpdateView(PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionMatrizF4
     form_field_order = PlanificacionMatrizF4CreateView.form_field_order
     planning_active_section = 'planificacionmatrizf4_list'
@@ -1610,7 +1610,7 @@ class PlanificacionMatrizF4UpdateView(AdminOnlyMixin, PlanningFlowContextMixin, 
         )
         return ctx
 
-class PlanificacionMatrizF4DeleteView(AdminOnlyMixin, PeriodEditableDeleteMixin, CrudDeleteView):
+class PlanificacionMatrizF4DeleteView(PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionMatrizF4
 
 
@@ -1619,6 +1619,13 @@ class PlanificacionAulaHorarioListView(PlanningFlowContextMixin, CrudListView):
     planning_active_section = 'planificacionaulahorario_list'
     select_related_fields = ('id_periodo', 'id_asignacion', 'id_asignacion__id_docente', 'id_asignacion__id_asignatura')
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            qs = qs.filter(id_asignacion__id_carrera_id__in=permitted)
+        return qs
+
 
 class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionAulaHorario
@@ -1626,14 +1633,38 @@ class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateVie
     form_class = PlanificacionAulaHorarioForm
     planning_active_section = 'planificacionaulahorario_list'
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['allowed_career_ids'] = allowed_career_ids(self.request.user)
+        return kwargs
+
 class PlanificacionAulaHorarioUpdateView(PeriodEditableUpdateMixin, PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionAulaHorario
     fields = None
     form_class = PlanificacionAulaHorarioForm
     planning_active_section = 'planificacionaulahorario_list'
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            qs = qs.filter(id_asignacion__id_carrera_id__in=permitted)
+        return qs
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['allowed_career_ids'] = allowed_career_ids(self.request.user)
+        return kwargs
+
 class PlanificacionAulaHorarioDeleteView(PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionAulaHorario
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        permitted = allowed_career_ids(self.request.user)
+        if permitted is not None:
+            qs = qs.filter(id_asignacion__id_carrera_id__in=permitted)
+        return qs
 
 
 # ——— Reporte: Horas por Docente ———————————————————————————————
@@ -1841,6 +1872,7 @@ def control_calidad_planificacion(request):
 
 
 @login_required
+@role_required(ADMIN, AUTORIDAD)
 @module_permission_required('planificacion', 'change')
 def cambiar_estado_periodo(request, periodo_id):
     if request.method != 'POST':
@@ -1893,6 +1925,7 @@ def cambiar_estado_periodo(request, periodo_id):
 
 
 @login_required
+@role_required(ADMIN, AUTORIDAD)
 @module_permission_required('planificacion', 'change')
 @transaction.atomic
 def copiar_planificacion_periodo(request, periodo_id):

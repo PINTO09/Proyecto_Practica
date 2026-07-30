@@ -717,7 +717,7 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
             'nivel_asignado': 'Nivel',
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, allowed_career_ids=None, **kwargs):
         super().__init__(*args, **kwargs)
         periodo_id = self.data.get('id_periodo') or getattr(self.instance, 'id_periodo_id', None)
         asignaciones = PlanificacionAsignacionDocente.objects.select_related(
@@ -725,6 +725,8 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
         ).order_by('id_carrera__nombre_carrera', 'id_asignatura__nombre_asignatura', 'paralelo_asignado')
         if periodo_id:
             asignaciones = asignaciones.filter(id_periodo_id=periodo_id)
+        if allowed_career_ids is not None:
+            asignaciones = asignaciones.filter(id_carrera_id__in=allowed_career_ids)
         self.fields['id_asignacion'].queryset = asignaciones
         self.fields['id_asignacion'].label_from_instance = lambda item: (
             f'{item.id_docente.nombres_completos} → '
