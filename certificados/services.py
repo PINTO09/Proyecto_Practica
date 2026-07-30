@@ -4,11 +4,25 @@ from docentes.models import DocenteAsignacionCarreraPeriodo
 from planificacion.models import PlanificacionActividadDocente, PlanificacionAsignacionDocente
 
 
+FUNCTION_FILTERS = (
+    ('TODOS', 'Actividades, asignaciones y comisiones'),
+    ('ACTIVIDADES', 'Solo actividades'),
+    ('ASIGNACIONES', 'Solo asignaciones'),
+    ('COMISIONES', 'Solo comisiones'),
+)
+FUNCTION_FILTER_LABELS = dict(FUNCTION_FILTERS)
+
+
 def _date_value(value):
     return value.strftime('%d/%m/%Y') if value else None
 
 
-def build_certificate_snapshot(certificate_type, teacher):
+def normalize_function_filter(value):
+    value = (value or 'TODOS').strip().upper()
+    return value if value in FUNCTION_FILTER_LABELS else 'TODOS'
+
+
+def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS'):
     common = {
         'docente': {
             'id': teacher.id_docente,
@@ -67,20 +81,81 @@ def build_certificate_snapshot(certificate_type, teacher):
                 'La dedicación mostrada corresponde al registro vigente del docente.'
             )
     elif certificate_type == 'FUNCIONES':
-        activities = PlanificacionActividadDocente.objects.filter(
-            id_docente=teacher, id_actividad__tipo_actividad__in=('GESTION', 'VINCULACION')
-        ).select_related('id_actividad', 'id_periodo').order_by(
-            'id_periodo__fecha_inicio_periodo', 'id_actividad__nombre_actividad'
-        )
-        common['filas'] = [{
-            'descripcion': (
-                activity.observaciones.strip()
-                if activity.observaciones and activity.observaciones.strip()
-                else activity.id_actividad.nombre_actividad
-            ),
-            'unidad': teacher.unidad_organica or 'Facultad de Ciencias Administrativas, Contables y Comercio',
-            'desde': _date_value(activity.id_periodo.fecha_inicio_periodo),
-            'hasta': _date_value(activity.id_periodo.fecha_fin_periodo),
-            'periodo': activity.id_periodo.nombre_periodo,
-        } for activity in activities]
+        selected_filter = normalize_function_filter(function_filter)
+        common['filtro_funciones'] = selected_filter
+        common['filtro_funciones_label'] = FUNCTION_FILTER_LABELS[selected_filter]
+        rows = []
+
+        if selected_filter in ('TODOS', 'ACTIVIDADES'):
+            activities = PlanificacionActividadDocente.objects.filter(
+                id_docente=teacher
+            ).select_related('id_actividad', 'id_periodo').order_by(
+                'id_periodo__fecha_inicio_periodo',
+                'id_actividad__nombre_actividad',
+            )
+            rows.extend({
+                'categoria': 'ACTIVIDADES',
+                'categoria_label': 'Actividad',
+                'descripcion': (
+                    activity.observaciones.strip()
+                    if activity.observaciones and activity.observaciones.strip()
+                    else activity.id_actividad.nombre_actividad
+                ),
+                'unidad': (
+                    teacher.unidad_organica
+                    or 'Facultad de Ciencias Administrativas, Contables y Comercio'
+                ),
+                'desde': _date_value(activity.id_periodo.fecha_inicio_periodo),
+                'hasta': _date_value(activity.id_periodo.fecha_fin_periodo),
+                'periodo': activity.id_periodo.nombre_periodo,
+            } for activity in activities)
+
+        assignments = None
+        if selected_filter in ('TODOS', 'ASIGNACIONES', 'COMISIONES'):
+            assignments = PlanificacionAsignacionDocente.objects.filter(
+                id_docente=teacher
+            ).select_related(
+                'id_asignatura', 'id_carrera', 'id_periodo'
+            ).order_by(
+                'id_periodo__fecha_inicio_periodo',
+                'id_asignatura__nombre_asignatura',
+            )
+
+        if selected_filter in ('TODOS', 'ASIGNACIONES'):
+            rows.extend({
+                'categoria': 'ASIGNACIONES',
+                'categoria_label': 'Asignación',
+                'descripcion': (
+                    f'{assignment.id_asignatura.nombre_asignatura} · '
+                    f'Paralelo {assignment.paralelo_asignado}'
+                ),
+                'unidad': assignment.id_carrera.nombre_carrera,
+                'desde': _date_value(assignment.id_periodo.fecha_inicio_periodo),
+                'hasta': _date_value(assignment.id_periodo.fecha_fin_periodo),
+                'periodo': assignment.id_periodo.nombre_periodo,
+            } for assignment in assignments)
+
+        if selected_filter in ('TODOS', 'COMISIONES'):
+            commissions = OrderedDict()
+            for assignment in assignments:
+                description = (assignment.comision_servicio or '').strip()
+                if not description:
+                    continue
+                key = (
+                    description.casefold(),
+                    assignment.id_periodo_id,
+                    assignment.id_carrera_id,
+                )
+                commissions.setdefault(key, {
+                    'categoria': 'COMISIONES',
+                    'categoria_label': 'Comisión',
+                    'descripcion': description,
+                    'unidad': assignment.id_carrera.nombre_carrera,
+                    'desde': _date_value(assignment.id_periodo.fecha_inicio_periodo),
+                    'hasta': _date_value(assignment.id_periodo.fecha_fin_periodo),
+                    'periodo': assignment.id_periodo.nombre_periodo,
+                })
+            rows.extend(commissions.values())
+
+        common['filas'] = rows
     return common

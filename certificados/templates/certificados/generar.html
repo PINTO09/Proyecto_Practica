@@ -26,6 +26,11 @@
               <label class="form-label fw-semibold">{{ form.docente.label }}</label>
               {{ form.docente }}{{ form.docente.errors }}
             </div>
+            <div class="col-12" id="functionFilterField">
+              <label class="form-label fw-semibold">{{ form.filtro_funciones.label }}</label>
+              {{ form.filtro_funciones }}{{ form.filtro_funciones.errors }}
+              <div class="form-text">{{ form.filtro_funciones.help_text }}</div>
+            </div>
             <div class="col-12">
               <label class="form-label fw-semibold">{{ form.firmante.label }}</label>
               {{ form.firmante }}{{ form.firmante.errors }}
@@ -59,7 +64,7 @@
         <ul class="small text-muted ps-3 mb-0">
           <li class="mb-2">Dedicación: carrera por período y licencias.</li>
           <li class="mb-2">Cátedras: asignaciones académicas de planificación.</li>
-          <li>Funciones: actividades de gestión y vinculación.</li>
+          <li>Funciones: permite incluir actividades, asignaciones, comisiones o todo.</li>
         </ul>
       </div>
     </div>
@@ -68,4 +73,18 @@
     </a>
   </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const typeField = document.getElementById('id_tipo');
+  const filterContainer = document.getElementById('functionFilterField');
+  const filterField = document.getElementById('id_filtro_funciones');
+  function updateFunctionFilter() {
+    const visible = typeField?.value === 'FUNCIONES';
+    filterContainer?.classList.toggle('d-none', !visible);
+    if (filterField) filterField.disabled = !visible;
+  }
+  typeField?.addEventListener('change', updateFunctionFilter);
+  updateFunctionFilter();
+});
+</script>
 {% endblock %}

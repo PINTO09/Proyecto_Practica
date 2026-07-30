@@ -48,9 +48,9 @@
       <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
     </table>
     {% else %}
-    <p>Historial de funciones sustantivas, comisiones y actividades institucionales:</p>
-    <table><thead><tr><th class="number-column">No.</th><th>Cargo / función</th><th>Unidad académica</th><th class="date-column">Desde</th><th class="date-column">Hasta</th></tr></thead>
-      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+    <p>Historial de funciones institucionales: {{ datos.filtro_funciones_label|default:'Actividades, asignaciones y comisiones' }}.</p>
+    <table><thead><tr><th class="number-column">No.</th><th>Tipo</th><th>Cargo / función</th><th>Unidad académica</th><th class="date-column">Desde</th><th class="date-column">Hasta</th></tr></thead>
+      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.categoria_label|default:'Función' }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
     </table>
     {% endif %}
 

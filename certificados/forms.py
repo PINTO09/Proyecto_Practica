@@ -4,10 +4,18 @@ from django.utils import timezone
 from docentes.models import DocenteFcacc
 
 from .models import CertificadoEmitido, FirmanteCertificado
+from .services import FUNCTION_FILTERS, normalize_function_filter
 
 
 class GenerarCertificadoForm(forms.Form):
     tipo = forms.ChoiceField(choices=CertificadoEmitido.TIPOS, label='Tipo de certificado')
+    filtro_funciones = forms.ChoiceField(
+        choices=FUNCTION_FILTERS,
+        label='Contenido de funciones y comisiones',
+        initial='TODOS',
+        required=False,
+        help_text='Este filtro se aplica únicamente al certificado de funciones y comisiones.',
+    )
     docente = forms.ModelChoiceField(
         queryset=DocenteFcacc.objects.none(), label='Docente',
     )
@@ -39,6 +47,15 @@ class GenerarCertificadoForm(forms.Form):
             'data-searchable-select': 'true',
             'data-search-placeholder': 'Buscar docente por nombre o cédula...',
         })
+
+    def clean(self):
+        cleaned = super().clean()
+        cleaned['filtro_funciones'] = (
+            normalize_function_filter(cleaned.get('filtro_funciones'))
+            if cleaned.get('tipo') == 'FUNCIONES'
+            else 'TODOS'
+        )
+        return cleaned
 
 
 class FirmanteCertificadoForm(forms.ModelForm):

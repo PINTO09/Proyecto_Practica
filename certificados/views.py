@@ -9,7 +9,12 @@ from docentes.models import DocenteFcacc
 
 from .forms import FirmanteCertificadoForm, GenerarCertificadoForm
 from .models import CertificadoEmitido, FirmanteCertificado
-from .services import build_certificate_snapshot
+from .services import (
+    FUNCTION_FILTERS,
+    FUNCTION_FILTER_LABELS,
+    build_certificate_snapshot,
+    normalize_function_filter,
+)
 
 
 REPORT_TYPES = {
@@ -42,6 +47,7 @@ def reporte_base(request, tipo):
         raise Http404('Tipo de reporte no disponible.')
 
     cedula = (request.GET.get('cedula') or '').strip().upper()
+    function_filter = normalize_function_filter(request.GET.get('filtro'))
     context = {
         'active_section': f'reporte_certificado_{tipo}',
         'report_type': tipo,
@@ -49,6 +55,9 @@ def reporte_base(request, tipo):
         'report_types': REPORT_TYPES,
         'cedula': cedula,
         'searched': bool(cedula),
+        'function_filters': FUNCTION_FILTERS,
+        'function_filter': function_filter,
+        'function_filter_label': FUNCTION_FILTER_LABELS[function_filter],
     }
     if not cedula:
         return render(request, 'certificados/reporte_base.html', context)
@@ -68,7 +77,9 @@ def reporte_base(request, tipo):
         context['error'] = 'No se encontró un docente con esa identificación.'
         return render(request, 'certificados/reporte_base.html', context)
 
-    data = build_certificate_snapshot(report_info['certificate_type'], teacher)
+    data = build_certificate_snapshot(
+        report_info['certificate_type'], teacher, function_filter
+    )
     context.update({
         'docente': teacher,
         'datos': data,
@@ -77,8 +88,13 @@ def reporte_base(request, tipo):
     })
     if not data['filas']:
         context['error'] = (
-            f'El docente no tiene datos registrados para el reporte '
-            f'“{report_info["title"]}”.'
+            f'El docente no tiene datos registrados para '
+            f'“{FUNCTION_FILTER_LABELS[function_filter]}”.'
+            if report_info['certificate_type'] == 'FUNCIONES'
+            else (
+                f'El docente no tiene datos registrados para el reporte '
+                f'“{report_info["title"]}”.'
+            )
         )
     return render(request, 'certificados/reporte_base.html', context)
 
@@ -90,12 +106,19 @@ def generar_certificado(request):
     )
     if request.method == 'POST' and form.is_valid():
         snapshot = build_certificate_snapshot(
-            form.cleaned_data['tipo'], form.cleaned_data['docente']
+            form.cleaned_data['tipo'],
+            form.cleaned_data['docente'],
+            form.cleaned_data['filtro_funciones'],
         )
         if not snapshot['filas']:
+            error_field = (
+                'filtro_funciones'
+                if form.cleaned_data['tipo'] == 'FUNCIONES'
+                else 'docente'
+            )
             form.add_error(
-                'docente',
-                'El docente no tiene información registrada para este tipo de certificado.',
+                error_field,
+                'El docente no tiene información registrada para la selección indicada.',
             )
         else:
             signer = form.cleaned_data['firmante']

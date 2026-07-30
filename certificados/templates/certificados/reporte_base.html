@@ -30,7 +30,7 @@
 <div class="card border-0 shadow-sm mb-4 no-print">
   <div class="card-body">
     <form method="get" class="row g-3 align-items-end">
-      <div class="col-lg-8">
+      <div class="{% if report_type == 'funciones' %}col-lg-5{% else %}col-lg-8{% endif %}">
         <label for="cedula" class="form-label fw-semibold">Cédula o identificación del docente</label>
         <div class="input-group">
           <span class="input-group-text bg-transparent"><i class="fas fa-id-card text-muted"></i></span>
@@ -38,6 +38,16 @@
                  maxlength="13" autocomplete="off" required placeholder="Ejemplo: 0999999903">
         </div>
       </div>
+      {% if report_type == 'funciones' %}
+      <div class="col-lg-3">
+        <label for="filtro" class="form-label fw-semibold">Contenido</label>
+        <select id="filtro" name="filtro" class="form-select">
+          {% for value, label in function_filters %}
+          <option value="{{ value }}"{% if function_filter == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div class="col-lg-2 d-grid">
         <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Consultar</button>
       </div>
@@ -81,7 +91,7 @@
   {% if rows %}
   <div class="card border-0 shadow-sm">
     <div class="card-header bg-white d-flex justify-content-between">
-      <strong>{{ report_info.title }}</strong><span class="small text-muted">{{ rows|length }} registro(s)</span>
+      <strong>{{ report_info.title }}{% if report_type == 'funciones' %} · {{ function_filter_label }}{% endif %}</strong><span class="small text-muted">{{ rows|length }} registro(s)</span>
     </div>
     <div class="table-responsive">
       <table class="table table-bordered table-hover align-middle mb-0 report-table">
@@ -89,8 +99,8 @@
         <thead class="table-light"><tr><th>Período</th><th>Unidad académica / carrera</th><th class="date-cell">Desde</th><th class="date-cell">Hasta</th><th class="nowrap">Tiempo de dedicación</th></tr></thead>
         <tbody>{% for row in rows %}<tr><td class="nowrap">{{ row.periodo }}</td><td>{{ row.unidad }}</td><td class="date-cell">{{ row.desde|default:'—' }}</td><td class="date-cell">{{ row.hasta|default:'—' }}</td><td class="nowrap">{{ row.dedicacion }}</td></tr>{% endfor %}</tbody>
         {% elif report_type == 'funciones' %}
-        <thead class="table-light"><tr><th class="number-cell">No.</th><th>Cargo / función</th><th>Unidad académica / administrativa</th><th class="date-cell">Desde</th><th class="date-cell">Hasta</th></tr></thead>
-        <tbody>{% for row in rows %}<tr><td class="number-cell">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="date-cell">{{ row.desde|default:'—' }}</td><td class="date-cell">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+        <thead class="table-light"><tr><th class="number-cell">No.</th><th>Tipo</th><th>Cargo / función</th><th>Unidad académica / administrativa</th><th class="date-cell">Desde</th><th class="date-cell">Hasta</th></tr></thead>
+        <tbody>{% for row in rows %}<tr><td class="number-cell">{{ forloop.counter }}</td><td>{{ row.categoria_label }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="date-cell">{{ row.desde|default:'—' }}</td><td class="date-cell">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
         {% else %}
         <thead class="table-light"><tr><th class="number-cell">No.</th><th>Cátedra</th><th>Unidad académica</th><th class="nowrap">Dedicación</th><th class="date-cell">Desde</th><th class="date-cell">Hasta</th></tr></thead>
         <tbody>{% for row in rows %}<tr><td class="number-cell">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td><td class="date-cell">{{ row.desde|default:'—' }}</td><td class="date-cell">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>

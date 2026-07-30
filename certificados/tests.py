@@ -2,6 +2,7 @@ from django.test import SimpleTestCase
 from django.urls import reverse
 
 from .models import CertificadoEmitido
+from .services import FUNCTION_FILTER_LABELS, normalize_function_filter
 
 
 class CertificateModuleTests(SimpleTestCase):
@@ -19,3 +20,11 @@ class CertificateModuleTests(SimpleTestCase):
             {key for key, _ in CertificadoEmitido.TIPOS},
             {'DEDICACION', 'CATEDRAS', 'FUNCIONES'},
         )
+
+    def test_function_certificate_supports_requested_filters(self):
+        self.assertEqual(
+            set(FUNCTION_FILTER_LABELS),
+            {'TODOS', 'ACTIVIDADES', 'ASIGNACIONES', 'COMISIONES'},
+        )
+        self.assertEqual(normalize_function_filter('comisiones'), 'COMISIONES')
+        self.assertEqual(normalize_function_filter('desconocido'), 'TODOS')
