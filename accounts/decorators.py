@@ -29,6 +29,7 @@ MODULE_ACCESS = {
         'curriculo': {'view', 'change'}, 'planificacion': {'view', 'change'},
         'reportes': {'view'}, 'restricciones': {'view', 'change'},
         'auditoria': {'view'}, 'self_service': {'view', 'change'},
+        'seguridad': {'view', 'change'},
     },
     COORDINADOR: {
         'catalogos': {'view'}, 'docentes': {'view'}, 'curriculo': {'view'},
@@ -67,8 +68,6 @@ def can_access_module(user, module, action='view'):
         return False
     if user.is_superuser:
         return True
-    if module == 'seguridad':
-        return False
     for role in get_user_roles(user):
         permissions = MODULE_ACCESS.get(role, {})
         if action in permissions.get('*', set()) or action in permissions.get(module, set()):

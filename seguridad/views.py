@@ -1,57 +1,51 @@
-from core.crud_base import (
-    ReadOnlyCrudListView,
-    DisabledCrudMutationMixin,
-    CrudCreateView,
-    CrudUpdateView,
-    CrudDeleteView,
-)
+from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 
 from .models import SeguridadRol, SeguridadUsuario, SeguridadUsuarioRol
 
 
-class SeguridadRolListView(ReadOnlyCrudListView):
+class SeguridadRolListView(CrudListView):
     model = SeguridadRol
 
 
-class SeguridadRolCreateView(DisabledCrudMutationMixin, CrudCreateView):
+class SeguridadRolCreateView(CrudCreateView):
     model = SeguridadRol
 
 
-class SeguridadRolUpdateView(DisabledCrudMutationMixin, CrudUpdateView):
+class SeguridadRolUpdateView(CrudUpdateView):
     model = SeguridadRol
 
 
-class SeguridadRolDeleteView(DisabledCrudMutationMixin, CrudDeleteView):
+class SeguridadRolDeleteView(CrudDeleteView):
     model = SeguridadRol
 
 
-class SeguridadUsuarioListView(ReadOnlyCrudListView):
+class SeguridadUsuarioListView(CrudListView):
     model = SeguridadUsuario
 
 
-class SeguridadUsuarioCreateView(DisabledCrudMutationMixin, CrudCreateView):
+class SeguridadUsuarioCreateView(CrudCreateView):
     model = SeguridadUsuario
 
 
-class SeguridadUsuarioUpdateView(DisabledCrudMutationMixin, CrudUpdateView):
+class SeguridadUsuarioUpdateView(CrudUpdateView):
     model = SeguridadUsuario
 
 
-class SeguridadUsuarioDeleteView(DisabledCrudMutationMixin, CrudDeleteView):
+class SeguridadUsuarioDeleteView(CrudDeleteView):
     model = SeguridadUsuario
 
 
-class SeguridadUsuarioRolListView(ReadOnlyCrudListView):
+class SeguridadUsuarioRolListView(CrudListView):
     model = SeguridadUsuarioRol
 
 
-class SeguridadUsuarioRolCreateView(DisabledCrudMutationMixin, CrudCreateView):
+class SeguridadUsuarioRolCreateView(CrudCreateView):
     model = SeguridadUsuarioRol
 
 
-class SeguridadUsuarioRolUpdateView(DisabledCrudMutationMixin, CrudUpdateView):
+class SeguridadUsuarioRolUpdateView(CrudUpdateView):
     model = SeguridadUsuarioRol
 
 
-class SeguridadUsuarioRolDeleteView(DisabledCrudMutationMixin, CrudDeleteView):
+class SeguridadUsuarioRolDeleteView(CrudDeleteView):
     model = SeguridadUsuarioRol

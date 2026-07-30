@@ -19,6 +19,7 @@ urlpatterns = [
     path('restricciones/', include('restricciones.urls')),
     path('reportes/', include('reportes.urls')),
     path('certificados/', include('certificados.urls')),
+    path('seguridad/', include('seguridad.urls')),
 ]
 
 if settings.DEBUG:

@@ -127,17 +127,6 @@
                 </div>
             </details>{% endif %}
 
-            {% if module_access.self_service %}<details class="nav-group" data-nav-group="self_service"{% if active_section == 'modulo_self_service' or active_section == 'titulos' or active_section == 'documentos' or active_section == 'publicaciones' or active_section == 'cursos' or request.resolver_match.url_name == 'mis_titulos' or request.resolver_match.url_name == 'mis_documentos' or request.resolver_match.url_name == 'subir_documento' or request.resolver_match.url_name == 'crear_titulo' or request.resolver_match.url_name == 'crear_publicacion' or request.resolver_match.url_name == 'mis_publicaciones' or request.resolver_match.url_name == 'mis_cursos' or request.resolver_match.url_name == 'crear_curso' %} open{% endif %}>
-                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-folder-open"></i><span>M3 · Documentos y Títulos</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
-                <div class="nav-submenu">
-                    <a class="nav-link{% if active_section == 'modulo_self_service' %} active{% endif %}" href="{% url 'core:modulo_self_service' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
-                    <a class="nav-link{% if active_section == 'titulos' %} active{% endif %}" href="{% url 'core:mis_titulos' %}"><i class="fas fa-award"></i><span>Mis títulos</span></a>
-                    <a class="nav-link{% if active_section == 'documentos' %} active{% endif %}" href="{% url 'core:mis_documentos' %}"><i class="fas fa-folder-open"></i><span>Documentos</span></a>
-                    <a class="nav-link{% if active_section == 'publicaciones' %} active{% endif %}" href="{% url 'core:mis_publicaciones' %}"><i class="fas fa-book"></i><span>Publicaciones</span></a>
-                    <a class="nav-link{% if active_section == 'cursos' %} active{% endif %}" href="{% url 'core:mis_cursos' %}"><i class="fas fa-graduation-cap"></i><span>Cursos</span></a>
-                </div>
-            </details>{% endif %}
-
             {% if module_access.curriculo %}<details class="nav-group" data-nav-group="curriculo"{% if request.resolver_match.namespace == 'curriculo' or active_section == 'modulo_curriculo' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-book-open"></i><span>M4 · Currículo</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
@@ -176,6 +165,22 @@
                     <a class="nav-link" href="{% url 'restricciones:historiallimitacion_list' %}"><i class="fas fa-clock"></i><span>Historial</span></a>
                 </div>
             </details>{% endif %}
+
+            {% if module_access.seguridad %}<details class="nav-group" data-nav-group="seguridad"{% if request.resolver_match.namespace == 'seguridad' or active_section == 'modulo_seguridad' or active_section == 'usuarios' %} open{% endif %}>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-shield-halved"></i><span>M8 · Seguridad</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <div class="nav-submenu">
+                    <a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
+                    <a class="nav-link{% if active_section == 'usuarios' and not role_name %} active{% endif %}" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users"></i><span>Usuarios · Todos</span></a>
+                    <a class="nav-link{% if role_name == 'Autoridad' %} active{% endif %}" href="{% url 'core:usuarios_autoridad' %}"><i class="fas fa-user-shield"></i><span>Usuarios · Autoridades</span></a>
+                    <a class="nav-link{% if role_name == 'Coordinador' %} active{% endif %}" href="{% url 'core:usuarios_coordinador' %}"><i class="fas fa-user-tie"></i><span>Usuarios · Coordinadores</span></a>
+                    <a class="nav-link{% if role_name == 'Funcionario' %} active{% endif %}" href="{% url 'core:usuarios_funcionario' %}"><i class="fas fa-briefcase"></i><span>Usuarios · Funcionarios</span></a>
+                    <a class="nav-link" href="{% url 'core:eventos_seguridad' %}"><i class="fas fa-shield-halved"></i><span>Eventos de seguridad</span></a>
+                    <a class="nav-link" href="{% url 'seguridad:seguridadrol_list' %}"><i class="fas fa-key"></i><span>Roles</span></a>
+                    <a class="nav-link" href="{% url 'seguridad:seguridadusuario_list' %}"><i class="fas fa-user-lock"></i><span>Usuarios de seguridad (legado)</span></a>
+                    <a class="nav-link" href="{% url 'seguridad:seguridadusuariorol_list' %}"><i class="fas fa-user-check"></i><span>Asignación de roles (legado)</span></a>
+                    {% if request.user.is_superuser %}<a class="nav-link" href="{% url 'admin:index' %}"><i class="fas fa-screwdriver-wrench"></i><span>Administración técnica</span></a>{% endif %}
+                </div>
+            </details>{% endif %}
         </nav>
         <div class="sidebar-footer"></div>
     </aside>
@@ -202,19 +207,6 @@
                     <button class="btn topbar-dropdown-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-chart-line"></i> Control académico</button>
                     <div class="dropdown-menu shadow-sm">
                         <a class="dropdown-item{% if active_section == 'consulta_bitacora_laboratorios' %} active{% endif %}" href="{% url 'planificacion:consulta_bitacora_laboratorios' %}"><i class="fas fa-chart-column"></i> Uso de espacios</a>
-                    </div>
-                </div>
-                {% endif %}
-                {% if request.user.is_superuser or request.user.groups.first.name|default:'' == 'Administrador' or request.user.groups.first.name|default:'' == 'Autoridad' %}
-                <div class="dropdown" data-topbar-dropdown>
-                    <button class="btn topbar-dropdown-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-users-gear"></i> Usuarios</button>
-                    <div class="dropdown-menu shadow-sm">
-                        <a class="dropdown-item{% if active_section == 'usuarios' and not role_name %} active{% endif %}" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users"></i> Todos</a>
-                        <a class="dropdown-item{% if role_name == 'Autoridad' %} active{% endif %}" href="{% url 'core:usuarios_autoridad' %}"><i class="fas fa-user-shield"></i> Autoridades</a>
-                        <a class="dropdown-item{% if role_name == 'Coordinador' %} active{% endif %}" href="{% url 'core:usuarios_coordinador' %}"><i class="fas fa-user-tie"></i> Coordinadores</a>
-                        <a class="dropdown-item{% if role_name == 'Funcionario' %} active{% endif %}" href="{% url 'core:usuarios_funcionario' %}"><i class="fas fa-briefcase"></i> Funcionarios</a>
-                        <a class="dropdown-item" href="{% url 'core:eventos_seguridad' %}"><i class="fas fa-shield-halved"></i> Eventos de seguridad</a>
-                        {% if request.user.is_superuser %}<a class="dropdown-item" href="{% url 'admin:index' %}"><i class="fas fa-screwdriver-wrench"></i> Administración técnica</a>{% endif %}
                     </div>
                 </div>
                 {% endif %}

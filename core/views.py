@@ -914,6 +914,22 @@ MODULOS = {
             ('Cuerpo', 'Cuerpo'),
         ],
     },
+    'seguridad': {
+        'nombre': 'Seguridad',
+        'icono': 'fa-shield-halved',
+        'descripcion': 'Administre las cuentas del sistema, revise los eventos de seguridad y consulte los roles y usuarios heredados del esquema histórico de la base de datos.',
+        'acciones': [
+            ('Usuarios · Todos', 'core:usuarios_list', 'fa-users', 'Cree, edite y restablezca la contraseña de las cuentas del sistema.'),
+            ('Usuarios · Autoridades', 'core:usuarios_autoridad', 'fa-user-shield', 'Consulte las cuentas con rol Autoridad.'),
+            ('Usuarios · Coordinadores', 'core:usuarios_coordinador', 'fa-user-tie', 'Consulte las cuentas con rol Coordinador.'),
+            ('Usuarios · Funcionarios', 'core:usuarios_funcionario', 'fa-briefcase', 'Consulte las cuentas con rol Funcionario.'),
+            ('Eventos de seguridad', 'core:eventos_seguridad', 'fa-shield-halved', 'Revise los inicios de sesión, bloqueos y cambios de contraseña registrados.'),
+            ('Roles', 'seguridad:seguridadrol_list', 'fa-key', 'Administre los roles heredados del esquema de seguridad histórico.', 'SeguridadRol'),
+            ('Usuarios de seguridad (legado)', 'seguridad:seguridadusuario_list', 'fa-user-lock', 'Administre los usuarios registrados en el esquema de seguridad histórico.', 'SeguridadUsuario'),
+            ('Asignación de roles (legado)', 'seguridad:seguridadusuariorol_list', 'fa-user-check', 'Administre la asignación histórica de roles por usuario y carrera.', 'SeguridadUsuarioRol'),
+        ],
+        'modelos': [],
+    },
     'self_service': {
         'nombre': 'Documentos y Títulos',
         'icono': 'fa-folder-open',

@@ -7,7 +7,7 @@ def module_access(request):
     modules = (
         'catalogos', 'docentes', 'certificados', 'curriculo',
         'planificacion', 'reportes', 'auditoria', 'restricciones',
-        'self_service',
+        'self_service', 'seguridad',
     )
     profile_photo_url = ''
     profile_display_name = ''
