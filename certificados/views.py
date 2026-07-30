@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -133,8 +134,11 @@ def emisiones(request):
             Q(docente__cedula_docente__icontains=query) |
             Q(docente__nombres_completos__icontains=query)
         )
+    page_obj = Paginator(items.order_by('-creado_el', '-pk'), 25).get_page(
+        request.GET.get('page')
+    )
     return render(request, 'certificados/emisiones.html', {
-        'items': items[:250], 'search_value': query,
+        'items': page_obj, 'page_obj': page_obj, 'search_value': query,
         'active_section': 'certificado_emisiones',
     })
 
@@ -165,9 +169,13 @@ def firmantes(request, pk=None):
         form.save()
         messages.success(request, 'Firmante guardado correctamente.')
         return redirect('certificados:firmantes')
+    page_obj = Paginator(
+        FirmanteCertificado.objects.order_by('-activo', 'nombres_completos'), 15
+    ).get_page(request.GET.get('page'))
     return render(request, 'certificados/firmantes.html', {
         'form': form,
         'editing': instance,
-        'items': FirmanteCertificado.objects.all(),
+        'items': page_obj,
+        'page_obj': page_obj,
         'active_section': 'certificado_firmantes',
     })

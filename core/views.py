@@ -186,7 +186,6 @@ def dashboard_view(request):
         ('planificacion', 'Planificación', 'fa-calendar-check', '#ffc107', 'rgba(255,193,7,0.1)'),
         ('auditoria', 'Auditoría', 'fa-history', '#6c757d', 'rgba(108,117,125,0.1)'),
         ('restricciones', 'Restricciones', 'fa-exclamation-triangle', '#dc3545', 'rgba(220,53,69,0.1)'),
-        ('self_service', 'Documentos y Títulos', 'fa-folder-open', '#0d6efd', 'rgba(13,110,253,0.1)'),
     ]
     for slug, nombre, icono, color, bg_color in slug_modulos:
         if not can_access_module(request.user, slug, 'view'):
@@ -412,7 +411,10 @@ def mis_titulos_view(request):
     except Exception:
         pass
 
-    return render(request, 'core/mis_titulos.html', {'titulos': titulos, 'active_section': 'titulos'})
+    page_obj = Paginator(titulos, 15).get_page(request.GET.get('page'))
+    return render(request, 'core/mis_titulos.html', {
+        'titulos': page_obj, 'page_obj': page_obj, 'active_section': 'titulos',
+    })
 
 
 @login_required
@@ -443,10 +445,14 @@ def mis_publicaciones_view(request):
     usuario = request.user
     docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if docente:
-        publicaciones = Publicacion.objects.filter(id_docente=docente)
+        publicaciones = Publicacion.objects.filter(id_docente=docente).order_by('-pk')
     else:
         publicaciones = []
-    return render(request, 'core/mis_publicaciones.html', {'publicaciones': publicaciones, 'active_section': 'publicaciones'})
+    page_obj = Paginator(publicaciones, 15).get_page(request.GET.get('page'))
+    return render(request, 'core/mis_publicaciones.html', {
+        'publicaciones': page_obj, 'page_obj': page_obj,
+        'active_section': 'publicaciones',
+    })
 
 
 @login_required
@@ -477,10 +483,14 @@ def mis_documentos_view(request):
     usuario = request.user
     docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if docente:
-        documentos = DocenteTransaccional.objects.filter(id_docente=docente)
+        documentos = DocenteTransaccional.objects.filter(id_docente=docente).order_by('-pk')
     else:
         documentos = []
-    return render(request, 'core/mis_documentos.html', {'documentos': documentos, 'active_section': 'documentos'})
+    page_obj = Paginator(documentos, 15).get_page(request.GET.get('page'))
+    return render(request, 'core/mis_documentos.html', {
+        'documentos': page_obj, 'page_obj': page_obj,
+        'active_section': 'documentos',
+    })
 
 
 @login_required
@@ -488,14 +498,19 @@ def mis_documentos_view(request):
 def mis_cursos_view(request):
     usuario = request.user
     if usuario.is_superuser or usuario.groups.filter(name__in=[ADMIN, AUTORIDAD, COORDINADOR]).exists():
-        cursos = Curso.objects.all()
+        cursos = Curso.objects.order_by('-pk')
     else:
         docente = Docente.objects.filter(cedula=usuario.cedula).first()
         if docente:
-            cursos = Curso.objects.filter(cursodocente__id_docente=docente).distinct()
+            cursos = Curso.objects.filter(
+                cursodocente__id_docente=docente
+            ).distinct().order_by('-pk')
         else:
             cursos = []
-    return render(request, 'core/mis_cursos.html', {'cursos': cursos, 'active_section': 'cursos'})
+    page_obj = Paginator(cursos, 15).get_page(request.GET.get('page'))
+    return render(request, 'core/mis_cursos.html', {
+        'cursos': page_obj, 'page_obj': page_obj, 'active_section': 'cursos',
+    })
 
 
 @login_required
@@ -601,7 +616,7 @@ def usuarios_por_rol_view(request, rol=None):
         'role_filter': role_filter,
         'status_filter': status_filter,
         'search': search,
-        'role_options': Group.objects.order_by('name'),
+        'role_options': Group.objects.filter(user__isnull=False).distinct().order_by('name'),
     })
 
 
@@ -710,14 +725,13 @@ def eventos_seguridad_view(request):
         eventos = eventos.filter(fecha__date__gte=date_from)
     if date_to:
         eventos = eventos.filter(fecha__date__lte=date_to)
-    paginator = Paginator(eventos, 50)
+    paginator = Paginator(eventos, 25)
     page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'core/eventos_seguridad.html', {
         'eventos': page_obj,
         'page_obj': page_obj,
         'paginator': paginator,
-        'active_section': 'usuarios',
-        'title': 'Eventos de seguridad',
+        'active_section': 'eventos_seguridad',
         'search': search,
         'event_type': event_type,
         'date_from': date_from,
@@ -894,6 +908,7 @@ MODULOS = {
         'descripcion': 'Consulte la trazabilidad de los cambios realizados sobre la información institucional.',
         'acciones': [
             ('Registro de cambios', 'auditoria:auditoriaregistrocambios_list', 'fa-clock-rotate-left', 'Revise quién realizó cada cambio, cuándo ocurrió y qué información fue afectada.', 'AuditoriaRegistroCambios'),
+            ('Eventos de seguridad', 'core:eventos_seguridad', 'fa-shield-halved', 'Revise los inicios de sesión, bloqueos y cambios de contraseña registrados.'),
         ],
         'modelos': [
             ('Registro de Cambios', 'AuditoriaRegistroCambios'),
@@ -919,27 +934,10 @@ MODULOS = {
         'icono': 'fa-shield-halved',
         'descripcion': 'Administre las cuentas del sistema, revise los eventos de seguridad y consulte los roles y usuarios heredados del esquema histórico de la base de datos.',
         'acciones': [
-            ('Usuarios · Todos', 'core:usuarios_list', 'fa-users', 'Cree, edite y restablezca la contraseña de las cuentas del sistema.'),
-            ('Usuarios · Autoridades', 'core:usuarios_autoridad', 'fa-user-shield', 'Consulte las cuentas con rol Autoridad.'),
-            ('Usuarios · Coordinadores', 'core:usuarios_coordinador', 'fa-user-tie', 'Consulte las cuentas con rol Coordinador.'),
-            ('Usuarios · Funcionarios', 'core:usuarios_funcionario', 'fa-briefcase', 'Consulte las cuentas con rol Funcionario.'),
-            ('Eventos de seguridad', 'core:eventos_seguridad', 'fa-shield-halved', 'Revise los inicios de sesión, bloqueos y cambios de contraseña registrados.'),
+            ('Usuarios · Todos', 'core:usuarios_list', 'fa-users', 'Cree, edite y restablezca la contraseña de las cuentas del sistema. Filtre por rol, estado o busque por nombre, cédula o correo.'),
             ('Roles', 'seguridad:seguridadrol_list', 'fa-key', 'Administre los roles heredados del esquema de seguridad histórico.', 'SeguridadRol'),
             ('Usuarios de seguridad (legado)', 'seguridad:seguridadusuario_list', 'fa-user-lock', 'Administre los usuarios registrados en el esquema de seguridad histórico.', 'SeguridadUsuario'),
             ('Asignación de roles (legado)', 'seguridad:seguridadusuariorol_list', 'fa-user-check', 'Administre la asignación histórica de roles por usuario y carrera.', 'SeguridadUsuarioRol'),
-        ],
-        'modelos': [],
-    },
-    'self_service': {
-        'nombre': 'Documentos y Títulos',
-        'icono': 'fa-folder-open',
-        'descripcion': 'Gestione sus títulos académicos, documentos, publicaciones y cursos de capacitación.',
-        'acciones': [
-            ('Mis títulos', 'core:mis_titulos', 'fa-award', 'Consulte y registre sus títulos académicos de tercer nivel, maestría o doctorado.'),
-            ('Subir documento', 'core:subir_documento', 'fa-folder-open', 'Sube certificados, actas y respaldos académicos.'),
-            ('Mis documentos', 'core:mis_documentos', 'fa-file-lines', 'Revise los documentos que ha subido al sistema.'),
-            ('Publicaciones', 'core:mis_publicaciones', 'fa-book', 'Registre sus artículos, libros, capítulos y otros trabajos académicos.'),
-            ('Cursos', 'core:mis_cursos', 'fa-graduation-cap', 'Gestione sus cursos de capacitación y formación continua.'),
         ],
         'modelos': [],
     },
@@ -978,6 +976,8 @@ def _build_crud_url(model_name, action='list'):
 
 @login_required
 def modulo_view(request, slug):
+    if slug == 'self_service':
+        return redirect('core:mi_perfil')
     info = MODULOS.get(slug)
     if not info:
         return redirect('core:dashboard')

@@ -21,7 +21,6 @@
                     <input id="userSearch" type="search" name="q" value="{{ search }}" class="form-control" placeholder="Nombre, cédula o correo">
                 </div>
             </div>
-            {% if not role_name %}
             <div class="col-lg-3 col-md-6">
                 <label class="form-label small fw-semibold" for="roleFilter">Rol</label>
                 <select id="roleFilter" name="rol" class="form-select">
@@ -29,7 +28,6 @@
                     {% for group in role_options %}<option value="{{ group.name }}" {% if role_filter == group.name %}selected{% endif %}>{{ group.name }}</option>{% endfor %}
                 </select>
             </div>
-            {% endif %}
             <div class="col-lg-2 col-md-6">
                 <label class="form-label small fw-semibold" for="statusFilter">Estado</label>
                 <select id="statusFilter" name="estado" class="form-select">
