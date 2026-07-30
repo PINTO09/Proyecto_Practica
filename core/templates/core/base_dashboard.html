@@ -114,7 +114,7 @@
             </details>{% endif %}
 
             {% if module_access.certificados %}<details class="nav-group" data-nav-group="certificados"{% if request.resolver_match.namespace == 'certificados' or active_section == 'modulo_certificados' or 'reporte_certificado_' in active_section or active_section == 'reporte_dedicacion_formacion_docente' %} open{% endif %}>
-                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-file-signature"></i><span>M3 · Certificados</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-file-signature"></i><span>M8 · Certificados</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_certificados' %} active{% endif %}" href="{% url 'core:modulo_certificados' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
                     {% if module_change.certificados %}<a class="nav-link{% if active_section == 'certificado_generar' %} active{% endif %}" href="{% url 'certificados:generar' %}"><i class="fas fa-file-circle-plus"></i><span>Generar certificado</span></a>{% endif %}
@@ -149,11 +149,12 @@
                 </div>
             </details>{% endif %}
 
-            {% if module_access.auditoria %}<details class="nav-group" data-nav-group="auditoria"{% if request.resolver_match.namespace == 'auditoria' or active_section == 'modulo_auditoria' %} open{% endif %}>
+            {% if module_access.auditoria %}<details class="nav-group" data-nav-group="auditoria"{% if request.resolver_match.namespace == 'auditoria' or active_section == 'modulo_auditoria' or active_section == 'eventos_seguridad' %} open{% endif %}>
                 <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-clock-rotate-left"></i><span>M6 · Auditoría</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_auditoria' %} active{% endif %}" href="{% url 'core:modulo_auditoria' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
                     <a class="nav-link" href="{% url 'auditoria:auditoriaregistrocambios_list' %}"><i class="fas fa-clock-rotate-left"></i><span>Registro de cambios</span></a>
+                    <a class="nav-link{% if active_section == 'eventos_seguridad' %} active{% endif %}" href="{% url 'core:eventos_seguridad' %}"><i class="fas fa-shield-halved"></i><span>Eventos de seguridad</span></a>
                 </div>
             </details>{% endif %}
 
@@ -171,10 +172,6 @@
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
                     <a class="nav-link{% if active_section == 'usuarios' and not role_name %} active{% endif %}" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users"></i><span>Usuarios · Todos</span></a>
-                    <a class="nav-link{% if role_name == 'Autoridad' %} active{% endif %}" href="{% url 'core:usuarios_autoridad' %}"><i class="fas fa-user-shield"></i><span>Usuarios · Autoridades</span></a>
-                    <a class="nav-link{% if role_name == 'Coordinador' %} active{% endif %}" href="{% url 'core:usuarios_coordinador' %}"><i class="fas fa-user-tie"></i><span>Usuarios · Coordinadores</span></a>
-                    <a class="nav-link{% if role_name == 'Funcionario' %} active{% endif %}" href="{% url 'core:usuarios_funcionario' %}"><i class="fas fa-briefcase"></i><span>Usuarios · Funcionarios</span></a>
-                    <a class="nav-link" href="{% url 'core:eventos_seguridad' %}"><i class="fas fa-shield-halved"></i><span>Eventos de seguridad</span></a>
                     <a class="nav-link" href="{% url 'seguridad:seguridadrol_list' %}"><i class="fas fa-key"></i><span>Roles</span></a>
                     <a class="nav-link" href="{% url 'seguridad:seguridadusuario_list' %}"><i class="fas fa-user-lock"></i><span>Usuarios de seguridad (legado)</span></a>
                     <a class="nav-link" href="{% url 'seguridad:seguridadusuariorol_list' %}"><i class="fas fa-user-check"></i><span>Asignación de roles (legado)</span></a>

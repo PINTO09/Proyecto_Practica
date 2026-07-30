@@ -601,7 +601,7 @@ def usuarios_por_rol_view(request, rol=None):
         'role_filter': role_filter,
         'status_filter': status_filter,
         'search': search,
-        'role_options': Group.objects.order_by('name'),
+        'role_options': Group.objects.filter(user__isnull=False).distinct().order_by('name'),
     })
 
 
@@ -710,14 +710,13 @@ def eventos_seguridad_view(request):
         eventos = eventos.filter(fecha__date__gte=date_from)
     if date_to:
         eventos = eventos.filter(fecha__date__lte=date_to)
-    paginator = Paginator(eventos, 50)
+    paginator = Paginator(eventos, 25)
     page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'core/eventos_seguridad.html', {
         'eventos': page_obj,
         'page_obj': page_obj,
         'paginator': paginator,
-        'active_section': 'usuarios',
-        'title': 'Eventos de seguridad',
+        'active_section': 'eventos_seguridad',
         'search': search,
         'event_type': event_type,
         'date_from': date_from,
@@ -894,6 +893,7 @@ MODULOS = {
         'descripcion': 'Consulte la trazabilidad de los cambios realizados sobre la información institucional.',
         'acciones': [
             ('Registro de cambios', 'auditoria:auditoriaregistrocambios_list', 'fa-clock-rotate-left', 'Revise quién realizó cada cambio, cuándo ocurrió y qué información fue afectada.', 'AuditoriaRegistroCambios'),
+            ('Eventos de seguridad', 'core:eventos_seguridad', 'fa-shield-halved', 'Revise los inicios de sesión, bloqueos y cambios de contraseña registrados.'),
         ],
         'modelos': [
             ('Registro de Cambios', 'AuditoriaRegistroCambios'),
@@ -919,11 +919,7 @@ MODULOS = {
         'icono': 'fa-shield-halved',
         'descripcion': 'Administre las cuentas del sistema, revise los eventos de seguridad y consulte los roles y usuarios heredados del esquema histórico de la base de datos.',
         'acciones': [
-            ('Usuarios · Todos', 'core:usuarios_list', 'fa-users', 'Cree, edite y restablezca la contraseña de las cuentas del sistema.'),
-            ('Usuarios · Autoridades', 'core:usuarios_autoridad', 'fa-user-shield', 'Consulte las cuentas con rol Autoridad.'),
-            ('Usuarios · Coordinadores', 'core:usuarios_coordinador', 'fa-user-tie', 'Consulte las cuentas con rol Coordinador.'),
-            ('Usuarios · Funcionarios', 'core:usuarios_funcionario', 'fa-briefcase', 'Consulte las cuentas con rol Funcionario.'),
-            ('Eventos de seguridad', 'core:eventos_seguridad', 'fa-shield-halved', 'Revise los inicios de sesión, bloqueos y cambios de contraseña registrados.'),
+            ('Usuarios · Todos', 'core:usuarios_list', 'fa-users', 'Cree, edite y restablezca la contraseña de las cuentas del sistema. Filtre por rol, estado o busque por nombre, cédula o correo.'),
             ('Roles', 'seguridad:seguridadrol_list', 'fa-key', 'Administre los roles heredados del esquema de seguridad histórico.', 'SeguridadRol'),
             ('Usuarios de seguridad (legado)', 'seguridad:seguridadusuario_list', 'fa-user-lock', 'Administre los usuarios registrados en el esquema de seguridad histórico.', 'SeguridadUsuario'),
             ('Asignación de roles (legado)', 'seguridad:seguridadusuariorol_list', 'fa-user-check', 'Administre la asignación histórica de roles por usuario y carrera.', 'SeguridadUsuarioRol'),
