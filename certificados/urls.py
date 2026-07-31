@@ -6,6 +6,7 @@ app_name = 'certificados'
 
 urlpatterns = [
     path('', views.generar_certificado, name='generar'),
+    path('api/docentes-por-tipo/', views.api_docentes_por_tipo, name='api_docentes_por_tipo'),
     path('reportes/<str:tipo>/', views.reporte_base, name='reporte_base'),
     path('emitidos/', views.emisiones, name='emisiones'),
     path('emitidos/<int:pk>/', views.previsualizar, name='previsualizar'),

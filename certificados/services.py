@@ -1,7 +1,37 @@
 from collections import OrderedDict
 
-from docentes.models import DocenteAsignacionCarreraPeriodo
+from django.db.models import Exists, OuterRef
+
+from docentes.models import DocenteAsignacionCarreraPeriodo, DocenteFcacc
 from planificacion.models import PlanificacionActividadDocente, PlanificacionAsignacionDocente
+
+
+def docentes_con_datos(tipo, function_filter='TODOS'):
+    docentes = DocenteFcacc.objects.all()
+    if tipo == 'DEDICACION':
+        sub = DocenteAsignacionCarreraPeriodo.objects.filter(id_docente=OuterRef('pk'))
+        docentes = docentes.filter(Exists(sub))
+    elif tipo == 'CATEDRAS':
+        sub = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
+        docentes = docentes.filter(Exists(sub))
+    elif tipo == 'FUNCIONES':
+        selected = normalize_function_filter(function_filter)
+        if selected == 'ACTIVIDADES':
+            sub = PlanificacionActividadDocente.objects.filter(id_docente=OuterRef('pk'))
+            docentes = docentes.filter(Exists(sub))
+        elif selected == 'ASIGNACIONES':
+            sub = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
+            docentes = docentes.filter(Exists(sub))
+        elif selected == 'COMISIONES':
+            sub = PlanificacionAsignacionDocente.objects.filter(
+                id_docente=OuterRef('pk')
+            ).exclude(comision_servicio__isnull=True).exclude(comision_servicio='')
+            docentes = docentes.filter(Exists(sub))
+        else:
+            sub_act = PlanificacionActividadDocente.objects.filter(id_docente=OuterRef('pk'))
+            sub_asig = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
+            docentes = docentes.filter(Exists(sub_act) | Exists(sub_asig))
+    return docentes
 
 
 FUNCTION_FILTERS = (

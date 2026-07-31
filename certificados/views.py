@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import ADMIN, AUTORIDAD, allowed_career_ids, module_permission_required, role_required
@@ -13,6 +14,7 @@ from .services import (
     FUNCTION_FILTERS,
     FUNCTION_FILTER_LABELS,
     build_certificate_snapshot,
+    docentes_con_datos,
     normalize_function_filter,
 )
 
@@ -139,6 +141,27 @@ def generar_certificado(request):
     return render(request, 'certificados/generar.html', {
         'form': form, 'active_section': 'certificado_generar',
     })
+
+
+@module_permission_required('certificados', 'view')
+def api_docentes_por_tipo(request):
+    tipo = (request.GET.get('tipo') or '').strip().upper()
+    filtro = normalize_function_filter(request.GET.get('filtro'))
+    valid_types = {value for value, _label in CertificadoEmitido.TIPOS}
+    if tipo not in valid_types:
+        return JsonResponse({'error': 'Tipo de certificado inválido.'}, status=400)
+    docentes = docentes_con_datos(tipo, filtro).select_related('id_dedicacion')
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        docentes = docentes.filter(
+            docenteasignacioncarreraperiodo__id_carrera_id__in=permitted
+        ).distinct()
+    items = [{
+        'id': d.id_docente,
+        'cedula': d.cedula_docente,
+        'nombres': d.nombres_completos,
+    } for d in docentes.order_by('nombres_completos')]
+    return JsonResponse({'docentes': items})
 
 
 @module_permission_required('certificados', 'view')

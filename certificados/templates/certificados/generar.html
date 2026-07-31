@@ -22,15 +22,18 @@
               <label class="form-label fw-semibold">{{ form.tipo.label }}</label>
               {{ form.tipo }}{{ form.tipo.errors }}
             </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">{{ form.docente.label }}</label>
-              {{ form.docente }}{{ form.docente.errors }}
+            <div class="col-md-6" id="rightSlot">
+              <div class="field-slot" id="docenteSlot">
+                <label class="form-label fw-semibold">{{ form.docente.label }}</label>
+                {{ form.docente }}{{ form.docente.errors }}
+              </div>
+              <div class="field-slot d-none" id="filtroSlot">
+                <label class="form-label fw-semibold">{{ form.filtro_funciones.label }}</label>
+                {{ form.filtro_funciones }}{{ form.filtro_funciones.errors }}
+                <div class="form-text">{{ form.filtro_funciones.help_text }}</div>
+              </div>
             </div>
-            <div class="col-12" id="functionFilterField">
-              <label class="form-label fw-semibold">{{ form.filtro_funciones.label }}</label>
-              {{ form.filtro_funciones }}{{ form.filtro_funciones.errors }}
-              <div class="form-text">{{ form.filtro_funciones.help_text }}</div>
-            </div>
+            <div class="col-12" id="bottomSlot"></div>
             <div class="col-12">
               <label class="form-label fw-semibold">{{ form.firmante.label }}</label>
               {{ form.firmante }}{{ form.firmante.errors }}
@@ -76,15 +79,69 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const typeField = document.getElementById('id_tipo');
-  const filterContainer = document.getElementById('functionFilterField');
   const filterField = document.getElementById('id_filtro_funciones');
-  function updateFunctionFilter() {
-    const visible = typeField?.value === 'FUNCIONES';
-    filterContainer?.classList.toggle('d-none', !visible);
-    if (filterField) filterField.disabled = !visible;
+  const docenteField = document.getElementById('id_docente');
+  const rightSlot = document.getElementById('rightSlot');
+  const bottomSlot = document.getElementById('bottomSlot');
+  const docenteSlot = document.getElementById('docenteSlot');
+  const filtroSlot = document.getElementById('filtroSlot');
+
+  function applyLayout() {
+    const isFunciones = typeField?.value === 'FUNCIONES';
+    if (isFunciones) {
+      rightSlot.appendChild(filtroSlot);
+      bottomSlot.appendChild(docenteSlot);
+      filtroSlot.classList.remove('d-none');
+    } else {
+      rightSlot.appendChild(docenteSlot);
+      bottomSlot.appendChild(filtroSlot);
+      filtroSlot.classList.add('d-none');
+    }
+    if (filterField) filterField.disabled = !isFunciones;
+    window.SearchableSelect?.initialize();
   }
-  typeField?.addEventListener('change', updateFunctionFilter);
-  updateFunctionFilter();
+
+  function renderDocentes(items) {
+    docenteField.innerHTML = '<option value="">Seleccione un docente...</option>';
+    for (const item of items) {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.nombres} — ${item.cedula}`;
+      option.dataset.search = `${item.nombres} ${item.cedula}`;
+      docenteField.appendChild(option);
+    }
+    docenteField.value = '';
+    docenteField.disabled = false;
+    window.SearchableSelect?.initialize();
+  }
+
+  async function loadDocentes() {
+    const tipo = typeField?.value;
+    if (!tipo) return;
+    const filtro = tipo === 'FUNCIONES' ? (filterField?.value || 'TODOS') : 'TODOS';
+    docenteField.disabled = true;
+    docenteField.innerHTML = '<option value="">Cargando docentes...</option>';
+    try {
+      const url = "{% url 'certificados:api_docentes_por_tipo' %}?tipo=" + encodeURIComponent(tipo) + "&filtro=" + encodeURIComponent(filtro);
+      const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!response.ok) throw new Error('Error en la respuesta');
+      const data = await response.json();
+      renderDocentes(data.docentes || []);
+    } catch (error) {
+      docenteField.innerHTML = '<option value="">No se pudieron cargar los docentes</option>';
+      docenteField.disabled = false;
+    }
+  }
+
+  typeField?.addEventListener('change', () => {
+    applyLayout();
+    loadDocentes();
+  });
+  filterField?.addEventListener('change', () => {
+    if (typeField?.value === 'FUNCIONES') loadDocentes();
+  });
+  applyLayout();
+  loadDocentes();
 });
 </script>
 {% endblock %}

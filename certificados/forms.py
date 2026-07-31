@@ -4,7 +4,7 @@ from django.utils import timezone
 from docentes.models import DocenteFcacc
 
 from .models import CertificadoEmitido, FirmanteCertificado
-from .services import FUNCTION_FILTERS, normalize_function_filter
+from .services import FUNCTION_FILTERS, docentes_con_datos, normalize_function_filter
 
 
 class GenerarCertificadoForm(forms.Form):
@@ -30,7 +30,11 @@ class GenerarCertificadoForm(forms.Form):
 
     def __init__(self, *args, allowed_career_ids=None, **kwargs):
         super().__init__(*args, **kwargs)
+        selected_tipo = (self.data.get('tipo') if self.data else None) or self.initial.get('tipo')
+        selected_filtro = (self.data.get('filtro_funciones') if self.data else None) or self.initial.get('filtro_funciones')
         docentes_qs = DocenteFcacc.objects.select_related('id_dedicacion')
+        if selected_tipo:
+            docentes_qs = docentes_con_datos(selected_tipo, selected_filtro)
         if allowed_career_ids is not None:
             docentes_qs = docentes_qs.filter(
                 docenteasignacioncarreraperiodo__id_carrera_id__in=allowed_career_ids

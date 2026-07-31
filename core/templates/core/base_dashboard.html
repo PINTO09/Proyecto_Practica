@@ -114,7 +114,7 @@
             </details>{% endif %}
 
             {% if module_access.certificados %}<details class="nav-group" data-nav-group="certificados"{% if request.resolver_match.namespace == 'certificados' or active_section == 'modulo_certificados' or 'reporte_certificado_' in active_section or active_section == 'reporte_dedicacion_formacion_docente' %} open{% endif %}>
-                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-file-signature"></i><span>M8 · Certificados</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
+                <summary class="nav-group-toggle"><span class="nav-group-label"><i class="fas fa-file-signature"></i><span>M3 · Certificados</span></span><i class="fas fa-chevron-right nav-group-chevron"></i></summary>
                 <div class="nav-submenu">
                     <a class="nav-link{% if active_section == 'modulo_certificados' %} active{% endif %}" href="{% url 'core:modulo_certificados' %}"><i class="fas fa-border-all"></i><span>Resumen del módulo</span></a>
                     {% if module_change.certificados %}<a class="nav-link{% if active_section == 'certificado_generar' %} active{% endif %}" href="{% url 'certificados:generar' %}"><i class="fas fa-file-circle-plus"></i><span>Generar certificado</span></a>{% endif %}
