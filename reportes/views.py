@@ -38,7 +38,10 @@ F4_TEMPLATE_PATH = (
     / 'templates_excel'
     / 'planificacion_mkt_2026_2_v1.xlsx'
 )
-F4_TEACHER_MERGED_COLUMNS = (1, 2, 3, 4, 8, 9, 16)
+# Cédula y nombre no se combinan: cada fila conserva internamente esos valores
+# para que el autofiltro de Excel no elimine el resto de la carga del docente.
+F4_TEACHER_MERGED_COLUMNS = (1, 4, 8, 9, 16)
+F4_FILTERABLE_IDENTITY_COLUMNS = (2, 3)
 
 
 def _style_header(ws, row, cols):
@@ -77,6 +80,35 @@ def _merge_f4_teacher_cells(worksheet, start_row, end_row):
             end_row=end_row,
             end_column=column,
         )
+
+
+def _format_f4_identity_block(worksheet, start_row, end_row):
+    """Simula una unión vertical sin romper el autofiltro de Excel.
+
+    Todas las filas conservan cédula y nombre como valores filtrables, pero se
+    muestra únicamente la copia central y se eliminan los bordes horizontales
+    internos para que el resultado se vea como una sola celda.
+    """
+    visible_row = (start_row + end_row) // 2
+    empty_side = Side(style=None)
+    for column in F4_FILTERABLE_IDENTITY_COLUMNS:
+        for row in range(start_row, end_row + 1):
+            cell = worksheet.cell(row, column)
+            if row != visible_row:
+                cell.number_format = ';;;'
+            border = cell.border
+            cell.border = Border(
+                left=copy(border.left),
+                right=copy(border.right),
+                top=copy(border.top) if row == start_row else empty_side,
+                bottom=copy(border.bottom) if row == end_row else empty_side,
+            )
+            cell.alignment = copy(cell.alignment)
+            cell.alignment = Alignment(
+                horizontal=cell.alignment.horizontal,
+                vertical='center',
+                wrap_text=cell.alignment.wrap_text,
+            )
 
 
 def _export_filters(request):
@@ -1057,6 +1089,7 @@ def descargar_planificacion_original(request):
             ws_dst.row_dimensions[row].height = 30
             current_row += 1
 
+        _format_f4_identity_block(ws_dst, start_row, end_row)
         _merge_f4_teacher_cells(ws_dst, start_row, end_row)
 
     data_end = current_row - 1
@@ -1194,9 +1227,15 @@ def export_matriz_f4_filtrada(request):
 
     # ── Filtros ──────────────────────────────────────────────────────────
     periodo_id, carrera_id = _export_filters(request)
-    docente_id = request.GET.get('docente') or None
     tipo = request.GET.get('tipo') or ''
     search = (request.GET.get('q') or '').strip()
+    from planificacion.services import (
+        effective_f4_career_filter, resolve_f4_teacher_filter,
+    )
+    docente_id = resolve_f4_teacher_filter(
+        request.GET.get('docente'), search
+    )
+    carrera_id = effective_f4_career_filter(carrera_id, docente_id)
 
     def normalize_name(value):
         value = unicodedata.normalize('NFKD', str(value or ''))
@@ -1349,14 +1388,14 @@ def export_matriz_f4_filtrada(request):
     )
     if tipo and tipo != 'ASIGNATURA':
         historical = historical.filter(tipo_actividad=tipo)
-    if docente_id:
-        historical = [h for h in historical if h.id_docente_id == int(docente_id)]
     if search:
         historical = historical.filter(
             Q(id_docente__nombres_completos__icontains=search) |
             Q(nombre_asignatura_actividad__icontains=search) |
             Q(tipo_actividad__icontains=search)
         )
+    if docente_id:
+        historical = historical.filter(id_docente_id=int(docente_id))
 
     historical_seen = set()
     for item in historical:
@@ -1534,6 +1573,7 @@ def export_matriz_f4_filtrada(request):
             ws_dst.row_dimensions[row].height = 30
             current_row += 1
 
+        _format_f4_identity_block(ws_dst, start_row, end_row)
         _merge_f4_teacher_cells(ws_dst, start_row, end_row)
 
     data_end = current_row - 1

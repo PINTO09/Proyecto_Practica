@@ -1346,9 +1346,17 @@ class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationM
     def _base_filters(self, request):
         periodo_id = request.GET.get('periodo')
         carrera_id = request.GET.get('carrera')
-        permitted = _ensure_career_access(request, carrera_id)
-        docente_id = request.GET.get('docente')
         search = (request.GET.get('q') or '').strip()
+        from planificacion.services import (
+            effective_f4_career_filter, resolve_f4_teacher_filter,
+        )
+        docente_id = resolve_f4_teacher_filter(
+            request.GET.get('docente'), search
+        )
+        # Primero se valida el alcance solicitado. Después, si se identificó
+        # un docente concreto, se consultan todas sus carreras autorizadas.
+        permitted = _ensure_career_access(request, carrera_id)
+        carrera_id = effective_f4_career_filter(carrera_id, docente_id)
         return periodo_id, carrera_id, permitted, docente_id, search
 
     def get_queryset(self):
@@ -1513,14 +1521,14 @@ class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationM
         ctx.update({
             'active_section': 'planificacionmatrizf4_list',
             'limit_config': _build_limit_config_state(),
-            'filter_querystring': _filter_querystring(self.request),
+            'filter_querystring': self._export_querystring(docente_id),
             'periodos': CatalogoPeriodoAcademico.objects.order_by('-fecha_inicio_periodo', '-id_periodo'),
             'carreras': _careers_with_planning_data(self.request),
             'docentes': DocenteFcacc.objects.filter(docente_activo=True).order_by('nombres_completos'),
             'tipos': tipos,
             'periodo_id': int(self.request.GET['periodo']) if self.request.GET.get('periodo') else None,
-            'carrera_id': int(self.request.GET['carrera']) if self.request.GET.get('carrera') else None,
-            'docente_id': int(self.request.GET['docente']) if self.request.GET.get('docente') else None,
+            'carrera_id': int(carrera_id) if carrera_id else None,
+            'docente_id': int(docente_id) if docente_id else None,
             'tipo': self.request.GET.get('tipo') or '',
             'search': self.request.GET.get('q') or '',
             'total_registros': len(all_rows),
@@ -1536,6 +1544,15 @@ class PlanificacionMatrizF4ListView(PlanningFlowContextMixin, LenientPaginationM
             'carga_por_docente': carga_por_docente,
         })
         return ctx
+
+    def _export_querystring(self, docente_id):
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        if docente_id:
+            params['docente'] = str(docente_id)
+            params.pop('carrera', None)
+        encoded = params.urlencode()
+        return f'{encoded}&' if encoded else ''
 
 
 class PlanificacionMatrizF4CreateView(PlanningFlowContextMixin, CrudCreateView):

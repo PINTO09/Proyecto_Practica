@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import re
 
 from django.db.models import Exists, OuterRef
 
@@ -45,6 +46,14 @@ FUNCTION_FILTER_LABELS = dict(FUNCTION_FILTERS)
 
 def _date_value(value):
     return value.strftime('%d/%m/%Y') if value else None
+
+
+def clean_function_description(observation, fallback):
+    """Evita presentar metadatos del importador como cargo o función."""
+    description = (observation or '').strip()
+    if not description or re.match(r'^importad[oa]\s+desde(?:\s|$)', description, re.I):
+        return fallback
+    return description
 
 
 def normalize_function_filter(value):
@@ -126,10 +135,9 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
             rows.extend({
                 'categoria': 'ACTIVIDADES',
                 'categoria_label': 'Actividad',
-                'descripcion': (
-                    activity.observaciones.strip()
-                    if activity.observaciones and activity.observaciones.strip()
-                    else activity.id_actividad.nombre_actividad
+                'descripcion': clean_function_description(
+                    activity.observaciones,
+                    activity.id_actividad.nombre_actividad,
                 ),
                 'unidad': (
                     teacher.unidad_organica
@@ -168,7 +176,9 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
         if selected_filter in ('TODOS', 'COMISIONES'):
             commissions = OrderedDict()
             for assignment in assignments:
-                description = (assignment.comision_servicio or '').strip()
+                description = clean_function_description(
+                    assignment.comision_servicio, ''
+                )
                 if not description:
                     continue
                 key = (

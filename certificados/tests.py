@@ -2,7 +2,11 @@ from django.test import SimpleTestCase
 from django.urls import reverse
 
 from .models import CertificadoEmitido
-from .services import FUNCTION_FILTER_LABELS, normalize_function_filter
+from .services import (
+    FUNCTION_FILTER_LABELS,
+    clean_function_description,
+    normalize_function_filter,
+)
 
 
 class CertificateModuleTests(SimpleTestCase):
@@ -28,3 +32,19 @@ class CertificateModuleTests(SimpleTestCase):
         )
         self.assertEqual(normalize_function_filter('comisiones'), 'COMISIONES')
         self.assertEqual(normalize_function_filter('desconocido'), 'TODOS')
+
+    def test_import_source_is_not_used_as_function_description(self):
+        self.assertEqual(
+            clean_function_description(
+                'Importado desde COOR_CEXT/planificacion.xlsx',
+                'Gestión académica',
+            ),
+            'Gestión académica',
+        )
+        self.assertEqual(
+            clean_function_description(
+                'Coordinación de prácticas preprofesionales',
+                'Gestión académica',
+            ),
+            'Coordinación de prácticas preprofesionales',
+        )

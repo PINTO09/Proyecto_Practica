@@ -5,6 +5,33 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum
 
 
+def resolve_f4_teacher_filter(docente_id=None, search=''):
+    """Resuelve una búsqueda exacta de docente para mostrar toda su carga."""
+    if docente_id:
+        return str(docente_id)
+    search = (search or '').strip()
+    if not search:
+        return None
+
+    from django.db.models import Q
+    from docentes.models import DocenteFcacc
+
+    return (
+        DocenteFcacc.objects
+        .filter(
+            Q(nombres_completos__iexact=search)
+            | Q(cedula_docente__iexact=search)
+        )
+        .values_list('id_docente', flat=True)
+        .first()
+    )
+
+
+def effective_f4_career_filter(carrera_id=None, docente_id=None):
+    """Un docente concreto se consulta en todas sus carreras autorizadas."""
+    return None if docente_id else carrera_id
+
+
 def normalize_workload_text(value):
     text = re.sub(r'\s+', ' ', str(value or '').replace('\xa0', ' ')).strip()
     text = unicodedata.normalize('NFKD', text)

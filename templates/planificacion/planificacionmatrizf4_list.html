@@ -86,7 +86,7 @@
       </div>
       <div class="col-auto">
         <label class="small fw-semibold mb-0">Docente</label>
-        <select name="docente" class="form-select form-select-sm" onchange="this.form.submit()">
+        <select name="docente" class="form-select form-select-sm" onchange="if(this.value){this.form.elements.carrera.value='';} this.form.submit()">
           <option value="">Todos</option>
           {% for d in docentes %}
           <option value="{{ d.id_docente }}" {% if docente_id == d.id_docente %}selected{% endif %}>{{ d.nombres_completos|truncatechars:22 }}</option>
@@ -109,6 +109,11 @@
       <div class="col-auto">
         <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-xmark me-1"></i>Limpiar</a>
       </div>
+      {% if docente_id %}
+      <div class="col-12">
+        <div class="form-text"><i class="fas fa-circle-info me-1"></i>Se muestra la planificación completa del docente en todas sus carreras autorizadas.</div>
+      </div>
+      {% endif %}
     </form>
   </div>
 </div>

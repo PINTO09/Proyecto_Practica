@@ -7,11 +7,14 @@ from openpyxl import Workbook, load_workbook
 
 from .views import (
     F4_TEMPLATE_PATH,
+    THIN_BORDER,
     _export_filters,
     _filter_teacher_activity_scope,
+    _format_f4_identity_block,
     _merge_f4_teacher_cells,
     export_resumen_horas_excel,
 )
+from planificacion.services import effective_f4_career_filter
 
 
 class ExportFilterTests(SimpleTestCase):
@@ -22,6 +25,12 @@ class ExportFilterTests(SimpleTestCase):
     def test_ignores_invalid_filters(self):
         request = RequestFactory().get('/', {'periodo': 'x', 'carrera': '-1'})
         self.assertEqual(_export_filters(request), (None, None))
+
+    def test_specific_teacher_overrides_a_stale_career_filter(self):
+        self.assertIsNone(effective_f4_career_filter('4', '1040'))
+
+    def test_career_filter_remains_for_general_queries(self):
+        self.assertEqual(effective_f4_career_filter('4', None), '4')
 
     def test_report_center_has_a_dedicated_route(self):
         self.assertEqual(reverse('reportes:centro_reportes'), '/reportes/')
@@ -83,12 +92,34 @@ class F4TeacherGroupingTests(SimpleTestCase):
 
         _merge_f4_teacher_cells(worksheet, 8, 10)
 
-        self.assertIn('B8:B10', {str(item) for item in worksheet.merged_cells.ranges})
-        self.assertIn('C8:C10', {str(item) for item in worksheet.merged_cells.ranges})
-        self.assertEqual(worksheet['B8'].value, '1300000000')
-        self.assertEqual(worksheet['C8'].value, 'DOCENTE DE PRUEBA')
-        self.assertIsNone(worksheet['B9'].value)
-        self.assertIsNone(worksheet['C10'].value)
+        merged = {str(item) for item in worksheet.merged_cells.ranges}
+        self.assertIn('A8:A10', merged)
+        self.assertNotIn('B8:B10', merged)
+        self.assertNotIn('C8:C10', merged)
+
+    def test_identity_block_looks_merged_but_keeps_every_value_filterable(self):
+        worksheet = Workbook().active
+        for row in range(8, 11):
+            worksheet.cell(row, 2, '1300000000')
+            worksheet.cell(row, 3, 'DOCENTE DE PRUEBA')
+            worksheet.cell(row, 2).border = THIN_BORDER
+            worksheet.cell(row, 3).border = THIN_BORDER
+
+        _format_f4_identity_block(worksheet, 8, 10)
+
+        self.assertEqual(
+            [worksheet.cell(row, 2).value for row in range(8, 11)],
+            ['1300000000'] * 3,
+        )
+        self.assertEqual(
+            [worksheet.cell(row, 3).value for row in range(8, 11)],
+            ['DOCENTE DE PRUEBA'] * 3,
+        )
+        self.assertEqual(worksheet['B8'].number_format, ';;;')
+        self.assertNotEqual(worksheet['B9'].number_format, ';;;')
+        self.assertEqual(worksheet['B10'].number_format, ';;;')
+        self.assertIsNone(worksheet['B9'].border.top.style)
+        self.assertIsNone(worksheet['B9'].border.bottom.style)
 
     def test_single_teacher_row_is_not_merged(self):
         worksheet = Workbook().active
