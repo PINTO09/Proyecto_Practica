@@ -15,11 +15,22 @@ class CurriculoAsignaturaListView(CrudListView):
             qs = qs.filter(es_actividad=False)
         elif tipo == 'activities':
             qs = qs.filter(es_actividad=True)
+        carrera_id = self.request.GET.get('carrera', '')
+        if carrera_id.isdigit():
+            qs = qs.filter(id_carrera_id=carrera_id)
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['tipo_filter'] = self.request.GET.get('tipo', 'all')
+        ctx['carreras'] = CatalogoCarrera.objects.filter(
+            carrera_activa=True
+        ).order_by('nombre_carrera')
+        ctx['carrera_id'] = (
+            int(self.request.GET['carrera'])
+            if self.request.GET.get('carrera', '').isdigit()
+            else None
+        )
         return ctx
 
 class CurriculoAsignaturaCreateView(CrudCreateView):

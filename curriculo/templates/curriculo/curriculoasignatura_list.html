@@ -24,6 +24,14 @@
         </select>
       </div>
       <div class="col-auto">
+        <select name="carrera" class="form-select form-select-sm" id="carreraFilter">
+          <option value="">Todas las carreras</option>
+          {% for item in carreras %}
+          <option value="{{ item.pk }}" {% if carrera_id == item.pk %}selected{% endif %}>{{ item.nombre_carrera }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
         <label class="small fw-semibold me-1 text-muted">Mostrar</label>
         <select name="cant" class="form-select form-select-sm d-inline-block w-auto" id="cantSelect">
           <option value="10" {% if cant == 10 %}selected{% endif %}>10</option>
@@ -95,13 +103,13 @@
   <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
     <ul class="pagination pagination-sm mb-0">
       {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if carrera_id %}&carrera={{ carrera_id }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Anterior</a></li>
       {% endif %}
       {% for p in paginator.page_range %}
-      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
+      <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?page={{ p }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if carrera_id %}&carrera={{ carrera_id }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">{{ p }}</a></li>
       {% endfor %}
       {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_value %}&q={{ search_value }}{% endif %}{% if tipo_filter != 'all' %}&tipo={{ tipo_filter }}{% endif %}{% if carrera_id %}&carrera={{ carrera_id }}{% endif %}{% if cant %}&cant={{ cant }}{% endif %}">Siguiente</a></li>
       {% endif %}
     </ul>
     <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
@@ -109,6 +117,7 @@
       <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;">
       {% if search_value %}<input type="hidden" name="q" value="{{ search_value }}">{% endif %}
       {% if tipo_filter != 'all' %}<input type="hidden" name="tipo" value="{{ tipo_filter }}">{% endif %}
+      {% if carrera_id %}<input type="hidden" name="carrera" value="{{ carrera_id }}">{% endif %}
       {% if cant %}<input type="hidden" name="cant" value="{{ cant }}">{% endif %}
     </form>
   </div>
@@ -123,6 +132,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const searchInput = document.getElementById('searchInput');
   const cantSelect = document.getElementById('cantSelect');
   const tipoFilter = document.getElementById('tipoFilter');
+  const carreraFilter = document.getElementById('carreraFilter');
 
   if (searchInput) {
     searchInput.focus();
@@ -141,6 +151,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   if (tipoFilter) {
     tipoFilter.addEventListener('change', function() { searchForm.submit(); });
+  }
+  if (carreraFilter) {
+    carreraFilter.addEventListener('change', function() { searchForm.submit(); });
   }
 });
 </script>

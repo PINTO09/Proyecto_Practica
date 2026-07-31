@@ -3,9 +3,11 @@ import re
 import unicodedata
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.db.models.deletion import RestrictedError
+from django.http import HttpResponseRedirect
 from django import forms
 from accounts.decorators import can_access_module, allowed_career_ids
 
@@ -96,6 +98,14 @@ def _prepare_crud_form(view, form):
     return form
 
 
+def _clean_verbose_name(instance):
+    meta = getattr(instance, '_meta', None)
+    name = getattr(meta, 'verbose_name', None) or instance.__class__.__name__
+    name = re.sub(r'^\[[^]]+\]\s*', '', name)
+    name = re.sub(r'\s*\([^)]*\)\s*$', '', name)
+    return name.lower()
+
+
 def _get_seguridad_user(user):
     if not user or not user.is_authenticated:
         return None
@@ -118,6 +128,7 @@ def _get_client_ip(request):
 
 
 def _model_to_dict(instance):
+    from decimal import Decimal, InvalidOperation
     result = {}
     for field in instance._meta.get_fields():
         if field.concrete and not field.auto_created:
@@ -129,6 +140,11 @@ def _model_to_dict(instance):
                     val = val.isoformat()
                 elif val is not None and hasattr(val, 'url') and hasattr(val, 'name'):
                     val = val.name
+                elif isinstance(val, Decimal):
+                    try:
+                        val = float(val)
+                    except (ValueError, InvalidOperation):
+                        val = str(val)
                 result[field.attname] = val
             except Exception:
                 result[field.attname] = None
@@ -209,7 +225,7 @@ def _auto_generate_codigo(form):
         setattr(form.instance, codigo_field.attname, generated)
 
 
-def _audit_log(request, instance, action, old_values=None):
+def _audit_log(request, instance, action, old_values=None, registro_pk=None):
     from auditoria.models import AuditoriaRegistroCambios
     if instance._meta.model_name == 'auditoriaregistrocambios':
         return
@@ -218,7 +234,7 @@ def _audit_log(request, instance, action, old_values=None):
     AuditoriaRegistroCambios.objects.create(
         id_usuario=seg_user,
         nombre_tabla_afectada=instance._meta.db_table,
-        id_registro_afectado=instance.pk,
+        id_registro_afectado=registro_pk if registro_pk is not None else instance.pk,
         tipo_accion=action,
         valor_anterior=old_values,
         valor_nuevo=new_values,
@@ -450,11 +466,35 @@ class CrudDeleteView(LoginRequiredMixin, RoleAccessMixin, DeleteView):
         return ctx
 
     def get_success_url(self):
-        messages.success(self.request, 'Registro eliminado correctamente.')
         return reverse_lazy(f'{self.model._meta.app_label}:{self.model._meta.model_name}_list')
 
-    def delete(self, request, *args, **kwargs):
+    def form_valid(self, form):
         self.object = self.get_object()
         old_values = _model_to_dict(self.object)
-        _audit_log(request, self.object, 'DELETE', old_values=old_values)
-        return super().delete(request, *args, **kwargs)
+        deleted_pk = self.object.pk
+        try:
+            self.object.delete()
+        except RestrictedError as exc:
+            self._handle_restricted_delete(self.request, exc)
+            app = self.model._meta.app_label
+            name = self.model._meta.model_name
+            return HttpResponseRedirect(reverse(f'{app}:{name}_list'))
+        _audit_log(self.request, self.object, 'DELETE', old_values=old_values, registro_pk=deleted_pk)
+        messages.success(self.request, 'Registro eliminado correctamente.')
+        return HttpResponseRedirect(
+            reverse(f'{self.model._meta.app_label}:{self.model._meta.model_name}_list')
+        )
+
+    def _handle_restricted_delete(self, request, exc):
+        protected = list(exc.restricted_objects)
+        counts = {}
+        for obj in protected:
+            label = _clean_verbose_name(obj)
+            counts[label] = counts.get(label, 0) + 1
+        detail = '; '.join(f'{label} ({count})' for label, count in counts.items())
+        model_label = _clean_verbose_name(self.object)
+        messages.error(
+            request,
+            f'No se puede eliminar el {model_label}: está siendo utilizado por '
+            f'{detail}. Elimine o reasigne esas referencias antes de continuar.',
+        )
