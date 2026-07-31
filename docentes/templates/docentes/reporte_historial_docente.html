@@ -87,7 +87,7 @@
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-header bg-white fw-semibold">Resumen por carrera</div>
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+      <table class="table table-hover align-middle mb-0 data-table">
         <thead class="table-light"><tr><th class="ps-3">Carrera</th><th>Primer registro</th><th>Último registro</th><th>Períodos</th><th class="pe-3">Tiempo registrado</th></tr></thead>
         <tbody>
           {% for item in career_summaries %}
@@ -107,7 +107,7 @@
   <div class="card border-0 shadow-sm">
     <div class="card-header bg-white fw-semibold">Detalle cronológico</div>
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+      <table class="table table-hover align-middle mb-0 data-table">
         <thead class="table-light"><tr><th class="ps-3">Período</th><th>Fechas</th><th>Duración</th><th>Carrera(s)</th><th>Licencia</th><th class="pe-3">Observación</th></tr></thead>
         <tbody>
           {% for row in rows %}
