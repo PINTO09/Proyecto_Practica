@@ -7,7 +7,7 @@
     <title>{% block title %}Dashboard - ULEAM{% endblock %}</title>
     <link href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/vendor/fontawesome/css/all.min.css' %}">
-    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=layout-fix-20260731b">
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}?v=sidebar-toggle-20260731">
     <link rel="stylesheet" href="{% static 'core/css/searchable-select.css' %}?v=20260723">
     {% block extra_css %}{% endblock %}
     <style>
@@ -184,8 +184,8 @@
     </aside>
     <div class="main-content">
         <header class="topbar">
-            <button class="btn-collapse d-lg-none" id="sidebarToggle" type="button"
-                    aria-label="Abrir menú principal" aria-controls="sidebar" aria-expanded="false">
+            <button class="btn-collapse" id="sidebarToggle" type="button"
+                    aria-label="Ocultar menú principal" aria-controls="sidebar" aria-expanded="true">
                 <i class="fas fa-bars"></i>
             </button>
             <div class="topbar-mobile-title d-lg-none">
@@ -318,32 +318,61 @@
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         const toggle = document.getElementById('sidebarToggle');
+        const mainContent = document.querySelector('.main-content');
         const mobileQuery = window.matchMedia('(max-width: 991.98px)');
+        const COLLAPSE_KEY = 'sidebar-collapsed';
+        if (!sidebar || !overlay || !toggle || !mainContent) return;
 
-        const setSidebar = open => {
-            if (!sidebar || !overlay || !toggle) return;
+        const syncAria = () => {
+            const hidden = mobileQuery.matches
+                ? !sidebar.classList.contains('show')
+                : sidebar.classList.contains('collapsed');
+            const label = hidden ? 'Mostrar menú principal' : 'Ocultar menú principal';
+            toggle.setAttribute('aria-expanded', String(!hidden));
+            toggle.setAttribute('aria-label', label);
+            toggle.setAttribute('title', label);
+        };
+
+        // Cajón deslizante en móvil/tablet: se superpone al contenido.
+        const setMobileOpen = open => {
             const shouldOpen = Boolean(open && mobileQuery.matches);
             sidebar.classList.toggle('show', shouldOpen);
             overlay.classList.toggle('show', shouldOpen);
             document.body.classList.toggle('sidebar-open', shouldOpen);
-            toggle.setAttribute('aria-expanded', String(shouldOpen));
-            toggle.setAttribute('aria-label', shouldOpen ? 'Cerrar menú principal' : 'Abrir menú principal');
+            syncAria();
         };
 
-        toggle?.addEventListener('click', () => setSidebar(!sidebar.classList.contains('show')));
-        overlay?.addEventListener('click', () => setSidebar(false));
+        // Colapso en escritorio: oculta el menú y el contenido recupera el espacio. Se recuerda entre visitas.
+        const setDesktopCollapsed = collapsed => {
+            sidebar.classList.toggle('collapsed', collapsed);
+            mainContent.classList.toggle('sidebar-collapsed', collapsed);
+            localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+            syncAria();
+        };
+
+        if (localStorage.getItem(COLLAPSE_KEY) === '1') setDesktopCollapsed(true);
+        syncAria();
+
+        toggle.addEventListener('click', () => {
+            if (mobileQuery.matches) setMobileOpen(!sidebar.classList.contains('show'));
+            else setDesktopCollapsed(!sidebar.classList.contains('collapsed'));
+        });
+        overlay.addEventListener('click', () => setMobileOpen(false));
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && sidebar?.classList.contains('show')) {
-                setSidebar(false);
-                toggle?.focus();
+            if (event.key === 'Escape' && sidebar.classList.contains('show')) {
+                setMobileOpen(false);
+                toggle.focus();
             }
         });
-        sidebar?.querySelectorAll('a[href]').forEach(link => {
+        sidebar.querySelectorAll('a[href]').forEach(link => {
             link.addEventListener('click', () => {
-                if (mobileQuery.matches) setSidebar(false);
+                if (mobileQuery.matches) setMobileOpen(false);
             });
         });
-        mobileQuery.addEventListener?.('change', () => setSidebar(false));
+        mobileQuery.addEventListener?.('change', () => {
+            setMobileOpen(false);
+            syncAria();
+        });
     })();
     document.addEventListener('input', function(e) {
         const t = e.target;

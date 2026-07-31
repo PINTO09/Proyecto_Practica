@@ -66,6 +66,18 @@ a {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    transition: margin-left 0.28s ease;
+}
+
+@media (min-width: 992px) {
+    .sidebar.collapsed {
+        transform: translateX(-100%);
+        box-shadow: none;
+    }
+
+    .main-content.sidebar-collapsed {
+        margin-left: 0;
+    }
 }
 
 .content-area {
@@ -405,7 +417,13 @@ a {
     height: 38px;
     border-radius: 8px;
     cursor: pointer;
-    margin-right: auto;
+    flex-shrink: 0;
+}
+
+@media (max-width: 991.98px) {
+    .topbar .btn-collapse {
+        margin-right: auto;
+    }
 }
 
 .topbar .btn-collapse:hover {
