@@ -35,7 +35,8 @@ from docentes.models import (
 )
 from curriculo.models import CurriculoAsignatura
 from planificacion.models import (
-    PlanificacionAsignacionDocente, PlanificacionMatrizF4,
+    PlanificacionAsignacionDocente, PlanificacionActividadDocente,
+    PlanificacionMatrizF4,
 )
 from auditoria.models import AuditoriaRegistroCambios
 from restricciones.models import Limitacion
@@ -274,13 +275,30 @@ def dashboard_view(request):
                 context['mis_asignaciones_completo'] = PlanificacionAsignacionDocente.objects.filter(
                     id_docente=docente_fcacc, id_periodo=periodo_activo
                 ).select_related('id_asignatura', 'id_carrera', 'id_campo')
+                context['mis_actividades'] = PlanificacionActividadDocente.objects.filter(
+                    id_docente=docente_fcacc, id_periodo=periodo_activo
+                ).select_related('id_actividad')
         except (ProgrammingError, OperationalError):
             context['mis_asignaciones'] = []
             context['mis_publicaciones'] = []
+            context['mis_actividades'] = []
             context['fcacc_error'] = 'No se pudo cargar la información relacionada del docente.'
     else:
         context['mis_asignaciones'] = []
         context['mis_publicaciones'] = []
+        context['mis_actividades'] = []
+
+    titulos_usuario = []
+    local_docente = Docente.objects.filter(cedula=usuario.cedula).first()
+    if local_docente:
+        titulos_usuario = list(Titulo.objects.filter(id_cedula=local_docente))
+    if docente_fcacc:
+        fcacc_titulos = DocenteTituloAcademico.objects.filter(
+            id_docente=docente_fcacc
+        ).select_related('id_pais', 'id_posgrado')
+        for t in fcacc_titulos:
+            titulos_usuario.append(t)
+    context['mis_titulos'] = titulos_usuario
 
     return render(request, 'core/dashboard.html', context)
 
