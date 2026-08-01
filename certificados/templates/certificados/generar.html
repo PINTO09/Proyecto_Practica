@@ -22,7 +22,12 @@
               <label class="form-label fw-semibold">{{ form.tipo.label }}</label>
               {{ form.tipo }}{{ form.tipo.errors }}
             </div>
-            <div class="col-md-6" id="rightSlot">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">{{ form.periodo.label }}</label>
+              {{ form.periodo }}{{ form.periodo.errors }}
+              <div class="form-text">{{ form.periodo.help_text }}</div>
+            </div>
+            <div class="col-12" id="rightSlot">
               <div class="field-slot" id="docenteSlot">
                 <label class="form-label fw-semibold">{{ form.docente.label }}</label>
                 {{ form.docente }}{{ form.docente.errors }}
@@ -80,6 +85,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const typeField = document.getElementById('id_tipo');
   const filterField = document.getElementById('id_filtro_funciones');
+  const periodoField = document.getElementById('id_periodo');
   const docenteField = document.getElementById('id_docente');
   const rightSlot = document.getElementById('rightSlot');
   const bottomSlot = document.getElementById('bottomSlot');
@@ -119,10 +125,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const tipo = typeField?.value;
     if (!tipo) return;
     const filtro = tipo === 'FUNCIONES' ? (filterField?.value || 'TODOS') : 'TODOS';
+    const periodo = periodoField?.value || '';
     docenteField.disabled = true;
     docenteField.innerHTML = '<option value="">Cargando docentes...</option>';
     try {
-      const url = "{% url 'certificados:api_docentes_por_tipo' %}?tipo=" + encodeURIComponent(tipo) + "&filtro=" + encodeURIComponent(filtro);
+      const url = "{% url 'certificados:api_docentes_por_tipo' %}?tipo=" + encodeURIComponent(tipo)
+        + "&filtro=" + encodeURIComponent(filtro)
+        + "&periodo=" + encodeURIComponent(periodo);
       const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       if (!response.ok) throw new Error('Error en la respuesta');
       const data = await response.json();
@@ -139,6 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   filterField?.addEventListener('change', () => {
     if (typeField?.value === 'FUNCIONES') loadDocentes();
+  });
+  periodoField?.addEventListener('change', () => {
+    docenteField.value = '';
+    loadDocentes();
   });
   applyLayout();
   loadDocentes();

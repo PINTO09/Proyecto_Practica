@@ -7,30 +7,43 @@ from docentes.models import DocenteAsignacionCarreraPeriodo, DocenteFcacc
 from planificacion.models import PlanificacionActividadDocente, PlanificacionAsignacionDocente
 
 
-def docentes_con_datos(tipo, function_filter='TODOS'):
+def docentes_con_datos(tipo, function_filter='TODOS', periodo=None):
     docentes = DocenteFcacc.objects.all()
     if tipo == 'DEDICACION':
         sub = DocenteAsignacionCarreraPeriodo.objects.filter(id_docente=OuterRef('pk'))
+        if periodo is not None:
+            sub = sub.filter(id_periodo=periodo)
         docentes = docentes.filter(Exists(sub))
     elif tipo == 'CATEDRAS':
         sub = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
+        if periodo is not None:
+            sub = sub.filter(id_periodo=periodo)
         docentes = docentes.filter(Exists(sub))
     elif tipo == 'FUNCIONES':
         selected = normalize_function_filter(function_filter)
         if selected == 'ACTIVIDADES':
             sub = PlanificacionActividadDocente.objects.filter(id_docente=OuterRef('pk'))
+            if periodo is not None:
+                sub = sub.filter(id_periodo=periodo)
             docentes = docentes.filter(Exists(sub))
         elif selected == 'ASIGNACIONES':
             sub = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
+            if periodo is not None:
+                sub = sub.filter(id_periodo=periodo)
             docentes = docentes.filter(Exists(sub))
         elif selected == 'COMISIONES':
             sub = PlanificacionAsignacionDocente.objects.filter(
                 id_docente=OuterRef('pk')
             ).exclude(comision_servicio__isnull=True).exclude(comision_servicio='')
+            if periodo is not None:
+                sub = sub.filter(id_periodo=periodo)
             docentes = docentes.filter(Exists(sub))
         else:
             sub_act = PlanificacionActividadDocente.objects.filter(id_docente=OuterRef('pk'))
             sub_asig = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
+            if periodo is not None:
+                sub_act = sub_act.filter(id_periodo=periodo)
+                sub_asig = sub_asig.filter(id_periodo=periodo)
             docentes = docentes.filter(Exists(sub_act) | Exists(sub_asig))
     return docentes
 
@@ -61,7 +74,7 @@ def normalize_function_filter(value):
     return value if value in FUNCTION_FILTER_LABELS else 'TODOS'
 
 
-def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS'):
+def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS', periodo=None):
     common = {
         'docente': {
             'id': teacher.id_docente,
@@ -72,12 +85,16 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
         'filas': [],
         'advertencias': [],
     }
+    if periodo is not None:
+        common['periodo'] = periodo.nombre_periodo
     if certificate_type == 'DEDICACION':
         assignments = DocenteAsignacionCarreraPeriodo.objects.filter(
             id_docente=teacher
         ).select_related(
             'id_periodo', 'id_carrera', 'id_licencia'
         ).order_by('id_periodo__fecha_inicio_periodo', 'id_carrera__nombre_carrera')
+        if periodo is not None:
+            assignments = assignments.filter(id_periodo=periodo)
         periods = OrderedDict()
         for assignment in assignments:
             period = assignment.id_periodo
@@ -107,6 +124,8 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
         ).select_related(
             'id_asignatura', 'id_carrera', 'id_periodo'
         ).order_by('id_periodo__fecha_inicio_periodo', 'id_asignatura__nombre_asignatura')
+        if periodo is not None:
+            assignments = assignments.filter(id_periodo=periodo)
         common['filas'] = [{
             'descripcion': assignment.id_asignatura.nombre_asignatura,
             'unidad': assignment.id_carrera.nombre_carrera,
@@ -132,6 +151,8 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
                 'id_periodo__fecha_inicio_periodo',
                 'id_actividad__nombre_actividad',
             )
+            if periodo is not None:
+                activities = activities.filter(id_periodo=periodo)
             rows.extend({
                 'categoria': 'ACTIVIDADES',
                 'categoria_label': 'Actividad',
@@ -158,6 +179,8 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
                 'id_periodo__fecha_inicio_periodo',
                 'id_asignatura__nombre_asignatura',
             )
+            if periodo is not None:
+                assignments = assignments.filter(id_periodo=periodo)
 
         if selected_filter in ('TODOS', 'ASIGNACIONES'):
             rows.extend({

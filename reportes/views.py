@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from docentes.models import DocenteFcacc, DocenteTituloAcademico, DocenteCampoAfinidad
 from planificacion.models import (
     PlanificacionActividadDocente, PlanificacionAsignacionDocente,
-    PlanificacionMatrizF4,
+    PlanificacionDemandaAcademica, PlanificacionMatrizF4,
 )
 from planificacion.views import _careers_with_planning_data
 from planificacion.services import (
@@ -822,7 +822,6 @@ def descargar_planificacion_original(request):
             'type': 'ASIGNATURA',
             'career_or_type': item.id_carrera.nombre_carrera,
             'name': (
-                f'{item.id_asignatura.codigo_asignatura} - '
                 f'{item.id_asignatura.nombre_asignatura} '
                 f'(Nivel {item.nivel_semestre_asignado})'
             ),
@@ -881,9 +880,7 @@ def descargar_planificacion_original(request):
                 item.id_actividad.tipo_actividad,
                 item.id_actividad.tipo_actividad,
             ),
-            'name': (
-                f'{item.id_actividad.codigo_actividad} - {activity_name}'
-            ),
+            'name': activity_name,
             'affinity': 'NO APLICA',
             'hours': item.horas_asignadas or 0,
             'parallels': 1,
@@ -1283,7 +1280,6 @@ def export_matriz_f4_filtrada(request):
             'type': 'ASIGNATURA',
             'career_or_type': item.id_carrera.nombre_carrera,
             'name': (
-                f'{item.id_asignatura.codigo_asignatura} - '
                 f'{item.id_asignatura.nombre_asignatura} '
                 f'(Nivel {item.nivel_semestre_asignado})'
             ),
@@ -1351,9 +1347,7 @@ def export_matriz_f4_filtrada(request):
                 item.id_actividad.tipo_actividad,
                 item.id_actividad.tipo_actividad,
             ),
-            'name': (
-                f'{item.id_actividad.codigo_actividad} - {activity_name}'
-            ),
+            'name': activity_name,
             'affinity': 'NO APLICA',
             'hours': item.horas_asignadas or 0,
             'parallels': 1,

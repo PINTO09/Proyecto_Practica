@@ -1,4 +1,5 @@
 import uuid
+from collections import OrderedDict
 
 from django.conf import settings
 from django.db import models
@@ -39,6 +40,13 @@ class CertificadoEmitido(models.Model):
     )
     firmante_nombre = models.CharField(max_length=200)
     firmante_cargo = models.CharField(max_length=200)
+    id_periodo = models.ForeignKey(
+        'catalogos.CatalogoPeriodoAcademico', on_delete=models.PROTECT,
+        null=True, blank=True, db_column='id_periodo',
+        related_name='certificados_emitidos',
+        verbose_name='Período académico',
+        help_text='Dejar vacío para incluir todo el historial disponible.',
+    )
     fecha_emision = models.DateField(default=timezone.localdate)
     ciudad = models.CharField(max_length=80, default='Manta')
     datos_certificados = models.JSONField()
@@ -60,3 +68,17 @@ class CertificadoEmitido(models.Model):
 
     def __str__(self):
         return f'{self.codigo} · {self.docente}'
+
+    @property
+    def periodo_display(self):
+        if self.id_periodo_id:
+            return self.id_periodo.nombre_periodo
+        rows = (self.datos_certificados or {}).get('filas', [])
+        periodos = list(OrderedDict.fromkeys(
+            row.get('periodo') for row in rows if row.get('periodo')
+        ))
+        if not periodos:
+            return '—'
+        if len(periodos) == 1:
+            return periodos[0]
+        return f'{periodos[0]} – {periodos[-1]}'

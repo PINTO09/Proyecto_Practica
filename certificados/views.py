@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import ADMIN, AUTORIDAD, allowed_career_ids, module_permission_required, role_required
+from catalogos.models import CatalogoPeriodoAcademico
 from docentes.models import DocenteFcacc
 
 from .forms import FirmanteCertificadoForm, GenerarCertificadoForm
@@ -107,10 +108,12 @@ def generar_certificado(request):
         request.POST or None, allowed_career_ids=allowed_career_ids(request.user)
     )
     if request.method == 'POST' and form.is_valid():
+        periodo = form.cleaned_data.get('periodo')
         snapshot = build_certificate_snapshot(
             form.cleaned_data['tipo'],
             form.cleaned_data['docente'],
             form.cleaned_data['filtro_funciones'],
+            periodo,
         )
         if not snapshot['filas']:
             error_field = (
@@ -128,6 +131,7 @@ def generar_certificado(request):
                 certificate = CertificadoEmitido.objects.create(
                     tipo=form.cleaned_data['tipo'],
                     docente=form.cleaned_data['docente'],
+                    id_periodo=periodo,
                     firmante=signer,
                     firmante_nombre=signer.nombres_completos,
                     firmante_cargo=signer.cargo,
@@ -147,10 +151,17 @@ def generar_certificado(request):
 def api_docentes_por_tipo(request):
     tipo = (request.GET.get('tipo') or '').strip().upper()
     filtro = normalize_function_filter(request.GET.get('filtro'))
+    periodo_pk = (request.GET.get('periodo') or '').strip()
+    periodo = None
+    if periodo_pk:
+        try:
+            periodo = CatalogoPeriodoAcademico.objects.get(pk=periodo_pk)
+        except (CatalogoPeriodoAcademico.DoesNotExist, ValueError):
+            periodo = None
     valid_types = {value for value, _label in CertificadoEmitido.TIPOS}
     if tipo not in valid_types:
         return JsonResponse({'error': 'Tipo de certificado inválido.'}, status=400)
-    docentes = docentes_con_datos(tipo, filtro).select_related('id_dedicacion')
+    docentes = docentes_con_datos(tipo, filtro, periodo).select_related('id_dedicacion')
     permitted = allowed_career_ids(request.user)
     if permitted is not None:
         docentes = docentes.filter(
