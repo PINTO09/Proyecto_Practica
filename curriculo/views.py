@@ -59,10 +59,18 @@ class CurriculoAsignaturaCampoListView(CrudListView):
         )
         carrera_id = self.request.GET.get('carrera')
         campo_id = self.request.GET.get('campo')
+        tipo = self.request.GET.get('tipo', '')
+        semestre = self.request.GET.get('semestre', '')
         if carrera_id:
             qs = qs.filter(id_asignatura__id_carrera_id=carrera_id)
         if campo_id:
             qs = qs.filter(id_campo_id=campo_id)
+        if semestre.isdigit():
+            qs = qs.filter(id_asignatura__nivel_semestre=semestre)
+        if tipo == 'asignaturas':
+            qs = qs.filter(id_asignatura__es_actividad=False)
+        elif tipo == 'actividades':
+            qs = qs.filter(id_asignatura__es_actividad=True)
         return qs.order_by(
             'id_asignatura__id_carrera__nombre_carrera',
             'id_asignatura__nombre_asignatura',
@@ -71,9 +79,13 @@ class CurriculoAsignaturaCampoListView(CrudListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        from django.db.models import Count
+        career_ids = CurriculoAsignatura.objects.values_list(
+            'id_carrera_id', flat=True
+        ).distinct()
         ctx.update({
             'carreras': CatalogoCarrera.objects.filter(
-                carrera_activa=True
+                pk__in=list(career_ids)
             ).order_by('nombre_carrera'),
             'campos': CatalogoCampoConocimiento.objects.order_by(
                 'nombre_campo_conocimiento'
@@ -88,6 +100,11 @@ class CurriculoAsignaturaCampoListView(CrudListView):
                 if self.request.GET.get('campo', '').isdigit()
                 else None
             ),
+            'tipo_id': self.request.GET.get('tipo', 'all'),
+            'semestre_id': self.request.GET.get('semestre', ''),
+            'semestres': list(CurriculoAsignatura.objects.exclude(
+                nivel_semestre__isnull=True
+            ).values_list('nivel_semestre', flat=True).distinct().order_by('nivel_semestre')),
         })
         return ctx
 

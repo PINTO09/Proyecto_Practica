@@ -23,15 +23,23 @@
         <input type="search" name="q" value="{{ search_value }}" class="form-control form-control-sm" placeholder="Código, asignatura o campo">
       </div>
       <div class="col-lg-3">
-        <label class="form-label small fw-semibold">Carrera</label>
-        <select name="carrera" class="form-select form-select-sm" onchange="this.form.submit()">
+        <label class="form-label small fw-semibold">Carrera / actividad</label>
+        <select name="carrera" class="form-select form-select-sm searchable-select-input" onchange="this.form.submit()">
           <option value="">Todas</option>
           {% for item in carreras %}
-          <option value="{{ item.pk }}" {% if carrera_id == item.pk %}selected{% endif %}>{{ item.nombre_carrera }}</option>
+          <option value="{{ item.pk }}" {% if carrera_id == item.pk %}selected{% endif %}>{{ item.nombre_carrera }}{% if item.pk >= 331 %}<span class="badge text-muted"> · actividad</span>{% endif %}</option>
           {% endfor %}
         </select>
       </div>
       <div class="col-lg-3">
+        <label class="form-label small fw-semibold">Tipo</label>
+        <select name="tipo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="all" {% if tipo_id == 'all' %}selected{% endif %}>Todas</option>
+          <option value="asignaturas" {% if tipo_id == 'asignaturas' %}selected{% endif %}>Asignaturas</option>
+          <option value="actividades" {% if tipo_id == 'actividades' %}selected{% endif %}>Actividades docentes</option>
+        </select>
+      </div>
+      <div class="col-lg-2">
         <label class="form-label small fw-semibold">Campo</label>
         <select name="campo" class="form-select form-select-sm" onchange="this.form.submit()">
           <option value="">Todos</option>
@@ -40,8 +48,17 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-lg-2 d-grid">
-        <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-xmark me-1"></i>Limpiar</a>
+      <div class="col-lg-2">
+        <label class="form-label small fw-semibold">Semestre</label>
+        <select name="semestre" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for sem in semestres %}
+          <option value="{{ sem }}" {% if semestre_id == sem|stringformat:'s' %}selected{% endif %}>Semestre {{ sem }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 d-grid d-sm-flex justify-content-sm-end">
+        <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-xmark me-1"></i>Limpiar filtros</a>
       </div>
     </form>
   </div>
@@ -63,10 +80,13 @@
         <tbody>
           {% for obj in object_list %}
           <tr>
-            <td class="ps-3">{{ obj.id_asignatura.id_carrera.nombre_carrera }}</td>
+            <td class="ps-3">
+              {{ obj.id_asignatura.id_carrera.nombre_carrera }}
+              {% if obj.id_asignatura.es_actividad %}<span class="badge text-bg-light border text-muted">Actividad</span>{% endif %}
+            </td>
             <td>
-              <div class="fw-semibold">{{ obj.id_asignatura.codigo_asignatura }}</div>
-              <div class="small text-muted">{{ obj.id_asignatura.nombre_asignatura }}</div>
+              <div class="fw-bold">{{ obj.id_asignatura.nombre_asignatura }}</div>
+              <div class="small text-muted font-monospace">{{ obj.id_asignatura.codigo_asignatura }}</div>
             </td>
             <td>{{ obj.id_asignatura.nivel_semestre }}</td>
             <td>{{ obj.id_campo.nombre_campo_conocimiento }}</td>
