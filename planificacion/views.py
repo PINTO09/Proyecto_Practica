@@ -2040,7 +2040,7 @@ def _get_existing_assignment(asignatura_id, carrera_id=None, periodo_id=None):
 
 # ——— Scoring reutilizable: compatibilidad docente ↔ asignatura ————
 
-def _compute_teacher_scores(subject, periodo_id=None, force_affinity=False, skip_affinity=False):
+def _compute_teacher_scores(subject, periodo_id=None, force_affinity=False, skip_affinity=False, workload_map=None):
     """Return list of teacher dicts with compatibility score for a given subject."""
     from docentes.models import DocenteTituloAcademico
 
@@ -2078,7 +2078,8 @@ def _compute_teacher_scores(subject, periodo_id=None, force_affinity=False, skip
         doc_titulos.setdefault(t['id_docente_id'], []).append(t['id_posgrado_id'])
 
     # Teacher current hours, including F4 activities for the selected period
-    workload_map = build_docente_workload_map(periodo_id=periodo_id)
+    if workload_map is None:
+        workload_map = build_docente_workload_map(periodo_id=periodo_id)
     limites = {l.id_modalidad_id: l for l in LimiteHorario.objects.filter(activo=True)}
 
     results = []
@@ -2474,7 +2475,6 @@ def planificacion_operativa(request):
 
         total_parallel_slots += len(parallel_rows)
         assigned_parallel_slots += assigned_count
-        recommendation_preview = _compute_teacher_scores(demanda.id_asignatura, periodo_id=periodo_id)[:3]
         required_class_hours = demanda.id_asignatura.horas_semanales_asignatura
 
         status = 'completa' if assigned_count >= demanda.numero_paralelos else 'parcial' if assigned_count > 0 else 'pendiente'
@@ -2490,12 +2490,21 @@ def planificacion_operativa(request):
             'parallel_rows': parallel_rows,
             'assigned_parallel_count': assigned_count,
             'pending_parallel_count': max(0, demanda.numero_paralelos - assigned_count),
-            'recommendation_preview': recommendation_preview,
+            'recommendation_preview': None,
             'required_class_hours': required_class_hours,
             'status': status,
         })
 
     paginator, page_obj, page_rows = _paginate_items(request, rows, 6)
+
+    # El calculo de recomendaciones (_compute_teacher_scores) hace varias
+    # consultas por asignatura; antes se ejecutaba para las 321+ demandas
+    # totales en cada carga de pagina. Ahora solo corre sobre los ~6
+    # registros realmente visibles en la pagina actual.
+    for row in page_rows:
+        row['recommendation_preview'] = _compute_teacher_scores(
+            row['demanda'].id_asignatura, periodo_id=periodo_id, workload_map=workload_map
+        )[:3]
 
     demandas_sin_campo = [
         demanda for demanda in demandas
