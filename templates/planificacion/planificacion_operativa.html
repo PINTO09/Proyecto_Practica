@@ -46,13 +46,22 @@
 
 {% if demandas_sin_campo or docentes_sobrecargados %}
 <div class="alert alert-warning border-0 shadow-sm">
-  <div class="fw-bold mb-2"><i class="fas fa-triangle-exclamation me-1"></i>Observaciones que impiden aprobar el período</div>
-  {% for demanda in demandas_sin_campo %}
-    <div class="small">Asignatura sin campo: <strong>{{ demanda.id_asignatura.nombre_asignatura }}</strong> · {{ demanda.id_carrera.nombre_carrera }}</div>
-  {% endfor %}
-  {% for item in docentes_sobrecargados %}
-    <div class="small">Docente sobrecargado: <strong>{{ item.docente.nombres_completos }}</strong> · {{ item.total }}/{{ item.limite }}h</div>
-  {% endfor %}
+  <div class="d-flex justify-content-between align-items-center">
+    <div class="fw-bold mb-0"><i class="fas fa-triangle-exclamation me-1"></i>Observaciones que impiden aprobar el período</div>
+    <button type="button" class="btn btn-sm btn-link p-0 shadow-none text-decoration-none" data-bs-toggle="collapse" data-bs-target="#observationsCollapse" aria-expanded="true" aria-controls="observationsCollapse" id="observationsToggle" title="Mostrar u ocultar observaciones">
+      <i class="fas fa-chevron-up"></i>
+    </button>
+  </div>
+  <div class="collapse show" id="observationsCollapse">
+    <div class="mt-2">
+      {% for demanda in demandas_sin_campo %}
+        <div class="small">Asignatura sin campo: <strong>{{ demanda.id_asignatura.nombre_asignatura }}</strong> · {{ demanda.id_carrera.nombre_carrera }}</div>
+      {% endfor %}
+      {% for item in docentes_sobrecargados %}
+        <div class="small">Docente sobrecargado: <strong>{{ item.docente.nombres_completos }}</strong> · {{ item.total }}/{{ item.limite }}h</div>
+      {% endfor %}
+    </div>
+  </div>
 </div>
 {% endif %}
 
@@ -300,4 +309,23 @@
 {% endfor %}
 
 {% include 'planificacion/_pagination.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const toggle = document.getElementById('observationsToggle');
+  if (!toggle) return;
+  const icon = toggle.querySelector('i');
+  const collapseEl = document.getElementById('observationsCollapse');
+  if (!icon || !collapseEl) return;
+
+  const updateIcon = collapsed => {
+    icon.className = collapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  };
+  collapseEl.addEventListener('shown.bs.collapse', () => updateIcon(false));
+  collapseEl.addEventListener('hidden.bs.collapse', () => updateIcon(true));
+});
+</script>
 {% endblock %}
