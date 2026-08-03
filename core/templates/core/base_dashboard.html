@@ -543,18 +543,16 @@
         });
     })();
 
-    // En los paneles con filtros automáticos, la búsqueda de texto se
-    // aplica tras una pausa breve. Así el botón visible puede dedicarse a
-    // limpiar el conjunto completo de filtros.
+    // En los paneles con filtros, la búsqueda se dispara únicamente al
+    // presionar Enter en el campo de búsqueda. Mientras se escribe, el texto
+    // se actualiza en pantalla sin recargar la lista.
     document.querySelectorAll('form[data-auto-filter]').forEach(form => {
         form.querySelectorAll('[data-filter-search]').forEach(input => {
-            let timer;
-            let previousValue = input.value;
-            input.addEventListener('input', function(){
-                clearTimeout(timer);
-                if (this.value === previousValue) return;
-                previousValue = this.value;
-                timer = setTimeout(() => form.requestSubmit(), 450);
+            input.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    form.requestSubmit();
+                }
             });
         });
     });

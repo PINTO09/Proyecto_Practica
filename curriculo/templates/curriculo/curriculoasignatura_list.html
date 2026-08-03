@@ -133,18 +133,55 @@ document.addEventListener('DOMContentLoaded', function() {
   const cantSelect = document.getElementById('cantSelect');
   const tipoFilter = document.getElementById('tipoFilter');
   const carreraFilter = document.getElementById('carreraFilter');
+  const table = document.querySelector('.data-table');
+  const recordCount = document.getElementById('recordCount');
 
-  if (searchInput) {
+  if (searchInput && table) {
     searchInput.focus();
     searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
-    let debounceTimer;
-    let currentValue = searchInput.value;
-    searchInput.addEventListener('input', function() {
-      clearTimeout(debounceTimer);
-      if (this.value === currentValue) return;
-      currentValue = this.value;
-      debounceTimer = setTimeout(() => searchForm.submit(), 350);
-    });
+    let noResultsRow = null;
+
+    const normalize = value => String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('es')
+      .trim();
+
+    const filterRows = () => {
+      const query = normalize(searchInput.value);
+      const body = table.querySelector('tbody');
+      const rows = Array.from(body.querySelectorAll('tr'));
+
+      let visible = 0;
+      rows.forEach(row => {
+        if (row.dataset.noResults === 'true') { row.hidden = true; return; }
+        const hayCoincidencia = !query || normalize(row.textContent).includes(query);
+        row.hidden = !hayCoincidencia;
+        if (hayCoincidencia) visible += 1;
+      });
+
+      if (!visible) {
+        if (!noResultsRow) {
+          const colspan = table.querySelector('thead tr')?.children.length || 1;
+          noResultsRow = body.insertRow(body.rows.length || 0);
+          noResultsRow.dataset.noResults = 'true';
+          noResultsRow.innerHTML = `<td colspan="${colspan}" class="text-center py-4">
+            <i class="fas fa-magnifying-glass"></i>
+            <div class="fw-semibold text-body mb-1">Sin coincidencias en esta página</div>
+            <div class="small mb-3">Prueba con otro término o revisa las demás páginas.</div>
+          </td>`;
+        }
+        noResultsRow.hidden = false;
+      } else if (noResultsRow) {
+        noResultsRow.hidden = true;
+      }
+
+      if (recordCount) {
+        recordCount.textContent = `${visible} de ${rows.length} registro(s) en esta página`;
+      }
+    };
+
+    searchInput.addEventListener('input', filterRows);
   }
   if (cantSelect) {
     cantSelect.addEventListener('change', function() { searchForm.submit(); });
