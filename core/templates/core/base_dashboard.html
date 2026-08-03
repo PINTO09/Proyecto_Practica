@@ -57,13 +57,28 @@
             .sidebar-overlay.show { display: block; }
             .main-content { margin-left: 0; }
         }
+        input[type="text"],
         input[type="search"],
         input[name="q"],
+        input[type="tel"],
+        input:not([type]),
+        textarea,
         .searchable-select-input {
             text-transform: uppercase;
         }
+        input[type="email"] {
+            text-transform: none;
+        }
+        input[type="text"]::placeholder,
         input[type="search"]::placeholder,
-        input[name="q"]::placeholder {
+        input[name="q"]::placeholder,
+        input[type="tel"]::placeholder,
+        input:not([type])::placeholder,
+        textarea::placeholder {
+            text-transform: none;
+        }
+        input[data-uppercase="false"],
+        textarea[data-uppercase="false"] {
             text-transform: none;
         }
         [data-bs-theme="dark"] .planning-flow { background: #1f2937; border-color: rgba(148,163,184,0.14); }
@@ -385,8 +400,11 @@
     })();
     document.addEventListener('input', function(e) {
         const t = e.target;
-        const isSearch = t.matches('input[type="search"], input[name="q"], .searchable-select-input');
-        if (t.matches('[data-uppercase="true"]') || isSearch) {
+        const isTextEntry = t.matches(
+            'input[type="text"], input[type="search"], input[name="q"], input[type="tel"], input:not([type]), textarea, .searchable-select-input, [data-uppercase="true"]'
+        );
+        const optOut = t.dataset.uppercase === 'false';
+        if (isTextEntry && !optOut) {
             const start = t.selectionStart;
             t.value = t.value.toUpperCase();
             if (typeof t.setSelectionRange === 'function') t.setSelectionRange(start, start);
