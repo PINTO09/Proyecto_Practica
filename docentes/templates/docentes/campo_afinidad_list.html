@@ -68,8 +68,8 @@
             <th class="ps-3" style="min-width:220px;">Docente</th>
             <th style="min-width:110px;">Cédula</th>
             <th style="min-width:250px;">Título Académico</th>
-            <th>Posgrado</th>
-            <th class="pe-3">Campo de Afinidad</th>
+            <th>Campo de conocimiento</th>
+            <th class="pe-3">Posgrado</th>
           </tr>
         </thead>
         <tbody>
@@ -89,17 +89,17 @@
               </div>
             </td>
             <td>
-              {% if obj.id_posgrado %}
-                <span class="badge bg-primary-subtle text-primary-emphasis">{{ obj.id_posgrado.nombre_titulo_posgrado }}</span>
+              {% if obj.related_campos %}
+                {% for campo in obj.related_campos %}
+                <span class="badge bg-info-subtle text-info-emphasis me-1 mb-1">{{ campo.nombre_campo_conocimiento }}</span>
+                {% endfor %}
               {% else %}
                 <span class="text-muted small">—</span>
               {% endif %}
             </td>
             <td class="pe-3">
-              {% if obj.related_campos %}
-                {% for campo in obj.related_campos %}
-                <span class="badge bg-info-subtle text-info-emphasis me-1 mb-1">{{ campo.nombre_campo_conocimiento }}</span>
-                {% endfor %}
+              {% if obj.id_posgrado %}
+                <span class="badge bg-primary-subtle text-primary-emphasis">{{ obj.id_posgrado.nombre_titulo_posgrado }}</span>
               {% else %}
                 <span class="text-muted small">—</span>
               {% endif %}
