@@ -39,6 +39,7 @@ from planificacion.models import (
     PlanificacionMatrizF4,
 )
 from auditoria.models import AuditoriaRegistroCambios
+from certificados.models import CertificadoEmitido
 from restricciones.models import Limitacion
 from accounts.decorators import (
     role_required, ROLES_ADMIN, ROLES_ADMIN_AUTORIDAD,
@@ -528,6 +529,41 @@ def mis_cursos_view(request):
     page_obj = Paginator(cursos, 15).get_page(request.GET.get('page'))
     return render(request, 'core/mis_cursos.html', {
         'cursos': page_obj, 'page_obj': page_obj, 'active_section': 'cursos',
+    })
+
+
+@login_required
+@funcionario_readonly
+def mis_certificados_view(request):
+    usuario = request.user
+    certificados = []
+    try:
+        docente_fcacc = DocenteFcacc.objects.filter(
+            cedula_docente=usuario.cedula
+        ).first()
+        if docente_fcacc:
+            certificados = CertificadoEmitido.objects.filter(
+                docente=docente_fcacc
+            ).select_related('id_periodo')
+    except Exception:
+        certificados = []
+    page_obj = Paginator(certificados, 15).get_page(request.GET.get('page'))
+    return render(request, 'core/mis_certificados.html', {
+        'certificados': page_obj, 'page_obj': page_obj,
+        'active_section': 'certificados',
+    })
+
+
+@login_required
+def ver_certificado_propio_view(request, pk):
+    from django.http import Http404
+    certificado = get_object_or_404(CertificadoEmitido, pk=pk)
+    if certificado.docente.cedula_docente != request.user.cedula:
+        raise Http404('Certificado no encontrado.')
+    return render(request, 'certificados/documento.html', {
+        'certificado': certificado,
+        'datos': certificado.datos_certificados,
+        'active_section': 'certificados',
     })
 
 
