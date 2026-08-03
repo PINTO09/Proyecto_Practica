@@ -96,14 +96,14 @@
     <div class="table-responsive">
       <table class="table table-bordered table-hover align-middle mb-0 report-table">
         {% if report_type == 'dedicacion' %}
-        <thead class="table-light"><tr><th>Período</th><th>Unidad académica / carrera</th><th class="date-cell">Desde</th><th class="date-cell">Hasta</th><th class="nowrap">Tiempo de dedicación</th></tr></thead>
-        <tbody>{% for row in rows %}<tr><td class="nowrap">{{ row.periodo }}</td><td>{{ row.unidad }}</td><td class="date-cell">{{ row.desde|default:'—' }}</td><td class="date-cell">{{ row.hasta|default:'—' }}</td><td class="nowrap">{{ row.dedicacion }}</td></tr>{% endfor %}</tbody>
+        <thead class="table-light"><tr><th>Período académico</th><th>Unidad académica / carrera</th><th class="nowrap">Tiempo de dedicación</th></tr></thead>
+        <tbody>{% for row in rows %}<tr><td class="nowrap">{{ row.periodo }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td></tr>{% endfor %}</tbody>
         {% elif report_type == 'funciones' %}
-        <thead class="table-light"><tr><th class="number-cell">No.</th><th>Tipo</th><th>Cargo / función</th><th>Unidad académica / administrativa</th><th class="date-cell">Desde</th><th class="date-cell">Hasta</th></tr></thead>
-        <tbody>{% for row in rows %}<tr><td class="number-cell">{{ forloop.counter }}</td><td>{{ row.categoria_label }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="date-cell">{{ row.desde|default:'—' }}</td><td class="date-cell">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+        <thead class="table-light"><tr><th class="number-cell">No.</th><th>Tipo</th><th>Cargo / función</th><th>Unidad académica / administrativa</th><th>Período académico</th></tr></thead>
+        <tbody>{% for row in rows %}<tr><td class="number-cell">{{ forloop.counter }}</td><td>{{ row.categoria_label }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.periodo|default:'—' }}</td></tr>{% endfor %}</tbody>
         {% else %}
-        <thead class="table-light"><tr><th class="number-cell">No.</th><th>Cátedra</th><th>Unidad académica</th><th class="nowrap">Dedicación</th><th class="date-cell">Desde</th><th class="date-cell">Hasta</th></tr></thead>
-        <tbody>{% for row in rows %}<tr><td class="number-cell">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td><td class="date-cell">{{ row.desde|default:'—' }}</td><td class="date-cell">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+        <thead class="table-light"><tr><th class="number-cell">No.</th><th>Cátedra</th><th>Unidad académica</th><th class="nowrap">Dedicación</th><th>Período académico</th></tr></thead>
+        <tbody>{% for row in rows %}<tr><td class="number-cell">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td><td class="nowrap">{{ row.periodo|default:'—' }}</td></tr>{% endfor %}</tbody>
         {% endif %}
       </table>
     </div>

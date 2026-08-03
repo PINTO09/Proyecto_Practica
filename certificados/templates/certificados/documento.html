@@ -39,18 +39,18 @@
 
     {% if certificado.tipo == 'DEDICACION' %}
     <p>Historial de períodos académicos y tiempo de dedicación:</p>
-    <table><thead><tr><th class="period-column">Período</th><th>Unidad académica / carrera</th><th class="date-column">Desde</th><th class="date-column">Hasta</th><th class="dedication-column">Tiempo de dedicación</th></tr></thead>
-      <tbody>{% for row in datos.filas %}<tr><td class="nowrap">{{ row.periodo }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td><td class="nowrap">{{ row.dedicacion }}</td></tr>{% endfor %}</tbody>
+    <table><thead><tr><th class="period-column">Período académico</th><th>Unidad académica / carrera</th><th class="dedication-column">Tiempo de dedicación</th></tr></thead>
+      <tbody>{% for row in datos.filas %}<tr><td class="nowrap">{{ row.periodo }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td></tr>{% endfor %}</tbody>
     </table>
     {% elif certificado.tipo == 'CATEDRAS' %}
     <p>Historial de cátedras impartidas:</p>
-    <table><thead><tr><th class="number-column">No.</th><th>Cátedra</th><th>Unidad académica</th><th class="dedication-column">Dedicación</th><th class="date-column">Desde</th><th class="date-column">Hasta</th></tr></thead>
-      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+    <table><thead><tr><th class="number-column">No.</th><th>Cátedra</th><th>Unidad académica</th><th class="dedication-column">Dedicación</th><th class="period-column">Período académico</th></tr></thead>
+      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.dedicacion }}</td><td class="nowrap">{{ row.periodo|default:'—' }}</td></tr>{% endfor %}</tbody>
     </table>
     {% else %}
     <p>Historial de funciones institucionales: {{ datos.filtro_funciones_label|default:'Actividades, asignaciones y comisiones' }}.</p>
-    <table><thead><tr><th class="number-column">No.</th><th>Tipo</th><th>Cargo / función</th><th>Unidad académica</th><th class="date-column">Desde</th><th class="date-column">Hasta</th></tr></thead>
-      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.categoria_label|default:'Función' }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.desde|default:'—' }}</td><td class="nowrap">{{ row.hasta|default:'—' }}</td></tr>{% endfor %}</tbody>
+    <table><thead><tr><th class="number-column">No.</th><th>Tipo</th><th>Cargo / función</th><th>Unidad académica</th><th class="period-column">Período académico</th></tr></thead>
+      <tbody>{% for row in datos.filas %}<tr><td class="nowrap text-center">{{ forloop.counter }}</td><td>{{ row.categoria_label|default:'Función' }}</td><td>{{ row.descripcion }}</td><td>{{ row.unidad }}</td><td class="nowrap">{{ row.periodo|default:'—' }}</td></tr>{% endfor %}</tbody>
     </table>
     {% endif %}
 
