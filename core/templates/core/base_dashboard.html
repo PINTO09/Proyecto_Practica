@@ -57,6 +57,15 @@
             .sidebar-overlay.show { display: block; }
             .main-content { margin-left: 0; }
         }
+        input[type="search"],
+        input[name="q"],
+        .searchable-select-input {
+            text-transform: uppercase;
+        }
+        input[type="search"]::placeholder,
+        input[name="q"]::placeholder {
+            text-transform: none;
+        }
         [data-bs-theme="dark"] .planning-flow { background: #1f2937; border-color: rgba(148,163,184,0.14); }
         [data-bs-theme="dark"] .planning-flow a { color: #cbd5e1; }
         [data-bs-theme="dark"] .planning-flow a:hover { color: #f8fafc; background: rgba(148,163,184,0.12); }
@@ -376,7 +385,8 @@
     })();
     document.addEventListener('input', function(e) {
         const t = e.target;
-        if (t.matches('[data-uppercase="true"]')) {
+        const isSearch = t.matches('input[type="search"], input[name="q"], .searchable-select-input');
+        if (t.matches('[data-uppercase="true"]') || isSearch) {
             const start = t.selectionStart;
             t.value = t.value.toUpperCase();
             if (typeof t.setSelectionRange === 'function') t.setSelectionRange(start, start);
