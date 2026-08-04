@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch, sentinel
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from .views import (
     _filter_teacher_activity_scope,
     _format_f4_identity_block,
     _merge_f4_teacher_cells,
+    _period_allows_official_export,
     export_resumen_horas_excel,
 )
 from planificacion.services import effective_f4_career_filter
@@ -44,6 +46,21 @@ class ExportFilterTests(SimpleTestCase):
 
         self.assertIs(result, sentinel.response)
         general_export.assert_called_once_with(request)
+
+    def test_official_export_requires_an_approved_or_closed_period(self):
+        self.assertTrue(_period_allows_official_export(
+            SimpleNamespace(estado_planificacion='APROBADO')
+        ))
+        self.assertTrue(_period_allows_official_export(
+            SimpleNamespace(estado_planificacion='CERRADO')
+        ))
+        self.assertFalse(_period_allows_official_export(
+            SimpleNamespace(estado_planificacion='BORRADOR')
+        ))
+        self.assertFalse(_period_allows_official_export(
+            SimpleNamespace(estado_planificacion='EN_REVISION')
+        ))
+        self.assertFalse(_period_allows_official_export(None))
 
 
 class ActivityExportScopeTests(SimpleTestCase):

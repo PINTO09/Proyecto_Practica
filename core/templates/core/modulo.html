@@ -21,6 +21,17 @@
     <a href="{% url 'core:dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Volver</a>
 </div>
 
+{% if modulo_slug == 'planificacion' %}
+{% include 'planificacion/_planning_flow.html' %}
+{% if module_next_step %}
+<section class="next-step mb-4 {% if module_next_step.tone == 'warning' %}next-step--warning{% elif module_next_step.tone == 'success' %}next-step--success{% endif %}" aria-labelledby="moduleNextStepTitle">
+    <div class="next-step__icon"><i class="fas {{ module_next_step.icon }}"></i></div>
+    <div class="next-step__content"><div class="next-step__label">Siguiente paso</div><h6 class="next-step__title" id="moduleNextStepTitle">{{ module_next_step.title }}</h6><p class="next-step__description">{{ module_next_step.description }}</p></div>
+    <div class="next-step__action"><a href="{{ module_next_step.url }}" class="btn btn-sm {% if module_next_step.tone == 'warning' %}btn-warning{% elif module_next_step.tone == 'success' %}btn-success{% else %}btn-primary{% endif %}">{{ module_next_step.label }} <i class="fas fa-arrow-right ms-1"></i></a></div>
+</section>
+{% endif %}
+{% endif %}
+
 {% if acciones %}
 <section class="mb-4" aria-labelledby="moduleActionsTitle">
 <div class="mb-2">

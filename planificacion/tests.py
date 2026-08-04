@@ -14,11 +14,14 @@ from .forms import (
 from .management.commands.import_complete_fcacc import _normalize_phone, _valid_email
 from .views import (
     PlanificacionCapacidadEspecialListView, _build_parallel_labels,
-    reporte_horas_docentes,
+    _planning_status_matches, reporte_horas_docentes,
 )
 from .models import PlanificacionAsignacionDocente, PlanificacionCapacidadEspecial
 from .models import BitacoraUsoLaboratorio
-from .services import activity_workload_key, normalize_parallel, periodo_es_editable
+from .services import (
+    activity_workload_key, normalize_parallel, periodo_es_editable,
+    transiciones_periodo_permitidas,
+)
 
 
 def _special_capacity_form_without_database():
@@ -113,6 +116,11 @@ class PlanificacionRulesTests(SimpleTestCase):
         self.assertEqual(_build_parallel_labels(4), ['A', 'B', 'C', 'D'])
         self.assertEqual(_build_parallel_labels(28)[-2:], ['AA', 'AB'])
 
+    def test_incomplete_filter_includes_pending_and_partial_rows(self):
+        self.assertTrue(_planning_status_matches('pendiente', 'incompleta'))
+        self.assertTrue(_planning_status_matches('parcial', 'incompleta'))
+        self.assertFalse(_planning_status_matches('completa', 'incompleta'))
+
     def test_normalizes_parallel(self):
         form = PlanificacionAsignacionDocenteForm()
         form.cleaned_data = {'paralelo_asignado': ' b '}
@@ -152,13 +160,33 @@ class PlanificacionRulesTests(SimpleTestCase):
     def test_normalize_parallel_for_all_entry_points(self):
         self.assertEqual(normalize_parallel('  ab  '), 'AB')
 
-    def test_draft_and_review_periods_are_editable(self):
+    def test_only_draft_period_is_editable(self):
         self.assertTrue(periodo_es_editable(SimpleNamespace(estado_planificacion='BORRADOR')))
-        self.assertTrue(periodo_es_editable(SimpleNamespace(estado_planificacion='EN_REVISION')))
+        self.assertFalse(periodo_es_editable(SimpleNamespace(estado_planificacion='EN_REVISION')))
 
     def test_approved_and_closed_periods_are_locked(self):
         self.assertFalse(periodo_es_editable(SimpleNamespace(estado_planificacion='APROBADO')))
         self.assertFalse(periodo_es_editable(SimpleNamespace(estado_planificacion='CERRADO')))
+
+    def test_user_without_state_management_cannot_transition(self):
+        self.assertEqual(
+            transiciones_periodo_permitidas('BORRADOR'),
+            set(),
+        )
+
+    def test_reviewer_can_submit_return_approve_reopen_and_close(self):
+        self.assertEqual(
+            transiciones_periodo_permitidas('BORRADOR', puede_enviar=True),
+            {'EN_REVISION'},
+        )
+        self.assertEqual(
+            transiciones_periodo_permitidas('EN_REVISION', puede_revisar=True),
+            {'BORRADOR', 'APROBADO'},
+        )
+        self.assertEqual(
+            transiciones_periodo_permitidas('APROBADO', puede_revisar=True),
+            {'BORRADOR', 'CERRADO'},
+        )
 
     def test_period_class_hours_are_traceable(self):
         assignment = SimpleNamespace(horas_clase=6, semanas_planificadas=16)

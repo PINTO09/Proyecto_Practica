@@ -943,11 +943,12 @@ MODULOS = {
         'icono': 'fa-calendar-check',
         'descripcion': 'Flujo principal para construir, revisar y controlar la planificación docente.',
         'acciones': [
-            ('Planificación', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Gestionar demanda, paralelos, recomendaciones y asignaciones desde un solo flujo.', 'PlanificacionDemandaAcademica'),
-            ('Carga y actividades', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revisar la carga docente y registrar las actividades complementarias.', 'PlanificacionAsignacionDocente'),
-            ('Horarios', 'planificacion:planificacionaulahorario_list', 'fa-calendar-days', 'Organizar aulas, días y horas sin cruces de docente o espacio.', 'PlanificacionAulaHorario'),
+            ('1–2 · Preparar y asignar', 'planificacion:planificacion_operativa', 'fa-table-cells', 'Registre demanda y paralelos; después asigne docentes por afinidad y carga.', 'PlanificacionDemandaAcademica'),
+            ('3 · Completar carga', 'planificacion:planificacion_consolidada_docentes', 'fa-clipboard-list', 'Revise las horas de clase y agregue las actividades complementarias.', 'PlanificacionAsignacionDocente'),
+            ('4 · Validar y aprobar', 'planificacion:control_calidad', 'fa-shield-halved', 'Revise pendientes, corrija inconsistencias y gestione el estado final del período.'),
+            ('5 · Exportar', 'reportes:centro_reportes', 'fa-file-excel', 'Descargue reportes de apoyo y, una vez aprobado el período, la Matriz F4 oficial.'),
+            ('Horarios · Complementario', 'planificacion:planificacionaulahorario_list', 'fa-calendar-days', 'Distribuya aulas, días y horas sin cruces de docente o espacio.', 'PlanificacionAulaHorario'),
             ('Aulas y centros de cómputo', 'planificacion:catalogoespacioacademico_list', 'fa-building', 'Registre los espacios que los docentes podrán seleccionar en su registro de actividad.', 'CatalogoEspacioAcademico', 'change'),
-            ('Reportes y control', 'reportes:centro_reportes', 'fa-file-excel', 'Validar la planificación y descargar reportes generales o detallados.'),
         ],
         'modelos': [
             ('Demandas Académicas', 'PlanificacionDemandaAcademica'),
@@ -1080,12 +1081,64 @@ def modulo_view(request, slug):
             'count': _stats_modelo(count_model) if count_model else None,
         })
 
+    module_next_step = None
+    if slug == 'planificacion':
+        from planificacion.models import PlanificacionDemandaAcademica
+
+        active_period = CatalogoPeriodoAcademico.objects.filter(
+            periodo_activo=True
+        ).first()
+        if not active_period:
+            module_next_step = {
+                'tone': 'warning', 'icon': 'fa-calendar-xmark',
+                'title': 'Selecciona o configura el período de trabajo',
+                'description': 'La planificación necesita un período activo para comenzar.',
+                'url': reverse('planificacion:planificacion_operativa'),
+                'label': 'Revisar planificación',
+            }
+        else:
+            demands = PlanificacionDemandaAcademica.objects.filter(
+                id_periodo=active_period
+            )
+            total_slots = sum(
+                max(0, item.numero_paralelos) for item in demands
+            )
+            assigned_slots = PlanificacionAsignacionDocente.objects.filter(
+                id_periodo=active_period
+            ).count()
+            if total_slots == 0:
+                module_next_step = {
+                    'tone': '', 'icon': 'fa-layer-group',
+                    'title': 'Prepara la demanda académica',
+                    'description': f'{active_period.nombre_periodo} todavía no tiene asignaturas ni paralelos registrados.',
+                    'url': reverse('planificacion:planificaciondemandaacademica_list'),
+                    'label': 'Ir a demanda',
+                }
+            elif assigned_slots < total_slots:
+                pending = total_slots - assigned_slots
+                module_next_step = {
+                    'tone': '', 'icon': 'fa-user-plus',
+                    'title': f'Completa {pending} paralelo(s) pendiente(s)',
+                    'description': 'Continúa asignando docentes antes de revisar la carga total.',
+                    'url': f"{reverse('planificacion:planificacion_operativa')}?periodo={active_period.pk}&estado=incompleta#planningWork",
+                    'label': 'Continuar asignando',
+                }
+            else:
+                module_next_step = {
+                    'tone': 'success', 'icon': 'fa-clipboard-check',
+                    'title': 'Revisa la carga y las actividades docentes',
+                    'description': 'Todos los paralelos tienen asignación; continúa con la etapa 3.',
+                    'url': f"{reverse('planificacion:planificacion_consolidada_docentes')}?periodo={active_period.pk}",
+                    'label': 'Revisar carga',
+                }
+
     context = {
         'active_section': f'modulo_{slug}',
         'modulo': info,
         'modulo_slug': slug,
         'modelos': modelos_con_stats,
         'acciones': acciones,
+        'module_next_step': module_next_step,
     }
     return render(request, 'core/modulo.html', context)
 

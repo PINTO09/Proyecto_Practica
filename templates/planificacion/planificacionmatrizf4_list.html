@@ -30,19 +30,19 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
+    <div class="page-eyebrow mb-1">Completar carga · Etapa 3</div>
     <h4 class="fw-bold mb-0"><i class="fas fa-file-excel me-2 text-success"></i>Matriz F4 V1</h4>
     <p class="text-muted mb-0 mt-1 small">Actividades, investigación y otras horas que completan la carga docente.</p>
   </div>
-  <div class="d-flex gap-2 flex-wrap">
-    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-clipboard-list me-1"></i>Carga docente</a>
-    <a href="{% url 'reportes:centro_reportes' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export me-1"></i>Reportes y descargas</a>
-    <a href="{% url 'reportes:export_matriz_f4_filtrada' %}?{{ filter_querystring }}" class="btn btn-sm btn-success"><i class="fas fa-file-excel me-1"></i>Exportar filtrados</a>
+  <div class="d-flex gap-2 flex-wrap justify-content-end">
+    <a href="{% url 'planificacion:planificacion_consolidada_docentes' %}" class="btn btn-outline-secondary" data-smart-back><i class="fas fa-arrow-left me-1"></i>Volver a carga docente</a>
+    <a href="{% url 'reportes:export_matriz_f4_filtrada' %}?{{ filter_querystring }}" class="btn btn-success"><i class="fas fa-file-export me-1"></i>Exportar datos filtrados</a>
+    {% if can_change_records %}<a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nueva actividad F4</a>{% endif %}
   </div>
 </div>
 
-{% include 'planificacion/_planning_flow.html' %}
 {% include 'planificacion/_limit_config_alert.html' %}
 
 <div class="stats-grid">
@@ -193,9 +193,10 @@
           <td class="total-col">{{ item.total_horas_f4 }}</td>
           <td class="hours-col">{% if forloop.first %}{{ carga }}{% endif %}</td>
           <td class="actions-col">
-            {% if item.pk %}
+            {% if item.pk and can_change_records and item.id_periodo.estado_planificacion == 'BORRADOR' %}
             <a href="{% url 'planificacion:planificacionmatrizf4_update' pk=item.pk %}" class="btn btn-sm btn-outline-warning border-0 py-0 px-1" title="Editar"><i class="fas fa-pencil-alt fa-xs"></i></a>
             <a href="{% url 'planificacion:planificacionmatrizf4_delete' pk=item.pk %}" class="btn btn-sm btn-outline-danger border-0 py-0 px-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></a>
+            {% elif item.pk %}<span class="badge bg-secondary-subtle text-secondary"><i class="fas fa-lock me-1"></i>Solo lectura</span>
             {% endif %}
           </td>
         </tr>

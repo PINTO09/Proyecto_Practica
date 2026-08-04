@@ -323,6 +323,9 @@ class CrudListView(LoginRequiredMixin, RoleAccessMixin, ListView):
             if hasattr(f, 'get_internal_type') and f.get_internal_type() == 'DateTimeField'
         }
         ctx['image_fields'] = {f.name for f in fields if hasattr(f, 'get_internal_type') and f.get_internal_type() in image_types}
+        ctx['records_have_period_state'] = any(
+            f.name == 'id_periodo' and f.is_relation for f in fields
+        )
         ctx['model_name'] = name
         ctx['model_verbose'] = getattr(model._meta, 'verbose_name', name)
         ctx['model_verbose_plural'] = getattr(model._meta, 'verbose_name_plural', name)
@@ -336,6 +339,23 @@ class CrudListView(LoginRequiredMixin, RoleAccessMixin, ListView):
         ctx['can_change_records'] = can_access_module(
             getattr(self.request, 'user', None), app, 'change'
         )
+        if app == 'planificacion':
+            planning_parents = {
+                'planificacionactividaddocente': (
+                    'planificacion:planificacion_consolidada_docentes',
+                    'Volver a carga docente',
+                ),
+                'planificacionaulahorario': (
+                    'planificacion:planificacion_operativa',
+                    'Volver a planificación',
+                ),
+            }
+            parent_name, parent_label = planning_parents.get(
+                name,
+                ('core:modulo_planificacion', 'Regresar al resumen'),
+            )
+            ctx['module_summary_url'] = reverse(parent_name)
+            ctx['module_summary_label'] = parent_label
         raw_cant = self.request.GET.get('cant', self.paginate_by)
         try:
             ctx['cant'] = int(raw_cant)
@@ -397,6 +417,8 @@ class CrudCreateView(LoginRequiredMixin, RoleAccessMixin, CreateView):
         ctx['model_name'] = name
         ctx['model_verbose'] = getattr(model._meta, 'verbose_name', name)
         ctx['list_url'] = f'{app}:{name}_list'
+        if app == 'planificacion':
+            ctx['module_summary_url'] = reverse('core:modulo_planificacion')
         ctx['autofill_rules_json'] = json.dumps(self.autofill_rules, default=str)
         return ctx
 
@@ -436,6 +458,8 @@ class CrudUpdateView(LoginRequiredMixin, RoleAccessMixin, UpdateView):
         ctx['model_name'] = name
         ctx['model_verbose'] = getattr(model._meta, 'verbose_name', name)
         ctx['list_url'] = f'{app}:{name}_list'
+        if app == 'planificacion':
+            ctx['module_summary_url'] = reverse('core:modulo_planificacion')
         ctx['autofill_rules_json'] = json.dumps(self.autofill_rules, default=str)
         return ctx
 
@@ -463,6 +487,8 @@ class CrudDeleteView(LoginRequiredMixin, RoleAccessMixin, DeleteView):
         ctx['model_name'] = name
         ctx['model_verbose'] = getattr(model._meta, 'verbose_name', name)
         ctx['list_url'] = f'{app}:{name}_list'
+        if app == 'planificacion':
+            ctx['module_summary_url'] = reverse('core:modulo_planificacion')
         return ctx
 
     def get_success_url(self):

@@ -4,14 +4,17 @@
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
+<div class="page-heading d-flex justify-content-end mb-4">
+  <a href="{% url 'planificacion:bitacora_laboratorios' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Volver al listado</a>
+</div>
 <div class="card border-0 shadow-sm mx-auto" style="max-width: 650px;">
   <div class="card-body p-4">
     <h4 class="fw-bold text-danger"><i class="fas fa-triangle-exclamation me-2"></i>Eliminar registro</h4>
     <p>¿Confirma que desea eliminar el registro de <strong>{{ registro.origen }}</strong>, semana {{ registro.semana }}?</p>
     <form method="post">
       {% csrf_token %}
-      <button class="btn btn-danger"><i class="fas fa-trash me-1"></i>Eliminar</button>
-      <a href="{% url 'planificacion:bitacora_laboratorios' %}" class="btn btn-outline-secondary">Cancelar</a>
+      <a href="{% url 'planificacion:bitacora_laboratorios' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Cancelar y volver</a>
+      <button class="btn btn-danger"><i class="fas fa-trash me-1"></i>Eliminar registro</button>
     </form>
   </div>
 </div>

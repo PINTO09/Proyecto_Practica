@@ -1,4 +1,5 @@
 from django.http import HttpResponse, JsonResponse
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -42,6 +43,13 @@ F4_TEMPLATE_PATH = (
 # para que el autofiltro de Excel no elimine el resto de la carga del docente.
 F4_TEACHER_MERGED_COLUMNS = (1, 4, 8, 9, 16)
 F4_FILTERABLE_IDENTITY_COLUMNS = (2, 3)
+
+
+def _period_allows_official_export(period):
+    """La salida institucional solo existe después de la aprobación formal."""
+    return bool(
+        period and period.estado_planificacion in {'APROBADO', 'CERRADO'}
+    )
 
 
 def _style_header(ws, row, cols):
@@ -203,6 +211,10 @@ def centro_reportes(request):
         if active_period:
             periodo_id = str(active_period.id_periodo)
 
+    selected_period = (
+        periodos.filter(pk=periodo_id).first() if periodo_id else None
+    )
+
     assignments = _filtered_assignments(periodo_id, carrera_id, request.user)
     teacher_ids = _teacher_ids_for_scope(periodo_id, carrera_id, request.user)
     activities = PlanificacionActividadDocente.objects.all()
@@ -231,6 +243,8 @@ def centro_reportes(request):
         'f4_count': f4_rows.count(),
         'teacher_count': teachers_with_load,
         'total_hours': sum(item.get('total_horas', 0) for item in workload.values()),
+        'selected_period': selected_period,
+        'can_export_official': _period_allows_official_export(selected_period),
     }
     return render(request, 'reportes/centro_reportes.html', context)
 
@@ -777,6 +791,14 @@ def descargar_planificacion_original(request):
         raise Http404('La plantilla institucional de la Matriz F4 no está instalada.')
 
     periodo_id, carrera_id = _export_filters(request)
+    selected_period = (
+        CatalogoPeriodoAcademico.objects.filter(pk=periodo_id).first()
+        if periodo_id else None
+    )
+    if not _period_allows_official_export(selected_period):
+        raise PermissionDenied(
+            'La Matriz F4 oficial requiere seleccionar un período aprobado o cerrado.'
+        )
     wb_dst = load_workbook(F4_TEMPLATE_PATH)
     if 'MATRIZ F4 V1' not in wb_dst.sheetnames:
         raise Http404('La plantilla no contiene la hoja MATRIZ F4 V1.')
@@ -1007,10 +1029,7 @@ def descargar_planificacion_original(request):
 
     # Actualizar solo los datos variables. Los títulos, logos, combinaciones y
     # estilos de las filas 1 a 7 permanecen como en la plantilla original.
-    period = (
-        CatalogoPeriodoAcademico.objects.filter(pk=periodo_id).first()
-        if periodo_id else None
-    )
+    period = selected_period
     career = (
         CatalogoCarrera.objects.filter(pk=carrera_id).first()
         if carrera_id else None

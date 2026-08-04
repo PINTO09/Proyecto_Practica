@@ -4,12 +4,14 @@
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
+    <div class="page-eyebrow mb-1">Mi docencia</div>
     <h4 class="fw-bold mb-1"><i class="fas fa-clipboard-check text-primary me-2"></i>Registro de actividad</h4>
     <p class="text-muted mb-0">{{ docente.nombres_completos }} · Documente las actividades realizadas en aulas y centros de cómputo.</p>
   </div>
-  <div class="d-flex gap-2">
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a href="{% url 'core:dashboard' %}" class="btn btn-outline-secondary" data-smart-back><i class="fas fa-arrow-left me-1"></i>Regresar al inicio</a>
     {% if request.user.is_superuser or request.user.groups.first.name|default:'' == 'Administrador' %}
     <a href="{% url 'planificacion:catalogoespacioacademico_list' %}" class="btn btn-outline-primary"><i class="fas fa-building me-1"></i>Administrar espacios</a>
     {% endif %}
@@ -17,7 +19,7 @@
     <a href="{% url 'planificacion:consulta_bitacora_laboratorios' %}" class="btn btn-outline-primary"><i class="fas fa-chart-column me-1"></i>Control general</a>
     {% endif %}
     <a href="{% url 'planificacion:bitacora_laboratorios_crear' %}" class="btn btn-primary">
-      <i class="fas fa-plus me-1"></i>Nuevo registro
+      <i class="fas fa-plus me-1"></i>Nuevo registro de actividad
     </a>
   </div>
 </div>

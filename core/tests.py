@@ -30,7 +30,7 @@ class ResponsiveLayoutTests(SimpleTestCase):
 
     def test_layout_has_mobile_viewport_and_tablet_menu_toggle(self):
         self.assertIn('name="viewport"', self.layout)
-        self.assertIn('btn-collapse d-lg-none', self.layout)
+        self.assertIn('class="btn-collapse" id="sidebarToggle"', self.layout)
         self.assertIn('aria-controls="sidebar"', self.layout)
 
     def test_sidebar_switches_to_drawer_on_tablets(self):

@@ -278,7 +278,20 @@ def docente_tiene_afinidad(docente, asignatura):
 
 def periodo_es_editable(periodo):
     estado = getattr(periodo, 'estado_planificacion', 'BORRADOR') or 'BORRADOR'
-    return estado in {'BORRADOR', 'EN_REVISION'}
+    return estado == 'BORRADOR'
+
+
+def transiciones_periodo_permitidas(
+    estado_actual, *, puede_enviar=False, puede_revisar=False
+):
+    """Devuelve los estados disponibles según la responsabilidad del usuario."""
+    if estado_actual == 'BORRADOR':
+        return {'EN_REVISION'} if puede_enviar else set()
+    if estado_actual == 'EN_REVISION':
+        return {'BORRADOR', 'APROBADO'} if puede_revisar else set()
+    if estado_actual == 'APROBADO':
+        return {'BORRADOR', 'CERRADO'} if puede_revisar else set()
+    return set()
 
 
 def assert_periodo_editable(periodo):

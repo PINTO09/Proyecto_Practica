@@ -4,12 +4,16 @@
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
+    <div class="page-eyebrow mb-1">Herramienta complementaria</div>
     <h4 class="fw-bold mb-1"><i class="fas fa-chart-column text-primary me-2"></i>Control de uso de espacios académicos</h4>
     <p class="text-muted mb-0">Consulta institucional del uso de aulas y centros de cómputo.</p>
   </div>
-  <a href="{% url 'planificacion:catalogoespacioacademico_list' %}" class="btn btn-outline-primary"><i class="fas fa-building me-1"></i>Catálogo de espacios</a>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a href="{% url 'planificacion:bitacora_laboratorios' %}" class="btn btn-outline-secondary" data-smart-back><i class="fas fa-arrow-left me-1"></i>Volver a registros</a>
+    <a href="{% url 'planificacion:catalogoespacioacademico_list' %}" class="btn btn-outline-primary"><i class="fas fa-building me-1"></i>Catálogo de espacios</a>
+  </div>
 </div>
 
 <div class="row g-3 mb-4">

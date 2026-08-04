@@ -25,6 +25,7 @@ from .services import (
     assert_periodo_editable, assignment_hour_category,
     build_docente_workload_map, docente_tiene_afinidad, empty_workload,
     knowledge_field_maps, normalize_parallel, validate_assignment_business_rules,
+    transiciones_periodo_permitidas,
 )
 from .models import (
     BitacoraUsoLaboratorio, CatalogoActividadComplementaria,
@@ -358,6 +359,14 @@ def _build_parallel_labels(total):
     return [_build_parallel_label(i) for i in range(max(total, 0))]
 
 
+def _planning_status_matches(status, selected):
+    if not selected:
+        return True
+    if selected == 'incompleta':
+        return status in {'pendiente', 'parcial'}
+    return status == selected
+
+
 def _filter_querystring(request):
     params = request.GET.copy()
     params.pop('page', None)
@@ -420,10 +429,11 @@ class LenientPaginationMixin:
 
 class PlanningFlowContextMixin:
     planning_active_section = ''
+    show_planning_flow = False
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['show_planning_flow'] = True
+        context['show_planning_flow'] = self.show_planning_flow
         context['active_section'] = self.planning_active_section
         return context
 
@@ -635,6 +645,7 @@ def _add_f4_limit_errors(form, docente, snapshot):
 class PlanificacionDemandaAcademicaListView(PlanningFlowContextMixin, CrudListView):
     model = PlanificacionDemandaAcademica
     planning_active_section = 'planificaciondemandaacademica_list'
+    show_planning_flow = True
     template_name = 'planificacion/planificaciondemandaacademica_list.html'
     paginate_by = 25
 
@@ -1880,6 +1891,10 @@ def control_calidad_planificacion(request):
             )).casefold()
         ]
     _, page_obj, page_rows = _paginate_items(request, issues, 25)
+    periodo_seleccionado = (
+        periodos.filter(pk=periodo_id).first() if periodo_id else None
+    )
+    puede_gestionar_estado = has_role(request.user, ADMIN, AUTORIDAD)
     return render(request, 'planificacion/control_calidad.html', {
         'active_section': 'control_calidad', 'show_planning_flow': True,
         'periodos': periodos, 'periodo_id': int(periodo_id) if periodo_id else None,
@@ -1887,6 +1902,9 @@ def control_calidad_planificacion(request):
         'page_obj': page_obj, 'paginator': page_obj.paginator,
         'is_paginated': page_obj.has_other_pages(),
         'filter_querystring': _filter_querystring(request),
+        'periodo_seleccionado': periodo_seleccionado,
+        'can_submit_period': puede_gestionar_estado,
+        'can_review_period': puede_gestionar_estado,
     })
 
 
@@ -1895,18 +1913,22 @@ def control_calidad_planificacion(request):
 @module_permission_required('planificacion', 'change')
 def cambiar_estado_periodo(request, periodo_id):
     if request.method != 'POST':
-        return redirect('planificacion:planificacion_operativa')
+        return redirect(f"{reverse('planificacion:control_calidad')}?periodo={periodo_id}")
     periodo = get_object_or_404(CatalogoPeriodoAcademico, pk=periodo_id)
     nuevo = request.POST.get('estado')
-    transiciones = {
-        'BORRADOR': {'EN_REVISION'},
-        'EN_REVISION': {'BORRADOR', 'APROBADO'},
-        'APROBADO': {'EN_REVISION', 'CERRADO'},
-        'CERRADO': set(),
-    }
-    if nuevo not in transiciones.get(periodo.estado_planificacion, set()):
-        messages.error(request, 'La transición de estado solicitada no está permitida.')
-        return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+    puede_revisar = has_role(request.user, ADMIN, AUTORIDAD)
+    puede_enviar = puede_revisar
+    permitidas = transiciones_periodo_permitidas(
+        periodo.estado_planificacion,
+        puede_enviar=puede_enviar,
+        puede_revisar=puede_revisar,
+    )
+    if nuevo not in permitidas:
+        messages.error(
+            request,
+            'No tienes permiso para realizar esa transición o el estado solicitado no corresponde al flujo.',
+        )
+        return redirect(f"{reverse('planificacion:control_calidad')}?periodo={periodo_id}")
 
     if nuevo == 'APROBADO':
         demandas = PlanificacionDemandaAcademica.objects.filter(id_periodo=periodo)
@@ -1929,7 +1951,7 @@ def cambiar_estado_periodo(request, periodo_id):
             errores.append(f'hay {sobrecargados} docentes sin límite válido o sobrecargados')
         if errores:
             messages.error(request, 'No se puede aprobar: ' + '; '.join(errores) + '.')
-            return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+            return redirect(f"{reverse('planificacion:control_calidad')}?periodo={periodo_id}")
 
     estado_anterior = periodo.estado_planificacion
     periodo.estado_planificacion = nuevo
@@ -1940,7 +1962,7 @@ def cambiar_estado_periodo(request, periodo_id):
     except Exception:
         pass
     messages.success(request, f'El periodo pasó a {periodo.get_estado_planificacion_display()}.')
-    return redirect(f"{reverse('planificacion:planificacion_operativa')}?periodo={periodo_id}")
+    return redirect(f"{reverse('planificacion:control_calidad')}?periodo={periodo_id}#periodStatusManagement")
 
 
 @login_required
@@ -2260,7 +2282,7 @@ def planificacion_paralelos_matriz(request):
 
     periodo_id = request.GET.get('periodo')
     carrera_id = request.GET.get('carrera')
-    _ensure_career_access(request, carrera_id)
+    permitted_careers = _ensure_career_access(request, carrera_id)
     nivel = request.GET.get('nivel')
     search = (request.GET.get('q') or '').strip()
 
@@ -2378,7 +2400,7 @@ def planificacion_operativa(request):
     periodo_activo = periodos.filter(periodo_activo=True).first()
     periodo_id = request.GET.get('periodo')
     carrera_id = request.GET.get('carrera')
-    _ensure_career_access(request, carrera_id)
+    permitted_careers = _ensure_career_access(request, carrera_id)
     nivel = request.GET.get('nivel')
     estado = request.GET.get('estado')
     search = (request.GET.get('q') or '').strip()
@@ -2478,7 +2500,7 @@ def planificacion_operativa(request):
         required_class_hours = demanda.id_asignatura.horas_semanales_asignatura
 
         status = 'completa' if assigned_count >= demanda.numero_paralelos else 'parcial' if assigned_count > 0 else 'pendiente'
-        if estado and status != estado:
+        if not _planning_status_matches(status, estado):
             continue
 
         rows.append({
@@ -2510,8 +2532,51 @@ def planificacion_operativa(request):
         demanda for demanda in demandas
         if not campos_por_asignatura.get(demanda.id_asignatura_id)
     ]
+
+    # La preparación para aprobar siempre se calcula sobre todo el período
+    # autorizado, independientemente de los filtros de la tabla visible.
+    approval_demands_qs = _scope_careers(
+        PlanificacionDemandaAcademica.objects.select_related(
+            'id_asignatura', 'id_carrera'
+        ),
+        request,
+    )
+    if periodo_id:
+        approval_demands_qs = approval_demands_qs.filter(
+            id_periodo_id=periodo_id
+        )
+    approval_demands = list(approval_demands_qs)
+    approval_total_slots = sum(
+        max(0, item.numero_paralelos) for item in approval_demands
+    )
+    approval_assignments = _scope_careers(
+        PlanificacionAsignacionDocente.objects.all(), request
+    )
+    if periodo_id:
+        approval_assignments = approval_assignments.filter(
+            id_periodo_id=periodo_id
+        )
+    approval_pending_parallel_slots = max(
+        0, approval_total_slots - approval_assignments.count()
+    )
+    approval_demandas_sin_campo = list(
+        approval_demands_qs
+        .filter(id_asignatura__curriculoasignaturacampo__isnull=True)
+        .distinct()
+    )
     docentes_sobrecargados = []
-    for docente in DocenteFcacc.objects.filter(id_docente__in=workload_map).select_related('id_modalidad'):
+    workload_teacher_ids = set(workload_map)
+    if permitted_careers is not None:
+        scoped_teacher_ids = set(
+            PlanificacionAsignacionDocente.objects.filter(
+                id_carrera_id__in=permitted_careers,
+                **({'id_periodo_id': periodo_id} if periodo_id else {}),
+            ).values_list('id_docente_id', flat=True)
+        )
+        workload_teacher_ids &= scoped_teacher_ids
+    for docente in DocenteFcacc.objects.filter(
+        id_docente__in=workload_teacher_ids
+    ).select_related('id_modalidad'):
         limite = _get_limite_horario_docente(docente)
         carga = workload_map.get(docente.id_docente, empty_workload())
         maximo = ((limite.horas_maximas or 0) + (limite.horas_complementarias_maximas or 0)) if limite else 0
@@ -2547,6 +2612,12 @@ def planificacion_operativa(request):
         'pending_parallel_slots': max(0, total_parallel_slots - assigned_parallel_slots),
         'demandas_sin_campo': demandas_sin_campo,
         'docentes_sobrecargados': docentes_sobrecargados,
+        'approval_pending_parallel_slots': approval_pending_parallel_slots,
+        'approval_total_parallel_slots': approval_total_slots,
+        'approval_demandas_sin_campo': approval_demandas_sin_campo,
+        'approval_docentes_sobrecargados': docentes_sobrecargados,
+        'can_submit_period': has_role(request.user, ADMIN, AUTORIDAD),
+        'can_review_period': has_role(request.user, ADMIN, AUTORIDAD),
     }
     return render(request, 'planificacion/planificacion_operativa.html', context)
 

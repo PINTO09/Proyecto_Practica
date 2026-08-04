@@ -5,6 +5,9 @@
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
+<div class="page-heading d-flex justify-content-end mb-4">
+  <a href="{% url list_url %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Volver al listado</a>
+</div>
 <div class="row justify-content-center">
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm">
@@ -19,8 +22,8 @@
         <form method="post">
           {% csrf_token %}
           <div class="d-flex gap-2 justify-content-center">
-            <button type="submit" class="btn btn-danger px-4"><i class="fas fa-trash me-1"></i>Eliminar</button>
-            <a href="{% url list_url %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Volver sin eliminar</a>
+            <a href="{% url list_url %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Cancelar y volver</a>
+            <button type="submit" class="btn btn-danger px-4"><i class="fas fa-trash me-1"></i>Eliminar registro</button>
           </div>
         </form>
       </div>

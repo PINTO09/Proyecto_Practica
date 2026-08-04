@@ -5,67 +5,55 @@
 {% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
+    <div class="page-eyebrow mb-1">Asignar docentes · Etapa 2</div>
     <h4 class="fw-bold mb-0"><i class="fas fa-table-cells-large me-2 text-primary"></i>Planificación Operativa</h4>
-    <p class="text-muted mb-0 mt-1">Vista de trabajo por asignatura y paralelo para construir asignaciones reales dentro del sistema.</p>
+    <p class="text-muted mb-0 mt-1">Aquí se asigna cada paralelo de la demanda al docente que lo impartirá.</p>
   </div>
-  <div class="d-flex gap-2 flex-wrap justify-content-end">
-    {% if periodo_seleccionado %}
-      <span class="badge bg-primary-subtle text-primary border align-self-center px-3 py-2">{{ periodo_seleccionado.get_estado_planificacion_display }}</span>
-      {% if is_admin_or_autoridad %}
-      {% if periodo_seleccionado.estado_planificacion == 'BORRADOR' %}
-      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="EN_REVISION"><button class="btn btn-outline-primary">Enviar a revisión</button></form>
-      {% elif periodo_seleccionado.estado_planificacion == 'EN_REVISION' %}
-      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="BORRADOR"><button class="btn btn-outline-secondary">Volver a borrador</button></form>
-      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="APROBADO"><button class="btn btn-success">Aprobar</button></form>
-      {% elif periodo_seleccionado.estado_planificacion == 'APROBADO' %}
-      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="EN_REVISION"><button class="btn btn-outline-warning">Reabrir revisión</button></form>
-      <form method="post" action="{% url 'planificacion:cambiar_estado_periodo' periodo_seleccionado.id_periodo %}">{% csrf_token %}<input type="hidden" name="estado" value="CERRADO"><button class="btn btn-dark">Cerrar</button></form>
-      {% endif %}
-      {% if periodos_origen and periodo_seleccionado.estado_planificacion == 'BORRADOR' %}
-      <form method="post" action="{% url 'planificacion:copiar_planificacion_periodo' periodo_seleccionado.id_periodo %}" class="d-flex gap-1">
-        {% csrf_token %}
-        <select name="origen" class="form-select" required><option value="">Copiar desde…</option>{% for periodo in periodos_origen %}<option value="{{ periodo.id_periodo }}">{{ periodo.nombre_periodo }}</option>{% endfor %}</select>
-        <button class="btn btn-outline-primary" type="submit" title="Copiar demanda, asignaciones y actividades"><i class="fas fa-copy"></i></button>
-      </form>
-      {% endif %}
-      {% endif %}
-    {% endif %}
-    <a href="{% url 'planificacion:planificaciondemandaacademica_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Demanda</a>
-    <a href="{% url 'planificacion:planificacion_paralelos_matriz' %}" class="btn btn-outline-secondary" title="Vista matricial por nivel y paralelo"><i class="fas fa-grip me-1"></i>Matriz</a>
-    <a href="{% url 'planificacion:planificacionasignaciondocente_list' %}" class="btn btn-outline-secondary" title="Listado técnico de asignaciones"><i class="fas fa-list me-1"></i>Detalle</a>
-    <a href="{% url 'planificacion:asignacion_inteligente' %}" class="btn btn-outline-primary" title="Recomendaciones por afinidad y carga"><i class="fas fa-wand-magic-sparkles me-1"></i>Recomendar</a>
-    <a href="{% url 'planificacion:planificacionmatrizf4_list' %}" class="btn btn-outline-secondary"><i class="fas fa-layer-group me-1"></i>Matriz F4</a>
+  <div class="d-flex flex-wrap gap-2 justify-content-end">
+    <a href="{% url 'core:modulo_planificacion' %}" class="btn btn-outline-secondary" data-smart-back><i class="fas fa-arrow-left me-1"></i>Regresar</a>
+    {% if module_change.planificacion and periodo_seleccionado.estado_planificacion == 'BORRADOR' %}<a href="{% url 'planificacion:planificacionasignaciondocente_create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nueva asignación</a>{% elif module_change.planificacion %}<button type="button" class="btn btn-outline-secondary" disabled title="El período debe estar en borrador para registrar asignaciones"><i class="fas fa-lock me-1"></i>Nueva asignación</button>{% endif %}
+    {% if periodo_seleccionado %}<span class="badge bg-primary-subtle text-primary border px-3 py-2 d-inline-flex align-items-center">{{ periodo_seleccionado.nombre_periodo }} · {{ periodo_seleccionado.get_estado_planificacion_display }}</span>{% endif %}
   </div>
 </div>
 
 {% include 'planificacion/_planning_flow.html' %}
 
-{% include 'planificacion/_limit_config_alert.html' %}
-
-{% if demandas_sin_campo or docentes_sobrecargados %}
-<div class="alert alert-warning border-0 shadow-sm">
-  <div class="d-flex justify-content-between align-items-center">
-    <div class="fw-bold mb-0"><i class="fas fa-triangle-exclamation me-1"></i>Observaciones que impiden aprobar el período</div>
-    <button type="button" class="btn btn-sm btn-link p-0 shadow-none text-decoration-none" data-bs-toggle="collapse" data-bs-target="#observationsCollapse" aria-expanded="true" aria-controls="observationsCollapse" id="observationsToggle" title="Mostrar u ocultar observaciones">
-      <i class="fas fa-chevron-up"></i>
-    </button>
+<section class="next-step mb-4 {% if approval_pending_parallel_slots or approval_demandas_sin_campo or approval_docentes_sobrecargados %}next-step--warning{% elif approval_total_parallel_slots %}next-step--success{% endif %}" aria-labelledby="nextTaskTitle">
+  <div class="next-step__icon"><i class="fas {% if approval_total_parallel_slots == 0 %}fa-layer-group{% elif approval_pending_parallel_slots %}fa-user-plus{% elif approval_demandas_sin_campo or approval_docentes_sobrecargados %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i></div>
+  <div class="next-step__content">
+    <div class="next-step__label">Siguiente paso</div>
+    {% if approval_total_parallel_slots == 0 %}<h6 class="next-step__title" id="nextTaskTitle">Registra la demanda académica</h6><p class="next-step__description">Define las asignaturas y los paralelos que deberán cubrirse.</p>
+    {% elif approval_pending_parallel_slots %}<h6 class="next-step__title" id="nextTaskTitle">Completa {{ approval_pending_parallel_slots }} paralelo{{ approval_pending_parallel_slots|pluralize }} pendiente{{ approval_pending_parallel_slots|pluralize }}</h6><p class="next-step__description">Muestra únicamente las asignaturas que todavía necesitan docente.</p>
+    {% elif approval_demandas_sin_campo or approval_docentes_sobrecargados %}<h6 class="next-step__title" id="nextTaskTitle">Corrige las validaciones pendientes</h6><p class="next-step__description">Hay datos que impedirían aprobar el período.</p>
+    {% else %}<h6 class="next-step__title" id="nextTaskTitle">Revisa la carga docente</h6><p class="next-step__description">Las asignaciones están completas; continúa con actividades y horas totales.</p>{% endif %}
   </div>
-  <div class="collapse show" id="observationsCollapse">
-    <div class="mt-2">
-      {% for demanda in demandas_sin_campo %}
-        <div class="small">Asignatura sin campo: <strong>{{ demanda.id_asignatura.nombre_asignatura }}</strong> · {{ demanda.id_carrera.nombre_carrera }}</div>
-      {% endfor %}
-      {% for item in docentes_sobrecargados %}
-        <div class="small">Docente sobrecargado: <strong>{{ item.docente.nombres_completos }}</strong> · {{ item.total }}/{{ item.limite }}h</div>
-      {% endfor %}
+  <div class="next-step__action">
+    {% if approval_total_parallel_slots == 0 %}<a href="{% url 'planificacion:planificaciondemandaacademica_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i>Registrar demanda</a>
+    {% elif approval_pending_parallel_slots or approval_demandas_sin_campo or approval_docentes_sobrecargados %}<button type="button" class="btn btn-sm btn-warning" data-bs-toggle="collapse" data-bs-target="#nextStepCorrections" aria-expanded="false" aria-controls="nextStepCorrections"><i class="fas fa-list-check me-1"></i>Ver correcciones</button>
+    {% else %}<a href="{% url 'planificacion:planificacion_consolidada_docentes' %}?periodo={{ periodo_id }}" class="btn btn-sm btn-success"><i class="fas fa-arrow-right me-1"></i>Continuar</a>{% endif %}
+  </div>
+  {% if approval_pending_parallel_slots or approval_demandas_sin_campo or approval_docentes_sobrecargados %}
+  <div class="collapse next-step__details" id="nextStepCorrections">
+    <div class="readiness-list">
+      {% if approval_pending_parallel_slots %}<div class="readiness-item"><i class="fas fa-user-clock text-warning"></i><div><strong>{{ approval_pending_parallel_slots }} paralelo{{ approval_pending_parallel_slots|pluralize }} sin docente</strong><small>Todos los paralelos de la demanda deben tener una asignación.</small></div><a href="?periodo={{ periodo_id }}&amp;estado=incompleta#planningWork" class="btn btn-sm btn-outline-primary">Completar asignaciones</a></div>{% endif %}
+      {% if approval_demandas_sin_campo %}<div class="readiness-item"><i class="fas fa-diagram-project text-warning"></i><div><strong>{{ approval_demandas_sin_campo|length }} asignatura{{ approval_demandas_sin_campo|length|pluralize }} sin campo de conocimiento</strong><small>El campo permite comprobar la afinidad académica del docente.</small></div><a href="{% url 'curriculo:curriculoasignaturacampo_list' %}" class="btn btn-sm btn-outline-primary">Configurar campos</a></div>{% endif %}
+      {% if approval_docentes_sobrecargados %}<div class="readiness-item"><i class="fas fa-gauge-high text-danger"></i><div><strong>{{ approval_docentes_sobrecargados|length }} docente{{ approval_docentes_sobrecargados|length|pluralize }} supera o no tiene límite válido</strong><small>Revisa su carga antes de aprobar el período.</small></div><a href="{% url 'planificacion:planificacion_consolidada_docentes' %}?periodo={{ periodo_id }}" class="btn btn-sm btn-outline-primary">Revisar cargas</a></div>{% endif %}
     </div>
+    {% if approval_demandas_sin_campo or approval_docentes_sobrecargados %}<div class="bg-body-tertiary rounded-3 p-3 mt-2">{% for demanda in approval_demandas_sin_campo %}<div class="small mb-1"><i class="fas fa-circle fa-2xs me-2"></i>{{ demanda.id_asignatura.nombre_asignatura }} · {{ demanda.id_carrera.nombre_carrera }}</div>{% endfor %}{% for item in approval_docentes_sobrecargados %}<div class="small mb-1"><i class="fas fa-circle fa-2xs me-2"></i>{{ item.docente.nombres_completos }} · carga {{ item.total }}h / límite {{ item.limite }}h</div>{% endfor %}</div>{% endif %}
   </div>
-</div>
+  {% endif %}
+</section>
+<style>.next-step__details{flex:0 0 100%;padding-top:.75rem;border-top:1px solid var(--bs-border-color)}.readiness-list{display:grid;gap:.65rem}.readiness-item{display:grid;grid-template-columns:2rem minmax(0,1fr) auto;align-items:center;gap:.75rem;padding:.75rem;border:1px solid var(--bs-border-color);border-radius:.75rem;background:var(--bs-body-bg)}.readiness-item>i{font-size:1.1rem;text-align:center}.readiness-item strong,.readiness-item small{display:block}.readiness-item small{color:var(--bs-secondary-color);font-size:.75rem}@media(max-width:575.98px){.readiness-item{grid-template-columns:2rem minmax(0,1fr)}.readiness-item .btn{grid-column:1/-1}}</style>
+
+{% if is_admin_or_autoridad and periodos_origen and periodo_seleccionado.estado_planificacion == 'BORRADOR' %}
+<details class="card border-0 shadow-sm mb-4"><summary class="card-body py-2 small fw-semibold" style="cursor:pointer"><i class="fas fa-copy me-2 text-primary"></i>Copiar datos desde otro período</summary><div class="card-body pt-0"><form method="post" action="{% url 'planificacion:copiar_planificacion_periodo' periodo_seleccionado.id_periodo %}" class="d-flex flex-wrap gap-2">{% csrf_token %}<select name="origen" class="form-select form-select-sm flex-grow-1" required><option value="">Seleccione el período de origen…</option>{% for periodo in periodos_origen %}<option value="{{ periodo.id_periodo }}">{{ periodo.nombre_periodo }}</option>{% endfor %}</select><button class="btn btn-sm btn-outline-primary" type="submit"><i class="fas fa-copy me-1"></i>Copiar planificación</button></form></div></details>
 {% endif %}
 
-<div class="row g-3 mb-4">
+{% include 'planificacion/_limit_config_alert.html' %}
+
+<div class="row g-3 mb-4" id="planningWork">
   <div class="col-md-3 col-6">
     <div class="card border-0 shadow-sm text-center py-3">
       <p class="text-muted small text-uppercase fw-semibold mb-0">Asignaturas</p>
@@ -128,6 +116,7 @@
         <label class="form-label small fw-semibold">Estado</label>
         <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
           <option value="">Todos</option>
+          <option value="incompleta" {% if estado == 'incompleta' %}selected{% endif %}>Requiere asignación</option>
           <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
           <option value="parcial" {% if estado == 'parcial' %}selected{% endif %}>Parcial</option>
           <option value="completa" {% if estado == 'completa' %}selected{% endif %}>Completa</option>
