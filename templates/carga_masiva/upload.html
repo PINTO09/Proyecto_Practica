@@ -1,0 +1,84 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Carga masiva - ULEAM{% endblock %}
+
+{% block content %}
+<div class="page-heading d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <p class="page-eyebrow mb-1">M1 · Catálogos</p>
+    <h4 class="fw-bold mb-0"><i class="fas fa-file-excel me-2 text-primary"></i>Carga masiva de datos</h4>
+    <p class="text-muted mb-0 mt-1">Sube cualquier Excel de planificación FCACC. El sistema detecta automáticamente qué información trae y te muestra una vista previa antes de guardar nada.</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0"><i class="fas fa-upload me-2 text-primary"></i>Subir archivo</h6>
+      </div>
+      <div class="card-body p-4">
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="mb-4">
+            <label for="{{ form.archivo.id_for_label }}" class="form-label small fw-semibold">{{ form.archivo.label }} <span class="text-danger">*</span></label>
+            {{ form.archivo }}
+            {% if form.archivo.help_text %}<div class="form-text">{{ form.archivo.help_text }}</div>{% endif %}
+            {% if form.archivo.errors %}<div class="text-danger small mt-1">{{ form.archivo.errors }}</div>{% endif %}
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="{{ form.periodo_codigo.id_for_label }}" class="form-label small fw-semibold">{{ form.periodo_codigo.label }} <span class="text-danger">*</span></label>
+              {{ form.periodo_codigo }}
+              <div class="form-text">Solo se usa si el archivo trae planificación/asignaciones.</div>
+              {% if form.periodo_codigo.errors %}<div class="text-danger small mt-1">{{ form.periodo_codigo.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label for="{{ form.periodo_nombre.id_for_label }}" class="form-label small fw-semibold">{{ form.periodo_nombre.label }} <span class="text-danger">*</span></label>
+              {{ form.periodo_nombre }}
+              {% if form.periodo_nombre.errors %}<div class="text-danger small mt-1">{{ form.periodo_nombre.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+            <button type="submit" class="btn btn-primary px-4" id="submitBtn"><i class="fas fa-magnifying-glass me-1"></i>Analizar y ver vista previa</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h6 class="fw-bold mb-0"><i class="fas fa-circle-info me-2 text-primary"></i>Cómo funciona</h6>
+      </div>
+      <div class="card-body">
+        <ol class="small text-muted ps-3 mb-3">
+          <li class="mb-2">Sube un solo archivo Excel, el que tengas a mano (docentes, carreras, asignaturas, planificación...).</li>
+          <li class="mb-2">El sistema revisa las hojas que trae y detecta automáticamente a qué información corresponde.</li>
+          <li class="mb-2">Te muestra una vista previa: qué se va a crear, qué se va a modificar y qué se va a retirar — nada se guarda todavía.</li>
+          <li class="mb-2">Confirmas solo si estás de acuerdo. Cada cambio queda registrado en <a href="{% url 'auditoria:auditoriaregistrocambios_list' %}">Auditoría</a> con tu usuario y la fecha.</li>
+        </ol>
+        <p class="small text-muted mb-0">Puedes subir los archivos uno por uno, en cualquier orden. Si un archivo no trae ninguna hoja reconocida, te avisamos antes de procesar nada.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('uploadForm')?.addEventListener('submit', function() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Analizando archivo y calculando vista previa (puede tardar hasta un minuto)...';
+});
+</script>
+{% endblock %}
