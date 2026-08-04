@@ -2844,7 +2844,8 @@ def planificacion_consolidada_docentes(request):
         'filter_querystring': _filter_querystring(request),
         'total_docentes': len(rows),
         'saturados': sum(1 for row in rows if row['status'] == 'saturado'),
-        'completos': sum(1 for row in rows if row['status'] == 'completo' or row['status'] == 'por_completar'),
+        'completos': sum(1 for row in rows if row['status'] == 'completo'),
+        'por_completar': sum(1 for row in rows if row['status'] == 'por_completar'),
         'incompletos': sum(1 for row in rows if row['status'] == 'incompleto'),
         'sin_carga': sum(1 for row in rows if row['status'] == 'sin_carga'),
     }
