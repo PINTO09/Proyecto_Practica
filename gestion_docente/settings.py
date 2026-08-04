@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'restricciones',
     'reportes',
     'certificados',
+    'carga_masiva',
 ]
 
 MIDDLEWARE = [

@@ -123,6 +123,7 @@
                     <a class="nav-link" href="{% url 'catalogos:catalogomodalidadcontratacion_list' %}"><i class="fas fa-file-signature"></i><span>Modalidades</span></a>
                     <a class="nav-link" href="{% url 'catalogos:catalogocampoconocimiento_list' %}"><i class="fas fa-diagram-project"></i><span>Campos de conocimiento</span></a>
                     <a class="nav-link" href="{% url 'catalogos:limitehorario_list' %}"><i class="fas fa-gauge-high"></i><span>Límites horarios</span></a>
+                    {% if module_access.carga_masiva %}<a class="nav-link{% if active_section == 'carga_masiva_subir' %} active{% endif %}" href="{% url 'carga_masiva:subir' %}"><i class="fas fa-file-excel"></i><span>Carga masiva</span></a>{% endif %}
                 </div>
             </details>{% endif %}
 

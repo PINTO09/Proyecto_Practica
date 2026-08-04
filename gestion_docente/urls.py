@@ -20,6 +20,7 @@ urlpatterns = [
     path('reportes/', include('reportes.urls')),
     path('certificados/', include('certificados.urls')),
     path('seguridad/', include('seguridad.urls')),
+    path('carga-masiva/', include('carga_masiva.urls')),
 ]
 
 if settings.DEBUG:

@@ -443,6 +443,11 @@ class Command(BaseCommand):
             r = steps_results[step_num]
             self.stdout.write(f"  {r['label']}: +{r['creados']} ~{r['actualizados']} -{r['omitidos']} (total {r['total']})")
 
+        # Expone el resumen por paso para invocaciones programaticas del
+        # comando (ej. la carga masiva desde la interfaz web), que necesitan
+        # los conteos sin depender del parseo de stdout.
+        self.last_run_results = steps_results
+
     # ── STEP 1: CARRERAS ──
     def _step1_carreras(self, catalog_book, results):
         seen = set()
@@ -616,14 +621,22 @@ class Command(BaseCommand):
                 seen_codes.add(source_code)
                 compact_code = _fit_code(source_code, "ASG-")
                 subject_code_map[source_code] = compact_code
+                horas_total = int(row[2] or 0)
                 obj, created = CurriculoAsignatura.objects.update_or_create(
                     codigo_asignatura=compact_code,
                     defaults={
                         "id_carrera": carrera,
                         "nombre_asignatura": _clean_text(row[1]),
-                        "horas_semanales_asignatura": int(row[2] or 0),
+                        "horas_semanales_asignatura": horas_total,
                         "nivel_semestre": level,
                         "es_actividad": subject_es_act,
+                        # Si horas_semanales_asignatura cambia en una fila ya
+                        # existente, horas_aula/horas_centro_computo deben
+                        # recalcularse tambien o se rompe el CHECK de la BD
+                        # (chk_asignatura_horas_espacio). Igual que en la
+                        # creacion, por defecto todo va a "aula".
+                        "horas_aula": horas_total,
+                        "horas_centro_computo": 0,
                     },
                 )
                 if created:

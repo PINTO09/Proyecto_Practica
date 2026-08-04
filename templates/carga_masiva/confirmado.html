@@ -1,0 +1,68 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Carga masiva completada - ULEAM{% endblock %}
+
+{% block content %}
+<div class="page-heading mb-4">
+  <p class="page-eyebrow mb-1">M1 · Catálogos</p>
+  <h4 class="fw-bold mb-0"><i class="fas fa-circle-check me-2 text-success"></i>Carga masiva completada</h4>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm metric-card metric-card--success h-100">
+      <div class="card-body">
+        <p class="text-muted small text-uppercase fw-semibold mb-1">Creados</p>
+        <h3 class="fw-bold mb-0">{{ total_nuevas }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm metric-card metric-card--warning h-100">
+      <div class="card-body">
+        <p class="text-muted small text-uppercase fw-semibold mb-1">Modificados</p>
+        <h3 class="fw-bold mb-0">{{ total_modificadas }}</h3>
+      </div>
+    </div>
+  </div>
+  {% if total_retiradas %}
+  <div class="col-6 col-lg-3">
+    <div class="card border-0 shadow-sm metric-card metric-card--cyan h-100">
+      <div class="card-body">
+        <p class="text-muted small text-uppercase fw-semibold mb-1">Retirados</p>
+        <h3 class="fw-bold mb-0">{{ total_retiradas }}</h3>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white py-3">
+    <h6 class="fw-bold mb-0"><i class="fas fa-list-check me-2 text-primary"></i>Resumen por tipo de dato</h6>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 data-table">
+      <thead class="table-light">
+        <tr><th>Tipo de dato</th><th class="text-center">Creados</th><th class="text-center">Actualizados</th><th class="text-center">Omitidos</th></tr>
+      </thead>
+      <tbody>
+        {% for r in steps_results %}
+        <tr>
+          <td>{{ r.label }}</td>
+          <td class="text-center">{{ r.creados }}</td>
+          <td class="text-center">{{ r.actualizados }}</td>
+          <td class="text-center">{{ r.omitidos }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2">
+  <a href="{% url 'carga_masiva:subir' %}" class="btn btn-primary"><i class="fas fa-file-excel me-1"></i>Cargar otro archivo</a>
+  <a href="{% url 'auditoria:auditoriaregistrocambios_list' %}" class="btn btn-outline-secondary"><i class="fas fa-clock-rotate-left me-1"></i>Ver registro de cambios</a>
+</div>
+{% endblock %}
