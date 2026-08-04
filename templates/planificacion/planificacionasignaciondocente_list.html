@@ -153,7 +153,7 @@
               <div class="d-flex align-items-center gap-2">
                 <div class="progress flex-grow-1" style="height:8px;">
                   <div class="progress-bar" role="progressbar"
-                       style="width:{{ row.percentage }}%;{% if row.badge == 'danger' %}background-color:#dc3545{% elif row.badge == 'warning' %}background-color:#ffc107;color:#000{% elif row.badge == 'success' %}background-color:#198754{% else %}background-color:#0d6efd{% endif %} !important;">
+                       style="width:{{ row.percentage|stringformat:'g' }}%;{% if row.badge == 'danger' %}background-color:#dc3545{% elif row.badge == 'warning' %}background-color:#ffc107;color:#000{% elif row.badge == 'success' %}background-color:#198754{% else %}background-color:#0d6efd{% endif %} !important;">
                   </div>
                 </div>
                 <span class="badge"

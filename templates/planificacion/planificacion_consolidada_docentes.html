@@ -153,7 +153,7 @@
             <td>
               <div class="d-flex align-items-center gap-2">
                 <div class="barra-carga flex-grow-1">
-                  <div class="fill" style="width:{% if row.max_total > 0 %}{{ row.percentage }}{% else %}0{% endif %}%;background:{% if row.percentage > 100 %}#dc3545{% elif row.percentage >= 100 %}#198754{% elif row.percentage >= 86 %}#ffc107{% elif row.percentage > 0 %}#f39c12{% else %}#e9ecef{% endif %};"></div>
+                  <div class="fill" style="width:{% if row.max_total > 0 %}{{ row.percentage|stringformat:'g' }}{% else %}0{% endif %}%;background:{% if row.percentage > 100 %}#dc3545{% elif row.percentage >= 100 %}#198754{% elif row.percentage >= 86 %}#ffc107{% elif row.percentage > 0 %}#f39c12{% else %}#e9ecef{% endif %};"></div>
                 </div>
                 <small class="text-muted" style="min-width:38px;">{{ row.percentage }}%</small>
               </div>
