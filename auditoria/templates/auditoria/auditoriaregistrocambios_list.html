@@ -68,7 +68,15 @@
           <tr>
             <td class="ps-3 text-nowrap">{{ obj.fecha_hora_cambio|date:'d/m/Y H:i' }}</td>
             <td>{{ obj.usuario_label }}</td>
-            <td><span class="font-monospace small">{{ obj.nombre_tabla_afectada }}</span><div class="small text-muted">Registro #{{ obj.id_registro_afectado }}</div></td>
+            <td>
+              {% if obj.registro %}
+                <span class="small text-muted">{{ obj.registro.modelo_label }}</span>
+                <div class="fw-semibold">{{ obj.registro.texto }}</div>
+              {% else %}
+                <span class="font-monospace small">{{ obj.nombre_tabla_afectada }}</span>
+                <div class="small text-muted">Registro #{{ obj.id_registro_afectado }}</div>
+              {% endif %}
+            </td>
             <td>
               {% if obj.tipo_label == 'INSERT' %}<span class="badge text-bg-success">Creación</span>
               {% elif obj.tipo_label == 'UPDATE' %}<span class="badge text-bg-warning">Modificación</span>
@@ -77,8 +85,11 @@
             </td>
             <td class="pe-3">
               {% if obj.cambios %}
+              <div class="mb-1">
+                <span class="badge bg-primary-subtle text-primary">{{ obj.cambios_count }} campo{{ obj.cambios_count|pluralize }} cambiado{{ obj.cambios_count|pluralize }}</span>
+              </div>
               <ul class="list-unstyled small mb-0">
-                {% for c in obj.cambios|slice:":6" %}
+                {% for c in obj.cambios %}
                 <li class="mb-1" style="white-space:nowrap;">
                   <span class="text-body">{{ c.campo }}:</span>
                   {% if c.anterior is not None %}
@@ -92,7 +103,6 @@
                   {% endif %}
                 </li>
                 {% endfor %}
-                {% if obj.cambios|length > 6 %}<li class="text-muted">… y {{ obj.cambios|length|add:"-6" }} campo(s) más</li>{% endif %}
               </ul>
               {% else %}
               <span class="text-muted small">Sin cambios detectados.</span>
