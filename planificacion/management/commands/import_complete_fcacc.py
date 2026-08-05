@@ -7,6 +7,7 @@ import unicodedata
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import AutoField, BigAutoField
 from openpyxl import load_workbook
 
 from catalogos.models import (
@@ -50,6 +51,39 @@ def _normalize_text(value):
 
 def _clean_text(value):
     return re.sub(r"\s+", " ", str(value or "").replace("\xa0", " ")).strip()
+
+
+def _resync_sequences():
+    """Repara las secuencias de las tablas con PK automático que se cargaron
+    con IDs explícitos (modelos managed=False). Si la secuencia queda por
+    debajo del máximo existente, el próximo INSERT colisiona con un PK ya
+    usado (p.ej. 'pk_relacion_posgrado_campo'). Este paso es idempotente y
+    debe ejecutarse dentro de la misma transacción que el importador."""
+    from django.db import connection
+
+    models = [
+        CatalogoCampoConocimiento, CatalogoCarrera, CatalogoDedicacionHoraria,
+        CatalogoGradoAfinidad, CatalogoModalidadContratacion,
+        CatalogoPeriodoAcademico, CatalogoTipoDocente, CatalogoTituloPosgrado,
+        CatalogoPais, CurriculoAsignatura, CurriculoAsignaturaCampo,
+        RelacionPosgradoCampo, DocenteCampoAfinidad, DocenteFcacc,
+        DocenteTituloAcademico, CatalogoActividadComplementaria,
+        PlanificacionActividadDocente, PlanificacionAsignacionDocente,
+        PlanificacionDemandaAcademica,
+    ]
+    resynced = []
+    with connection.cursor() as cursor:
+        for model in models:
+            pk = model._meta.pk
+            if not isinstance(pk, (AutoField, BigAutoField)):
+                continue
+            sequence = f'{model._meta.db_table}_{pk.column}_seq'
+            try:
+                cursor.execute(f'SELECT setval(%s, COALESCE((SELECT MAX("{pk.column}") FROM "{model._meta.db_table}"), 1), (SELECT MAX("{pk.column}") FROM "{model._meta.db_table}") IS NOT NULL)', [sequence])
+                resynced.append(model._meta.db_table)
+            except Exception:
+                pass
+    return resynced
 
 
 def _fit_code(value, prefix, max_length=20):
@@ -320,6 +354,14 @@ class Command(BaseCommand):
             if not dry_run and periodo.estado_planificacion not in ('BORRADOR', 'EN_REVISION'):
                 raise CommandError(
                     f'El periodo {periodo} está {periodo.get_estado_planificacion_display()} y no admite importaciones.'
+                )
+
+            resynced = _resync_sequences()
+            if resynced:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  Secuencias sincronizadas: {', '.join(resynced)}"
+                    )
                 )
 
             steps_results = {}

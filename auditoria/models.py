@@ -1,9 +1,10 @@
 from django.db import models
+from django.conf import settings
 
 
 class AuditoriaRegistroCambios(models.Model):
     id_registro_auditoria = models.BigAutoField(primary_key=True, db_column='id_registro_auditoria')
-    id_usuario = models.ForeignKey('seguridad.SeguridadUsuario', on_delete=models.SET_NULL, null=True, blank=True, db_column='id_usuario')
+    id_usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, db_column='id_usuario')
     nombre_tabla_afectada = models.CharField(max_length=60, db_column='nombre_tabla_afectada')
     id_registro_afectado = models.BigIntegerField(db_column='id_registro_afectado')
     tipo_accion = models.CharField(max_length=10, db_column='tipo_accion')

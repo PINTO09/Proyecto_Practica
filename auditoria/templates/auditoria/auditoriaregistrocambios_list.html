@@ -1,0 +1,149 @@
+{% extends 'core/base_dashboard.html' %}
+{% load static %}
+{% load crud_tags %}
+
+{% block title %}{{ model_verbose_plural|default:model_name }} - ULEAM{% endblock %}
+{% block sidebar_menu %}{% include 'core/sidebar_docente.html' %}{% endblock %}
+
+{% block content %}
+<div class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <div class="page-eyebrow mb-1">M6 · Auditoría</div>
+    <h4 class="fw-bold mb-1"><i class="fas fa-clock-rotate-left me-2 text-primary"></i>Registro de cambios</h4>
+    <p class="text-muted small mb-0">Historial de cada creación, modificación o eliminación en el sistema.</p>
+  </div>
+  {% if module_summary_url %}<a href="{{ module_summary_url }}" class="btn btn-outline-secondary" data-smart-back><i class="fas fa-arrow-left me-1"></i>{{ module_summary_label|default:'Regresar al resumen' }}</a>{% endif %}
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-lg-4">
+        <label class="form-label small fw-semibold">Buscar</label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-transparent"><i class="fas fa-magnifying-glass text-muted"></i></span>
+          <input type="search" name="q" value="{{ search_value }}" class="form-control" placeholder="Usuario, tabla o IP">
+        </div>
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label small fw-semibold">Tipo de acción</label>
+        <select name="tipo" class="form-select form-select-sm">
+          <option value="">Todas</option>
+          {% for t in tipos %}
+          <option value="{{ t }}" {% if tipo_filter == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label small fw-semibold">Desde</label>
+        <input type="date" name="desde" value="{{ desde }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label small fw-semibold">Hasta</label>
+        <input type="date" name="hasta" value="{{ hasta }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-lg-2 d-grid gap-1">
+        <button class="btn btn-sm btn-primary"><i class="fas fa-filter me-1"></i>Filtrar</button>
+        {% if tipo_filter or desde or hasta or search_value %}<a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-xmark me-1"></i>Limpiar</a>{% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 data-table">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Fecha y hora</th>
+            <th>Usuario</th>
+            <th>Tabla / registro</th>
+            <th>Acción</th>
+            <th class="pe-3">Detalle del cambio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in object_list %}
+          <tr>
+            <td class="ps-3 text-nowrap">{{ obj.fecha_hora_cambio|date:'d/m/Y H:i' }}</td>
+            <td>{{ obj.usuario_label }}</td>
+            <td><span class="font-monospace small">{{ obj.nombre_tabla_afectada }}</span><div class="small text-muted">Registro #{{ obj.id_registro_afectado }}</div></td>
+            <td>
+              {% if obj.tipo_label == 'INSERT' %}<span class="badge text-bg-success">Creación</span>
+              {% elif obj.tipo_label == 'UPDATE' %}<span class="badge text-bg-warning">Modificación</span>
+              {% elif obj.tipo_label == 'DELETE' %}<span class="badge text-bg-danger">Eliminación</span>
+              {% else %}<span class="badge text-bg-secondary">{{ obj.tipo_accion }}</span>{% endif %}
+            </td>
+            <td class="pe-3">
+              {% if obj.cambios %}
+              <ul class="list-unstyled small mb-0">
+                {% for c in obj.cambios|slice:":6" %}
+                <li class="mb-1" style="white-space:nowrap;">
+                  <span class="text-body">{{ c.campo }}:</span>
+                  {% if c.anterior is not None %}
+                    <span class="text-muted">{{ c.anterior }}</span>
+                    <i class="fas fa-arrow-right mx-1 text-muted"></i>
+                    <span class="text-success">{{ c.nuevo|default:'—' }}</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                    <span class="text-muted">&nbsp;&nbsp;</span>
+                    <span class="text-success">{{ c.nuevo|default:'—' }}</span>
+                  {% endif %}
+                </li>
+                {% endfor %}
+                {% if obj.cambios|length > 6 %}<li class="text-muted">… y {{ obj.cambios|length|add:"-6" }} campo(s) más</li>{% endif %}
+              </ul>
+              {% else %}
+              <span class="text-muted small">Sin cambios detectados.</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-4">
+              <div class="empty-state">
+                <i class="far fa-folder-open"></i>
+                <div class="fw-semibold text-body mb-1">No hay registros de cambios</div>
+                <div class="small mb-3">Prueba con otros filtros o limpia la búsqueda actual.</div>
+                <a href="{{ request.path }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-xmark me-1"></i>Limpiar filtros</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+  <span class="text-muted small">{{ page_obj.paginator.count }} registro(s)</span>
+  {% if is_paginated %}
+  <nav>
+    <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+      <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">Anterior</a></li>
+        {% endif %}
+        {% for p in elided_page_range %}
+        {% if p == paginator.ELLIPSIS %}
+        <li class="page-item disabled"><span class="page-link">{{ p }}</span></li>
+        {% else %}
+        <li class="page-item {% if p == page_obj.number %}active{% endif %}"><a class="page-link" href="?{% querystring page=p %}">{{ p }}</a></li>
+        {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">Siguiente</a></li>
+        {% endif %}
+      </ul>
+      <form method="get" class="d-inline-flex align-items-center gap-1 ms-2">
+        <label class="small text-muted mb-0">Ir a:</label>
+        <input type="number" name="page" min="1" max="{{ paginator.num_pages }}" class="form-control form-control-sm" style="width:60px;" aria-label="Ir a página">
+        {% for key, value in request.GET.items %}{% if key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+      </form>
+    </div>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

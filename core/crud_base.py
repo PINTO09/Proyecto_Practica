@@ -109,15 +109,7 @@ def _clean_verbose_name(instance):
 def _get_seguridad_user(user):
     if not user or not user.is_authenticated:
         return None
-    from seguridad.models import SeguridadUsuario
-    for field in ('cedula', 'username', 'email'):
-        val = getattr(user, field, None)
-        if val:
-            try:
-                return SeguridadUsuario.objects.get(nombre_usuario=val)
-            except SeguridadUsuario.DoesNotExist:
-                continue
-    return None
+    return user
 
 
 def _get_client_ip(request):
