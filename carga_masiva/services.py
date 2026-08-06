@@ -268,10 +268,16 @@ def detect_and_build_dir(uploaded_file, token):
     cero filas) para que import_complete_fcacc solo procese la información
     de este archivo. Devuelve (base_dir, etiquetas_detectadas).
 
+    Reconoce cada hoja por su nombre canónico o, si no coincide, por sus
+    encabezados (header_map.detect_sheet) reordenando las columnas al layout
+    que espera el importador.
+
     Levanta ArchivoNoReconocido si ninguna hoja del archivo coincide con lo
     que espera el importador.
     """
-    from openpyxl import load_workbook
+    from openpyxl import Workbook, load_workbook
+
+    from .header_map import detect_sheet, rebuild_rows
 
     base_dir = temp_dir(token)
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -283,12 +289,38 @@ def detect_and_build_dir(uploaded_file, token):
 
     # data_only=True para que las celdas con formulas traigan su ultimo valor
     # calculado en vez del texto de la formula.
-    wb = load_workbook(upload_path, data_only=True)
+    try:
+        wb = load_workbook(upload_path, data_only=True)
+    except Exception as exc:
+        upload_path.unlink(missing_ok=True)
+        raise ArchivoNoReconocido(
+            'No se pudo abrir el archivo como Excel .xlsx (¿es un .xls o '
+            f'está dañado?). Detalle: {exc}'
+        ) from exc
     sheet_names = set(wb.sheetnames)
 
     matched_slots = set()
     for sheet in sheet_names:
         matched_slots.update(SHEET_TO_SLOTS.get(sheet, []))
+
+    # Se normalizan las hojas a su nombre canónico. Las que ya traen un nombre
+    # canónico se respetan tal cual; las demás se intentan reconocer por sus
+    # encabezados y se reordenan al layout canónico del importador.
+    normalized = {}
+    for sheet in wb.sheetnames:
+        if sheet in SHEET_TO_SLOTS:
+            normalized[sheet] = list(wb[sheet].iter_rows(values_only=True))
+    for sheet in wb.sheetnames:
+        if sheet in SHEET_TO_SLOTS or sheet in normalized:
+            continue
+        rows = list(wb[sheet].iter_rows(values_only=True))
+        if not rows:
+            continue
+        canonical, col_map = detect_sheet(rows[0])
+        if not canonical or canonical in normalized:
+            continue
+        normalized[canonical] = rebuild_rows(rows, col_map)
+        matched_slots.update(SHEET_TO_SLOTS.get(canonical, []))
 
     if not matched_slots:
         wb.close()
@@ -302,12 +334,21 @@ def detect_and_build_dir(uploaded_file, token):
     # subido tenga esa hoja exacta, vacio donde no) -- asi un archivo que
     # solo trae ALGUNAS de las hojas de un slot (p.ej. solo ASIGNACION, sin
     # EDU_DOCENTE) nunca deja una hoja faltante que rompa al importador.
+    norm_wb = Workbook()
+    default_sheet = norm_wb.active
+    for i, (name, rows) in enumerate(normalized.items()):
+        ws = default_sheet if i == 0 else norm_wb.create_sheet()
+        ws.title = name
+        for row in rows:
+            ws.append(row)
+
     for relative_path, stub_sheets, _label in SLOT_SPECS.values():
         dest = base_dir / relative_path
         dest.parent.mkdir(parents=True, exist_ok=True)
-        _write_merged(dest, wb, stub_sheets)
+        _write_merged(dest, norm_wb, stub_sheets)
 
     wb.close()
+    norm_wb.close()
     upload_path.unlink(missing_ok=True)
     detected_labels = sorted(SLOT_SPECS[slot][2] for slot in matched_slots)
     return base_dir, detected_labels

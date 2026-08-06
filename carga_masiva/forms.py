@@ -8,7 +8,9 @@ class CargaMasivaUploadForm(forms.Form):
         label='Archivo Excel',
         help_text='Sube cualquiera de los Excel de planificación FCACC (docentes, carreras, '
                    'asignaturas, planificación, etc.). El sistema detecta automáticamente qué '
-                   'información trae.',
+                   'información trae: reconoce las hojas por su nombre o por sus encabezados '
+                   '(cédula, nombres, correo, modalidad...), así que el orden de las columnas '
+                   'no importa.',
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls'}),
     )
     periodo_codigo = forms.CharField(

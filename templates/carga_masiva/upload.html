@@ -62,7 +62,7 @@
       <div class="card-body">
         <ol class="small text-muted ps-3 mb-3">
           <li class="mb-2">Sube un solo archivo Excel, el que tengas a mano (docentes, carreras, asignaturas, planificación...).</li>
-          <li class="mb-2">El sistema revisa las hojas que trae y detecta automáticamente a qué información corresponde.</li>
+          <li class="mb-2">El sistema revisa las hojas y los encabezados que trae y detecta automáticamente a qué información corresponde. Las columnas se reconocen por su nombre (cédula, nombres, correo, modalidad...), sin importar el orden.</li>
           <li class="mb-2">Te muestra una vista previa: qué se va a crear, qué se va a modificar y qué se va a retirar — nada se guarda todavía.</li>
           <li class="mb-2">Confirmas solo si estás de acuerdo. Cada cambio queda registrado en <a href="{% url 'auditoria:auditoriaregistrocambios_list' %}">Auditoría</a> con tu usuario y la fecha.</li>
         </ol>
