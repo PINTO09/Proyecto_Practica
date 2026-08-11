@@ -107,7 +107,20 @@ def _clean_verbose_name(instance):
 
 
 def _get_seguridad_user(user):
+    """Usuario a asociar en auditoria_registro_cambios, o None si no aplica.
+
+    La restricción real de esa tabla (fk_aud_usuario) apunta a la tabla
+    legada `seguridad_usuario`, no a AUTH_USER_MODEL, aunque el modelo
+    Django declare el FK hacia este último; solo "funciona" por coincidencia
+    de IDs para las cuentas sembradas junto con ese esquema legado. Cualquier
+    usuario sin fila en seguridad_usuario (toda cuenta creada desde el
+    sistema actual) hace fallar el INSERT con IntegrityError si no se
+    valida antes, así que se guarda NULL en su lugar.
+    """
     if not user or not user.is_authenticated:
+        return None
+    from seguridad.models import SeguridadUsuario
+    if not SeguridadUsuario.objects.filter(pk=user.pk).exists():
         return None
     return user
 

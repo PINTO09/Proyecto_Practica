@@ -1,0 +1,45 @@
+{% if detalle %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle mb-0 data-table">
+    <thead class="table-light"><tr><th>Entidad</th><th>Acción</th><th>Registro</th><th>Cambios</th></tr></thead>
+    <tbody>
+      {% for item in detalle %}
+      <tr>
+        <td class="text-nowrap">{{ item.label }}</td>
+        <td class="text-nowrap">
+          {% if item.accion == 'INSERT' %}<span class="badge text-bg-success">Creación</span>
+          {% elif item.accion == 'UPDATE' %}<span class="badge text-bg-warning">Modificación</span>
+          {% else %}<span class="badge text-bg-danger">Retiro</span>{% endif %}
+        </td>
+        <td>{{ item.registro_texto }}</td>
+        <td>
+          {% if item.cambios %}
+          <ul class="list-unstyled small mb-0">
+            {% for c in item.cambios %}
+            <li class="mb-1" style="white-space:nowrap;">
+              <span class="text-body">{{ c.campo }}:</span>
+              {% if c.anterior is not None %}
+                <span class="text-muted">{{ c.anterior }}</span>
+                <i class="fas fa-arrow-right mx-1 text-muted"></i>
+                <span class="text-success">{{ c.nuevo|default:'—' }}</span>
+              {% else %}
+                <span class="text-success">{{ c.nuevo|default:'—' }}</span>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if detalle_total > detalle_mostrado %}
+<p class="small text-muted mt-2 mb-0">Se muestran {{ detalle_mostrado }} de {{ detalle_total }} filas.</p>
+{% endif %}
+{% else %}
+<p class="text-muted small mb-0">No hay detalle disponible para esta carga.</p>
+{% endif %}

@@ -74,11 +74,36 @@
 {% endblock %}
 
 {% block extra_js %}
+{% include 'carga_masiva/_error_modal.html' %}
 <script>
-document.getElementById('uploadForm')?.addEventListener('submit', function() {
+document.getElementById('uploadForm')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = e.target;
   const btn = document.getElementById('submitBtn');
+  const originalHtml = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Analizando archivo y calculando vista previa (puede tardar hasta un minuto)...';
+
+  fetch(window.location.href, {
+    method: 'POST',
+    body: new FormData(form),
+    headers: {'X-Requested-With': 'XMLHttpRequest'},
+  })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        window.location.href = data.redirect;
+        return;
+      }
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      showCmError(data.error || 'Ocurrió un error al procesar la solicitud.');
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      showCmError('No se pudo conectar con el servidor. Intenta de nuevo.');
+    });
 });
 </script>
 {% endblock %}

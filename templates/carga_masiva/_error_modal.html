@@ -1,0 +1,29 @@
+<div class="modal fade" id="cmErrorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title text-danger"><i class="fas fa-triangle-exclamation me-2"></i>No se pudo continuar</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="cmErrorModalMessage" class="mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Entendido</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function showCmError(mensaje) {
+  document.getElementById('cmErrorModalMessage').textContent = mensaje;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('cmErrorModal')).show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.alert-error, .alert-danger').forEach(function(el) {
+    var text = el.textContent.trim();
+    if (text) { showCmError(text); }
+  });
+});
+</script>

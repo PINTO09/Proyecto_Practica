@@ -562,27 +562,63 @@ def run_import(base_dir, periodo_codigo, periodo_nombre, *, commit):
     return diff_snapshots(before, after), steps_results
 
 
-def apply_audit_log(request, diff):
-    """Registra en auditoria_registro_cambios cada fila creada/modificada,
-    reusando la misma función que usan las vistas CRUD genéricas."""
-    from core.crud_base import _audit_log
+CARGA_MASIVA_TABLA = 'carga_masiva'
 
+
+def apply_audit_log(request, diff, *, nombre_archivo):
+    """Registra en auditoria_registro_cambios UN solo movimiento por carga
+    ("datos cargados de <archivo>"), con el detalle completo de cada fila
+    creada/modificada/retirada -incluido su estado anterior- embebido en
+    valor_nuevo. Así el detalle sigue disponible desde "ver más" aunque los
+    archivos temporales de la carga ya se hayan borrado.
+
+    No usa _audit_log (una fila por registro) porque el pedido es agrupar
+    todo el resultado de la carga en un único movimiento de auditoría."""
+    from auditoria.models import AuditoriaRegistroCambios
+    from core.crud_base import _get_client_ip, _get_seguridad_user
+
+    detalle = []
+    total_nuevas = total_modificadas = total_retiradas = 0
     for model, changes in diff.items():
+        tabla = model._meta.db_table
         for item in changes['new']:
-            try:
-                instance = model.objects.get(pk=item['pk'])
-            except model.DoesNotExist:
-                continue
-            _audit_log(request, instance, 'INSERT')
+            detalle.append({
+                'tabla': tabla, 'accion': 'INSERT', 'pk': item['pk'],
+                'anterior': None, 'nuevo': item['data'],
+            })
+            total_nuevas += 1
         for item in changes['changed']:
-            try:
-                instance = model.objects.get(pk=item['pk'])
-            except model.DoesNotExist:
-                continue
-            _audit_log(request, instance, 'UPDATE', old_values=item['old'])
+            detalle.append({
+                'tabla': tabla, 'accion': 'UPDATE', 'pk': item['pk'],
+                'anterior': item['old'], 'nuevo': item['new'],
+            })
+            total_modificadas += 1
         for item in changes.get('removed', []):
-            # La fila ya no existe en la BD (el importador la retiró, p.ej.
-            # por afinidad invalida); se arma una instancia transitoria solo
-            # para que _audit_log pueda leer su tabla/pk, sin consultarla.
-            instance = model(pk=item['pk'])
-            _audit_log(request, instance, 'DELETE', old_values=item['data'], registro_pk=item['pk'])
+            detalle.append({
+                'tabla': tabla, 'accion': 'DELETE', 'pk': item['pk'],
+                'anterior': item['data'], 'nuevo': None,
+            })
+            total_retiradas += 1
+
+    if not detalle:
+        return None
+
+    payload = {
+        'carga_masiva': True,
+        'archivo': nombre_archivo,
+        'resumen': {
+            'nuevas': total_nuevas,
+            'modificadas': total_modificadas,
+            'retiradas': total_retiradas,
+        },
+        'detalle': detalle,
+    }
+    return AuditoriaRegistroCambios.objects.create(
+        id_usuario=_get_seguridad_user(request.user),
+        nombre_tabla_afectada=CARGA_MASIVA_TABLA,
+        id_registro_afectado=0,
+        tipo_accion='INSERT',
+        valor_anterior=None,
+        valor_nuevo=payload,
+        direccion_ip_origen=_get_client_ip(request),
+    )

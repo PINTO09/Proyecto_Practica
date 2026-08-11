@@ -50,6 +50,17 @@
   </div>
 </div>
 
+{% if not filtros_activos %}
+<div class="alert alert-primary d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+  <span class="small"><i class="fas fa-circle-info me-1"></i>Mostrando solo las cargas masivas. El resto de los movimientos (cambio por cambio) aparece al filtrar o al pedir verlos.</span>
+  {% if ver_todos %}
+  <a href="{{ request.path }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-file-excel me-1"></i>Ver solo cargas masivas</a>
+  {% else %}
+  <a href="?{% querystring todos=1 %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-list me-1"></i>Ver todos los movimientos</a>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -69,7 +80,10 @@
             <td class="ps-3 text-nowrap">{{ obj.fecha_hora_cambio|date:'d/m/Y H:i' }}</td>
             <td>{{ obj.usuario_label }}</td>
             <td>
-              {% if obj.registro %}
+              {% if obj.es_carga_masiva %}
+                <span class="small text-muted"><i class="fas fa-file-excel me-1"></i>Carga masiva</span>
+                <div class="fw-semibold">{{ obj.cm_archivo }}</div>
+              {% elif obj.registro %}
                 <span class="small text-muted">{{ obj.registro.modelo_label }}</span>
                 <div class="fw-semibold">{{ obj.registro.texto }}</div>
               {% else %}
@@ -78,13 +92,19 @@
               {% endif %}
             </td>
             <td>
-              {% if obj.tipo_label == 'INSERT' %}<span class="badge text-bg-success">Creación</span>
+              {% if obj.es_carga_masiva %}<span class="badge bg-primary-subtle text-primary"><i class="fas fa-upload me-1"></i>Carga masiva</span>
+              {% elif obj.tipo_label == 'INSERT' %}<span class="badge text-bg-success">Creación</span>
               {% elif obj.tipo_label == 'UPDATE' %}<span class="badge text-bg-warning">Modificación</span>
               {% elif obj.tipo_label == 'DELETE' %}<span class="badge text-bg-danger">Eliminación</span>
               {% else %}<span class="badge text-bg-secondary">{{ obj.tipo_accion }}</span>{% endif %}
             </td>
             <td class="pe-3">
-              {% if obj.cambios %}
+              {% if obj.es_carga_masiva %}
+              <p class="small mb-2">Datos cargados de <strong>{{ obj.cm_archivo }}</strong>.</p>
+              <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#cmModal{{ obj.pk }}">
+                <i class="fas fa-list-ul me-1"></i>Ver más
+              </button>
+              {% elif obj.cambios %}
               <div class="mb-1">
                 <span class="badge bg-primary-subtle text-primary">{{ obj.cambios_count }} campo{{ obj.cambios_count|pluralize }} cambiado{{ obj.cambios_count|pluralize }}</span>
               </div>
@@ -126,6 +146,53 @@
     </div>
   </div>
 </div>
+
+{% for obj in object_list %}
+{% if obj.es_carga_masiva %}
+<div class="modal fade" id="cmModal{{ obj.pk }}" tabindex="-1" data-cm-detalle-url="{% url 'auditoria:auditoriaregistrocambios_carga_masiva_detalle' obj.pk %}">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="fas fa-file-excel me-2 text-primary"></i>Datos cargados de {{ obj.cm_archivo }}</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">{{ obj.fecha_hora_cambio|date:'d/m/Y H:i' }} · {{ obj.usuario_label }}</p>
+        <div class="mb-3 d-flex flex-wrap gap-1">
+          {% if obj.cm_nuevas %}<span class="badge bg-success-subtle text-success">{{ obj.cm_nuevas }} nuevo{{ obj.cm_nuevas|pluralize }}</span>{% endif %}
+          {% if obj.cm_modificadas %}<span class="badge bg-warning-subtle text-warning">{{ obj.cm_modificadas }} modificado{{ obj.cm_modificadas|pluralize }}</span>{% endif %}
+          {% if obj.cm_retiradas %}<span class="badge bg-danger-subtle text-danger">{{ obj.cm_retiradas }} retirado{{ obj.cm_retiradas|pluralize }}</span>{% endif %}
+        </div>
+        <div class="cm-detalle-body" data-loaded="0">
+          <div class="text-center text-muted small py-3 cm-detalle-loading"><i class="fas fa-spinner fa-spin me-1"></i>Cargando detalle...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<script>
+document.querySelectorAll('.modal[id^="cmModal"]').forEach(function(modalEl) {
+  modalEl.addEventListener('show.bs.modal', function() {
+    const body = modalEl.querySelector('.cm-detalle-body');
+    if (body.dataset.loaded === '1') return;
+    fetch(modalEl.dataset.cmDetalleUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function(resp) { return resp.text(); })
+      .then(function(html) {
+        body.innerHTML = html;
+        body.dataset.loaded = '1';
+      })
+      .catch(function() {
+        body.innerHTML = '<p class="text-danger small mb-0">No se pudo cargar el detalle. Intenta de nuevo.</p>';
+      });
+  });
+});
+</script>
 
 <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
   <span class="text-muted small">{{ page_obj.paginator.count }} registro(s)</span>
