@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Sum, Q, Prefetch, F, Max
+from django.db.models import Count, Sum, Q, Prefetch, F, Max, Exists, OuterRef
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -1657,10 +1657,31 @@ class PlanificacionAulaHorarioListView(PlanningFlowContextMixin, CrudListView):
         return qs
 
 
-class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateView):
+class _EspaciosAulaChoicesMixin:
+    """Carga las opciones de 'Aula o espacio' desde el catálogo de espacios."""
+
+    def _populate_aula_choices(self, form):
+        espacios = CatalogoEspacioAcademico.objects.filter(espacio_activo=True).order_by(
+            'nombre_espacio'
+        )
+        opciones = [(e.nombre_espacio, e.nombre_espacio) for e in espacios]
+        if form.instance.pk and form.instance.nombre_aula and form.instance.nombre_aula not in {
+            valor for valor, _ in opciones
+        }:
+            opciones.insert(0, (form.instance.nombre_aula, form.instance.nombre_aula))
+        form.fields['nombre_aula'].choices = opciones or [('', 'No hay espacios disponibles')]
+        return form
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        return self._populate_aula_choices(form)
+
+
+class PlanificacionAulaHorarioCreateView(_EspaciosAulaChoicesMixin, PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionAulaHorario
     fields = None
     form_class = PlanificacionAulaHorarioForm
+    template_name = 'planificacion/planificacionaulahorario_form.html'
     planning_active_section = 'planificacionaulahorario_list'
 
     def get_form_kwargs(self):
@@ -1668,10 +1689,22 @@ class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateVie
         kwargs['allowed_career_ids'] = allowed_career_ids(self.request.user)
         return kwargs
 
-class PlanificacionAulaHorarioUpdateView(PeriodEditableUpdateMixin, PlanningFlowContextMixin, CrudUpdateView):
+    def get_initial(self):
+        initial = super().get_initial()
+        if 'id_periodo' not in initial:
+            period = CatalogoPeriodoAcademico.objects.filter(
+                periodo_activo=True,
+                estado_planificacion__in=('BORRADOR', 'EN_REVISION'),
+            ).first()
+            if period:
+                initial['id_periodo'] = period.id_periodo
+        return initial
+
+class PlanificacionAulaHorarioUpdateView(_EspaciosAulaChoicesMixin, PeriodEditableUpdateMixin, PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionAulaHorario
     fields = None
     form_class = PlanificacionAulaHorarioForm
+    template_name = 'planificacion/planificacionaulahorario_form.html'
     planning_active_section = 'planificacionaulahorario_list'
 
     def get_queryset(self):
@@ -3277,3 +3310,102 @@ def api_crear_asignacion(request):
         'id_asignacion': asignacion.id_asignacion,
         'message': 'Asignación creada correctamente.',
     })
+
+
+@login_required
+@module_permission_required('planificacion', 'view')
+def api_asignacion_docente_aula(request):
+    """Docente(s) asignado(s) a una asignatura en un período (para el formulario de aulas/horarios)."""
+    asignatura_id = (request.GET.get('asignatura') or '').strip()
+    periodo_id = (request.GET.get('periodo') or '').strip()
+    carrera_id = (request.GET.get('carrera') or '').strip()
+    nivel = (request.GET.get('nivel') or '').strip()
+    if not asignatura_id or not periodo_id:
+        return JsonResponse({'error': 'Seleccione asignatura y período académico.'}, status=400)
+
+    asignaciones = PlanificacionAsignacionDocente.objects.select_related(
+        'id_docente', 'id_carrera', 'id_periodo',
+    ).filter(id_asignatura_id=asignatura_id, id_periodo_id=periodo_id)
+    if carrera_id:
+        asignaciones = asignaciones.filter(id_carrera_id=carrera_id)
+    if nivel:
+        asignaciones = asignaciones.filter(nivel_semestre_asignado=nivel)
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        asignaciones = asignaciones.filter(id_carrera_id__in=permitted)
+
+    items = [{
+        'id': a.id_asignacion,
+        'docente': a.id_docente.nombres_completos,
+        'paralelo': a.paralelo_asignado,
+        'carrera': a.id_carrera.nombre_carrera,
+        'nivel': a.nivel_semestre_asignado,
+        'periodo': a.id_periodo.nombre_periodo,
+    } for a in asignaciones.order_by('paralelo_asignado')]
+
+    if not items:
+        return JsonResponse({
+            'error': 'Esta asignatura no tiene un docente asignado en el período seleccionado.',
+            'asignaciones': [],
+        })
+    return JsonResponse({'asignaciones': items})
+
+
+@login_required
+@module_permission_required('planificacion', 'view')
+def api_niveles_aula(request):
+    """Niveles con docente asignado para una carrera y período (formulario de aulas/horarios)."""
+    carrera_id = (request.GET.get('carrera') or '').strip()
+    periodo_id = (request.GET.get('periodo') or '').strip()
+    if not carrera_id or not periodo_id:
+        return JsonResponse({'niveles': []})
+
+    qs = PlanificacionAsignacionDocente.objects.filter(
+        id_carrera_id=carrera_id, id_periodo_id=periodo_id,
+    )
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        qs = qs.filter(id_carrera_id__in=permitted)
+
+    niveles = list(
+        qs.filter(nivel_semestre_asignado__gt=0)
+        .values_list('nivel_semestre_asignado', flat=True)
+        .distinct().order_by('nivel_semestre_asignado')
+    )
+    items = [{
+        'id': n,
+        'nivel': n,
+        'label': f'Nivel {n}',
+    } for n in niveles]
+    return JsonResponse({'niveles': items})
+
+
+@login_required
+@module_permission_required('planificacion', 'view')
+def api_asignaturas_aula(request):
+    """Asignaturas con docente asignado en el período, filtrando por carrera y nivel (aulas/horarios)."""
+    periodo_id = (request.GET.get('periodo') or '').strip()
+    carrera_id = (request.GET.get('carrera') or '').strip()
+    nivel = (request.GET.get('nivel') or '').strip()
+    if not periodo_id:
+        return JsonResponse({'asignaturas': []})
+
+    con_docente = PlanificacionAsignacionDocente.objects.filter(
+        id_asignatura=OuterRef('pk'), id_periodo_id=periodo_id,
+    )
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None:
+        con_docente = con_docente.filter(id_carrera_id__in=permitted)
+    if carrera_id:
+        con_docente = con_docente.filter(id_carrera_id=carrera_id)
+    if nivel:
+        con_docente = con_docente.filter(nivel_semestre_asignado=nivel)
+
+    asignaturas = CurriculoAsignatura.objects.filter(Exists(con_docente)).select_related(
+        'id_carrera'
+    ).order_by('id_carrera__nombre_carrera', 'codigo_asignatura')
+    items = [{
+        'id': s.id_asignatura,
+        'label': f'{s.codigo_asignatura} - {s.nombre_asignatura} ({s.id_carrera.nombre_carrera})',
+    } for s in asignaturas]
+    return JsonResponse({'asignaturas': items})

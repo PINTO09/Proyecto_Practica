@@ -22,7 +22,9 @@ def docentes_con_datos(tipo, function_filter='TODOS', periodo=None):
     elif tipo == 'FUNCIONES':
         selected = normalize_function_filter(function_filter)
         if selected == 'ACTIVIDADES':
-            sub = PlanificacionActividadDocente.objects.filter(id_docente=OuterRef('pk'))
+            sub = PlanificacionActividadDocente.objects.filter(
+                id_docente=OuterRef('pk'), id_actividad__peso=1,
+            )
             if periodo is not None:
                 sub = sub.filter(id_periodo=periodo)
             docentes = docentes.filter(Exists(sub))
@@ -39,7 +41,9 @@ def docentes_con_datos(tipo, function_filter='TODOS', periodo=None):
                 sub = sub.filter(id_periodo=periodo)
             docentes = docentes.filter(Exists(sub))
         else:
-            sub_act = PlanificacionActividadDocente.objects.filter(id_docente=OuterRef('pk'))
+            sub_act = PlanificacionActividadDocente.objects.filter(
+                id_docente=OuterRef('pk'), id_actividad__peso=1,
+            )
             sub_asig = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
             if periodo is not None:
                 sub_act = sub_act.filter(id_periodo=periodo)
@@ -146,7 +150,7 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
 
         if selected_filter in ('TODOS', 'ACTIVIDADES'):
             activities = PlanificacionActividadDocente.objects.filter(
-                id_docente=teacher
+                id_docente=teacher, id_actividad__peso=1,
             ).select_related('id_actividad', 'id_periodo').order_by(
                 'id_periodo__fecha_inicio_periodo',
                 'id_actividad__nombre_actividad',

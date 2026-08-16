@@ -11,8 +11,9 @@ from .models import (
 
 @admin.register(CatalogoActividadComplementaria)
 class CatalogoActividadComplementariaAdmin(admin.ModelAdmin):
-    list_display = ['codigo_actividad', 'nombre_actividad', 'tipo_actividad', 'actividad_activa']
-    list_filter = ['tipo_actividad', 'actividad_activa']
+    list_display = ['codigo_actividad', 'nombre_actividad', 'tipo_actividad', 'peso', 'actividad_activa']
+    list_filter = ['tipo_actividad', 'peso', 'actividad_activa']
+    list_editable = ['peso']
     search_fields = ['codigo_actividad', 'nombre_actividad']
 
 

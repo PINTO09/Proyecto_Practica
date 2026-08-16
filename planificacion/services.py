@@ -1,8 +1,51 @@
 import re
 import unicodedata
+from datetime import datetime, time, timedelta
 
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
+
+
+# ——— Bloques horarios base de 45 minutos ———————————————
+BLOQUE_MINUTOS = 45
+HORA_DESDE = time(7, 0)
+HORA_HASTA = time(22, 0)
+
+
+def generar_bloques_horarios():
+    """Estructura base de bloques de 45 minutos de la jornada.
+
+    Devuelve una lista de tuplas (HH:MM, HH:MM) con la hora de inicio
+    de cada bloque disponible para selección.
+    """
+    paso = timedelta(minutes=BLOQUE_MINUTOS)
+    inicio = datetime.combine(datetime.today(), HORA_DESDE)
+    fin = datetime.combine(datetime.today(), HORA_HASTA)
+    bloques = []
+    actual = inicio
+    while actual <= fin:
+        label = actual.time().strftime('%H:%M')
+        bloques.append((label, label))
+        actual += paso
+    return bloques
+
+
+def sumar_bloques(hora_inicio, cantidad_bloques):
+    """Calcula la hora de finalización sumando bloques de 45 minutos."""
+    inicio = datetime.combine(datetime.today(), hora_inicio)
+    fin = inicio + timedelta(minutes=BLOQUE_MINUTOS * int(cantidad_bloques))
+    return fin.time()
+
+
+def bloques_entre(hora_inicio, hora_fin):
+    """Número de bloques de 45 min entre dos horas, o None si no es múltiplo."""
+    inicio = datetime.combine(datetime.today(), hora_inicio)
+    fin = datetime.combine(datetime.today(), hora_fin)
+    delta = fin - inicio
+    if delta.total_seconds() <= 0:
+        return None
+    bloques = delta.total_seconds() / (BLOQUE_MINUTOS * 60)
+    return int(bloques) if float(bloques).is_integer() else None
 
 
 def resolve_f4_teacher_filter(docente_id=None, search=''):

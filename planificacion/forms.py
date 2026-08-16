@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.db.models import Q, Sum
+from django.db.models import Exists, OuterRef, Q, Sum
 
 from curriculo.models import CurriculoAsignatura, CurriculoAsignaturaCampo
 from catalogos.models import LimiteHorario, CatalogoCarrera, CatalogoPeriodoAcademico
@@ -15,7 +15,8 @@ from .models import (
     PlanificacionDemandaAcademica,
 )
 from .services import (
-    add_form_errors, build_docente_workload_map, docente_tiene_afinidad, parallel_labels,
+    add_form_errors, bloques_entre, build_docente_workload_map, docente_tiene_afinidad,
+    generar_bloques_horarios, parallel_labels, sumar_bloques,
     validate_assignment_business_rules,
 )
 
@@ -695,6 +696,44 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
     turno_horario = forms.ChoiceField(choices=(
         ('MANANA', 'Mañana'), ('TARDE', 'Tarde'), ('NOCHE', 'Noche'),
     ))
+    carrera = forms.ModelChoiceField(
+        queryset=CatalogoCarrera.objects.filter(carrera_activa=True),
+        label='Carrera',
+        required=True,
+        empty_label='Seleccione la carrera',
+        help_text='Filtro inicial: las opciones de nivel y asignatura se adaptan a la carrera.',
+    )
+    nivel_asignado = forms.ChoiceField(
+        label='Nivel',
+        required=False,
+        choices=[('', 'Seleccione el nivel')],
+        help_text='Se adapta a la carrera seleccionada.',
+    )
+    id_asignatura = forms.ModelChoiceField(
+        queryset=CurriculoAsignatura.objects.none(),
+        label='Asignatura',
+        required=False,
+        empty_label='Seleccione la asignatura',
+        help_text='Solo se listan asignaturas con docente asignado para la carrera y el nivel elegidos en el período.',
+    )
+    nombre_aula = forms.ChoiceField(
+        label='Aula o espacio',
+        required=True,
+        help_text='Seleccione un espacio del catálogo de espacios académicos.',
+    )
+    docente = forms.CharField(
+        label='Docente asignado',
+        required=False,
+        disabled=True,
+        widget=forms.TextInput(attrs={'readonly': True, 'placeholder': 'Se cargará automáticamente'}),
+    )
+    horas_bloques = forms.IntegerField(
+        label='Cantidad de horas (cada hora = bloque de 45 minutos)',
+        min_value=1,
+        max_value=10,
+        initial=2,
+        help_text='Defina cuántos bloques de 45 minutos dura la clase.',
+    )
 
     class Meta:
         model = PlanificacionAulaHorario
@@ -704,22 +743,37 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
             'nombre_aula', 'nivel_asignado',
         )
         widgets = {
-            'hora_inicio': forms.TimeInput(attrs={'type': 'time'}),
-            'hora_fin': forms.TimeInput(attrs={'type': 'time'}),
+            'hora_inicio': forms.Select(choices=generar_bloques_horarios()),
+            'hora_fin': forms.TimeInput(
+                attrs={'type': 'time', 'readonly': 'readonly', 'tabindex': '-1'}
+            ),
+            'id_asignacion': forms.HiddenInput(),
         }
         labels = {
-            'id_asignacion': 'Asignatura, paralelo y docente',
+            'id_asignacion': 'Asignación',
             'dia_semana': 'Día',
-            'hora_inicio': 'Hora de inicio',
-            'hora_fin': 'Hora de finalización',
+            'hora_inicio': 'Hora de inicio (bloque de 45 min)',
+            'hora_fin': 'Hora de finalización (calculada)',
             'turno_horario': 'Jornada',
             'nombre_aula': 'Aula o espacio',
             'nivel_asignado': 'Nivel',
         }
+        help_texts = {
+            'hora_inicio': 'Solo bloques de 45 minutos configurados en la jornada.',
+            'hora_fin': 'Se calcula automáticamente según la hora de inicio y los bloques seleccionados.',
+        }
 
     def __init__(self, *args, allowed_career_ids=None, **kwargs):
         super().__init__(*args, **kwargs)
+        editable_periods = Q(estado_planificacion__in=('BORRADOR', 'EN_REVISION'))
+        if self.instance.pk and self.instance.id_periodo_id:
+            editable_periods |= Q(pk=self.instance.id_periodo_id)
+        self.fields['id_periodo'].queryset = CatalogoPeriodoAcademico.objects.filter(
+            editable_periods
+        ).order_by('-fecha_inicio_periodo', '-id_periodo')
+
         periodo_id = self.data.get('id_periodo') or getattr(self.instance, 'id_periodo_id', None)
+
         asignaciones = PlanificacionAsignacionDocente.objects.select_related(
             'id_docente', 'id_asignatura', 'id_carrera',
         ).order_by('id_carrera__nombre_carrera', 'id_asignatura__nombre_asignatura', 'paralelo_asignado')
@@ -728,11 +782,118 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
         if allowed_career_ids is not None:
             asignaciones = asignaciones.filter(id_carrera_id__in=allowed_career_ids)
         self.fields['id_asignacion'].queryset = asignaciones
-        self.fields['id_asignacion'].label_from_instance = lambda item: (
-            f'{item.id_docente.nombres_completos} → '
-            f'{item.id_asignatura.codigo_asignatura} - '
-            f'{item.id_asignatura.nombre_asignatura} '
-            f'({item.paralelo_asignado} · {item.id_periodo.nombre_periodo})'
+
+        # Carrera y nivel efectivos según el estado del formulario (POST o instancia)
+        editing = bool(self.instance.pk)
+        carrera_id = (self.data.get('carrera') or '').strip()
+        nivel = (self.data.get('nivel_asignado') or '').strip()
+        if not carrera_id and editing and self.instance.id_asignacion_id:
+            carrera_id = str(self.instance.id_asignacion.id_carrera_id)
+        if not carrera_id and self.fields['carrera'].initial:
+            carrera_id = str(self.fields['carrera'].initial)
+        if not nivel and editing and self.instance.nivel_asignado:
+            nivel = str(self.instance.nivel_asignado)
+
+        # Niveles disponibles para la carrera (con docente asignado en el período)
+        if carrera_id:
+            niveles_qs = PlanificacionAsignacionDocente.objects.filter(id_carrera_id=carrera_id)
+            if periodo_id:
+                niveles_qs = niveles_qs.filter(id_periodo_id=periodo_id)
+            if allowed_career_ids is not None:
+                niveles_qs = niveles_qs.filter(id_carrera_id__in=allowed_career_ids)
+            niveles = list(
+                niveles_qs.filter(nivel_semestre_asignado__gt=0)
+                .values_list('nivel_semestre_asignado', flat=True)
+                .distinct().order_by('nivel_semestre_asignado')
+            )
+            opciones = [('', 'Seleccione el nivel')] + [(str(n), f'Nivel {n}') for n in niveles]
+        else:
+            opciones = [('', 'Seleccione el nivel')]
+        if nivel and not any(value == nivel for value, _ in opciones):
+            opciones.append((nivel, f'Nivel {nivel}'))
+        self.fields['nivel_asignado'].choices = opciones
+
+        # Asignaturas con docente asignado en período, carrera y nivel
+        con_docente = PlanificacionAsignacionDocente.objects.filter(
+            id_asignatura=OuterRef('pk')
         )
-        for field in self.fields.values():
-            field.widget.attrs['class'] = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
+        if periodo_id:
+            con_docente = con_docente.filter(id_periodo_id=periodo_id)
+        if allowed_career_ids is not None:
+            con_docente = con_docente.filter(id_carrera_id__in=allowed_career_ids)
+        if carrera_id:
+            con_docente = con_docente.filter(id_carrera_id=carrera_id)
+        if nivel:
+            con_docente = con_docente.filter(nivel_semestre_asignado=nivel)
+        if carrera_id or nivel:
+            asignaturas = CurriculoAsignatura.objects.filter(Exists(con_docente)).select_related(
+                'id_carrera'
+            ).order_by('id_carrera__nombre_carrera', 'nombre_asignatura')
+        else:
+            asignaturas = CurriculoAsignatura.objects.none()
+        self.fields['id_asignatura'].queryset = asignaturas
+
+        self.order_fields([
+            'id_periodo', 'carrera', 'nivel_asignado', 'id_asignatura', 'nombre_aula', 'docente',
+            'dia_semana', 'hora_inicio', 'horas_bloques', 'hora_fin',
+            'turno_horario', 'id_asignacion',
+        ])
+
+        if self.instance.pk:
+            asignacion = getattr(self.instance, 'id_asignacion', None)
+            if asignacion:
+                self.fields['id_asignatura'].initial = asignacion.id_asignatura_id
+                self.fields['carrera'].initial = asignacion.id_carrera_id
+                self.fields['nivel_asignado'].initial = str(asignacion.nivel_semestre_asignado)
+                self.fields['docente'].initial = asignacion.id_docente.nombres_completos
+            if self.instance.hora_inicio and self.instance.hora_fin:
+                bloques = bloques_entre(self.instance.hora_inicio, self.instance.hora_fin)
+                if bloques is not None:
+                    self.fields['horas_bloques'].initial = bloques
+
+    def clean(self):
+        cleaned = super().clean()
+        hora_inicio = cleaned.get('hora_inicio')
+        horas_bloques = cleaned.get('horas_bloques')
+        id_asignatura = cleaned.get('id_asignatura')
+        id_asignacion = cleaned.get('id_asignacion')
+        periodo = cleaned.get('id_periodo')
+        carrera = cleaned.get('carrera')
+        nivel = cleaned.get('nivel_asignado')
+
+        if hora_inicio and horas_bloques:
+            try:
+                cleaned['hora_fin'] = sumar_bloques(hora_inicio, horas_bloques)
+            except ValueError:
+                self.add_error('horas_bloques', 'Indique una cantidad de horas válida.')
+
+        hora_fin = cleaned.get('hora_fin')
+        if hora_inicio and hora_fin and hora_fin <= hora_inicio:
+            self.add_error('hora_fin', 'La hora final calculada debe ser posterior a la inicial.')
+
+        if id_asignatura:
+            if not carrera:
+                self.add_error('carrera', 'Seleccione la carrera antes de elegir la asignatura.')
+            if not nivel:
+                self.add_error('nivel_asignado', 'Seleccione el nivel antes de elegir la asignatura.')
+
+        if id_asignacion:
+            if carrera and id_asignacion.id_carrera_id != carrera.id_carrera:
+                self.add_error('carrera', 'La asignación no pertenece a la carrera seleccionada.')
+            elif nivel and str(id_asignacion.nivel_semestre_asignado) != str(nivel):
+                self.add_error(
+                    'nivel_asignado',
+                    'El nivel de la asignación no coincide con el nivel seleccionado.',
+                )
+            elif id_asignatura and id_asignacion.id_asignatura_id != id_asignatura.id_asignatura:
+                self.add_error('id_asignatura', 'La asignación no corresponde a la asignatura seleccionada.')
+            elif periodo and id_asignacion.id_periodo_id != periodo.id_periodo:
+                self.add_error('id_asignatura', 'La asignación pertenece a otro período académico.')
+            else:
+                cleaned['nivel_asignado'] = str(id_asignacion.nivel_semestre_asignado)
+        elif id_asignatura:
+            self.add_error(
+                'id_asignatura',
+                'La asignatura seleccionada no tiene un docente asignado en el período seleccionado.',
+            )
+        return cleaned

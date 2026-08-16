@@ -1,0 +1,153 @@
+{% extends 'generic_crud/form.html' %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const carreraEl = document.getElementById('id_carrera');
+  const nivelEl = document.getElementById('id_nivel_asignado');
+  const asignaturaEl = document.getElementById('id_id_asignatura');
+  const periodoEl = document.getElementById('id_id_periodo');
+  const asignacionEl = document.getElementById('id_id_asignacion');
+  const docenteEl = document.getElementById('id_docente');
+  const inicioEl = document.getElementById('id_hora_inicio');
+  const horasEl = document.getElementById('id_horas_bloques');
+  const finEl = document.getElementById('id_hora_fin');
+
+  const nivelesApi = '{% url "planificacion:api_niveles_aula" %}';
+  const asignaturasApi = '{% url "planificacion:api_asignaturas_aula" %}';
+  const docenteApi = '{% url "planificacion:api_asignacion_docente_aula" %}';
+
+  function seleccionParams() {
+    const params = new URLSearchParams();
+    if (periodoEl) params.set('periodo', periodoEl.value);
+    if (carreraEl) params.set('carrera', carreraEl.value);
+    if (nivelEl) params.set('nivel', nivelEl.value);
+    return params;
+  }
+
+  function rellenarSelect(el, placeholder, items) {
+    if (!el) return;
+    const prev = el.value;
+    el.innerHTML = '';
+    el.appendChild(new Option(placeholder, '', false, false));
+    items.forEach(item => el.appendChild(new Option(item.label, String(item.id || item.value))));
+    if (prev && Array.from(el.options).some(o => o.value === prev)) {
+      el.value = prev;
+    }
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return prev;
+  }
+
+  function limpiarDocente() {
+    if (docenteEl) docenteEl.value = '';
+    if (asignacionEl) asignacionEl.value = '';
+  }
+
+  function cargarDocente() {
+    limpiarDocente();
+    if (!asignaturaEl || !asignaturaEl.value || !carreraEl || !carreraEl.value) return;
+    const params = seleccionParams();
+    if (!periodoEl || !periodoEl.value) return;
+    params.set('asignatura', asignaturaEl.value);
+    fetch(docenteApi + '?' + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        if (data.error || !data.asignaciones || data.asignaciones.length === 0) {
+          if (docenteEl) docenteEl.value = data.error || 'Sin docente asignado';
+          if (asignacionEl) asignacionEl.value = '';
+          return;
+        }
+        const a = data.asignaciones[0];
+        if (docenteEl) {
+          docenteEl.value = a.docente + (a.paralelo ? ' · Paralelo ' + a.paralelo.trim() : '') + (a.carrera ? ' · ' + a.carrera : '');
+        }
+        if (asignacionEl) asignacionEl.value = a.id;
+      })
+      .catch(() => {
+        if (docenteEl) docenteEl.value = 'Error consultando el docente asignado';
+        if (asignacionEl) asignacionEl.value = '';
+      });
+  }
+
+  function cargarAsignaturas() {
+    if (asignaturaEl) {
+      asignaturaEl.innerHTML = '';
+      asignaturaEl.appendChild(new Option('Seleccione la asignatura', '', false, false));
+      asignaturaEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    limpiarDocente();
+    const params = seleccionParams();
+    if (!periodoEl || !periodoEl.value || !carreraEl || !carreraEl.value || !nivelEl || !nivelEl.value) return;
+    fetch(asignaturasApi + '?' + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        const items = data.asignaturas || [];
+        if (!asignaturaEl) return;
+        const prev = asignaturaEl.value;
+        asignaturaEl.innerHTML = '';
+        asignaturaEl.appendChild(new Option('Seleccione la asignatura', '', false, false));
+        items.forEach(s => asignaturaEl.appendChild(new Option(s.label, String(s.id))));
+        if (prev && Array.from(asignaturaEl.options).some(o => o.value === prev)) {
+          asignaturaEl.value = prev;
+        }
+        asignaturaEl.dispatchEvent(new Event('change', { bubbles: true }));
+      })
+      .catch(() => {
+        if (asignaturaEl) {
+          asignaturaEl.innerHTML = '';
+          asignaturaEl.appendChild(new Option('Error cargando asignaturas', '', false, false));
+        }
+      });
+  }
+
+  function cargarNiveles() {
+    if (!carreraEl || !carreraEl.value || !periodoEl || !periodoEl.value) {
+      if (nivelEl) {
+        nivelEl.innerHTML = '';
+        nivelEl.appendChild(new Option('Seleccione el nivel', '', false, false));
+      }
+      cargarAsignaturas();
+      return;
+    }
+    const params = new URLSearchParams({ carrera: carreraEl.value, periodo: periodoEl.value });
+    fetch(nivelesApi + '?' + params.toString())
+      .then(r => r.json())
+      .then(data => {
+        const items = data.niveles || [];
+        rellenarSelect(nivelEl, 'Seleccione el nivel', items);
+      })
+      .catch(() => {
+        rellenarSelect(nivelEl, 'Error cargando niveles', []);
+      });
+  }
+
+  function calcularFinalizacion() {
+    if (finEl) {
+      finEl.value = '';
+    }
+    if (!inicioEl || !inicioEl.value || !horasEl || !horasEl.value) return;
+    const [h, m] = inicioEl.value.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return;
+    const bloques = parseInt(horasEl.value, 10) || 0;
+    if (bloques < 1) return;
+    const totalMin = h * 60 + m + bloques * 45;
+    const pad = n => String(n).padStart(2, '0');
+    const endH = Math.floor(totalMin / 60) % 24;
+    const endM = totalMin % 60;
+    if (finEl) finEl.value = pad(endH) + ':' + pad(endM);
+  }
+
+  if (periodoEl) periodoEl.addEventListener('change', cargarNiveles);
+  if (carreraEl) carreraEl.addEventListener('change', cargarNiveles);
+  if (nivelEl) nivelEl.addEventListener('change', cargarAsignaturas);
+  if (asignaturaEl) asignaturaEl.addEventListener('change', cargarDocente);
+  if (inicioEl) inicioEl.addEventListener('change', calcularFinalizacion);
+  if (horasEl) horasEl.addEventListener('change', calcularFinalizacion);
+  if (horasEl) horasEl.addEventListener('input', calcularFinalizacion);
+
+  cargarNiveles();
+  calcularFinalizacion();
+});
+</script>
+{% endblock %}

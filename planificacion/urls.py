@@ -64,4 +64,7 @@ urlpatterns = [
     path('api/crear-asignacion/', views.api_crear_asignacion, name='api_crear_asignacion'),
     path('api/paralelos-disponibles/', views.api_paralelos_disponibles, name='api_paralelos_disponibles'),
     path('api/teacher-load/', views.api_teacher_load, name='api_teacher_load'),
+    path('api/asignacion-docente-aula/', views.api_asignacion_docente_aula, name='api_asignacion_docente_aula'),
+    path('api/niveles-aula/', views.api_niveles_aula, name='api_niveles_aula'),
+    path('api/asignaturas-aula/', views.api_asignaturas_aula, name='api_asignaturas_aula'),
 ]

@@ -17,6 +17,11 @@ class CatalogoActividadComplementaria(models.Model):
     nombre_actividad = models.CharField(max_length=150)
     tipo_actividad = models.CharField(max_length=20, choices=TIPOS, default='COMPLEMENTARIA')
     actividad_activa = models.BooleanField(default=True)
+    peso = models.PositiveSmallIntegerField(
+        'Peso para informes (1 = se imprime, 0 = se excluye)',
+        default=1,
+        choices=((1, '1 - Incluir (se toma en cuenta)'), (0, '0 - Excluir (no se imprime)')),
+    )
 
     class Meta:
         db_table = 'catalogo_actividad_complementaria'

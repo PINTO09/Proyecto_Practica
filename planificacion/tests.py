@@ -92,7 +92,7 @@ class PlanificacionRulesTests(SimpleTestCase):
         )
         self.assertEqual(
             list(PlanificacionAulaHorarioForm().fields)[:5],
-            ['id_periodo', 'id_asignacion', 'dia_semana', 'hora_inicio', 'hora_fin'],
+            ['id_periodo', 'carrera', 'nivel_asignado', 'id_asignatura', 'nombre_aula'],
         )
 
     def test_assignment_id_is_automatic_and_field_is_textual(self):
