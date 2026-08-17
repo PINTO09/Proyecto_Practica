@@ -1136,8 +1136,11 @@ def api_modelo_info(request):
         raise PermissionDenied
     try:
         Model = apps.get_model(app_label, model_name)
+    except LookupError:
+        return JsonResponse({'error': 'no encontrado'}, status=404)
+    try:
         obj = Model.objects.get(pk=pk)
-    except (LookupError, Model.DoesNotExist):
+    except Model.DoesNotExist:
         return JsonResponse({'error': 'no encontrado'}, status=404)
 
     data = {'pk': obj.pk, '__str__': str(obj)}

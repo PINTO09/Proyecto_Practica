@@ -149,7 +149,7 @@ AUTHENTICATION_BACKENDS = ['accounts.auth_backend.CedulaAuthBackend']
 LOGIN_URL = 'core:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'
 
-LOGOUT_REDIRECT_URL = 'core:landing'
+LOGOUT_REDIRECT_URL = 'core:login'
 
 GRUPO_ADMINISTRADOR = 'Administrador'
 GRUPO_AUTORIDAD = 'Autoridad'

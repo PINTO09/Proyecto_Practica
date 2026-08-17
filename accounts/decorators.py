@@ -2,6 +2,7 @@ from functools import wraps
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 from django.contrib import messages
+from django.utils.http import url_has_allowed_host_and_scheme
 
 ADMIN = 'Administrador'
 AUTORIDAD = 'Autoridad'
@@ -182,6 +183,14 @@ def funcionario_readonly(view_func):
         es_funcionario = not request.user.is_superuser and request.user.groups.filter(name=FUNCIONARIO).exists()
         if es_funcionario and request.method == 'POST':
             messages.error(request, 'Los funcionarios solo tienen acceso de lectura.')
-            return redirect(request.META.get('HTTP_REFERER', 'core:dashboard'))
+            referer = request.META.get('HTTP_REFERER')
+            # No confiar en el Referer tal cual: un valor externo forzado
+            # (open redirect) mandaría al usuario fuera del sitio después de
+            # un intento de escritura bloqueado.
+            if referer and url_has_allowed_host_and_scheme(
+                referer, allowed_hosts={request.get_host()}, require_https=request.is_secure(),
+            ):
+                return redirect(referer)
+            return redirect('core:dashboard')
         return view_func(request, *args, **kwargs)
     return _wrapped_view
