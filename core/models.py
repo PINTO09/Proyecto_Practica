@@ -110,6 +110,11 @@ class Rol(models.Model):
         help_text='global: toda la facultad; carreras: solo las autorizadas; propio: solo datos propios.',
     )
     activo = models.BooleanField('Activo', default=True)
+    asignable_por_admin = models.BooleanField(
+        'Asignable desde "Nuevo usuario"/"Editar usuario"', default=True,
+        help_text='Roles heredados o de compatibilidad (p. ej. Usuario, Estudiante) se '
+                   'desmarcan para que no aparezcan como opción al crear/editar cuentas.',
+    )
 
     class Meta:
         verbose_name = 'Rol'

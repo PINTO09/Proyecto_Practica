@@ -26,6 +26,7 @@ def rol_seed_data():
             'descripcion': 'Control total de la plataforma.',
             'rol_base': None, 'modulos': {'*': ['view', 'change']},
             'alcance': 'global',
+            'asignable_por_admin': True,
         },
         {
             'codigo': AUTORIDAD, 'nombre': 'Autoridad',
@@ -37,6 +38,7 @@ def rol_seed_data():
                 'self_service', 'seguridad',
             ),
             'alcance': 'global',
+            'asignable_por_admin': True,
         },
         {
             'codigo': DECANO, 'nombre': 'Decano',
@@ -49,6 +51,7 @@ def rol_seed_data():
                 'seguridad',
             ),
             'alcance': 'global',
+            'asignable_por_admin': True,
         },
         {
             'codigo': COORDINADOR, 'nombre': 'Coordinador',
@@ -62,6 +65,7 @@ def rol_seed_data():
                 ('reportes', ['view']), ('restricciones', ['view']),
             ),
             'alcance': 'carreras',
+            'asignable_por_admin': True,
         },
         {
             'codigo': FUNCIONARIO, 'nombre': 'Funcionario',
@@ -73,6 +77,7 @@ def rol_seed_data():
                 ('planificacion', ['view']), ('reportes', ['view']),
             ),
             'alcance': 'ninguno',
+            'asignable_por_admin': True,
         },
         {
             'codigo': DOCENTE, 'nombre': 'Docente',
@@ -80,6 +85,7 @@ def rol_seed_data():
             'rol_base': None,
             'modulos': mod(('self_service', ['view', 'change'])),
             'alcance': 'propio',
+            'asignable_por_admin': True,
         },
         {
             'codigo': USUARIO, 'nombre': 'Usuario',
@@ -87,6 +93,9 @@ def rol_seed_data():
             'rol_base': DOCENTE,
             'modulos': {},
             'alcance': 'propio',
+            # Rol heredado de compatibilidad: no se ofrece al crear/editar
+            # cuentas nuevas, esas ya se dan de alta directamente como Docente.
+            'asignable_por_admin': False,
         },
         {
             'codigo': ESTUDIANTE, 'nombre': 'Estudiante',
@@ -94,6 +103,8 @@ def rol_seed_data():
             'rol_base': None,
             'modulos': mod(('self_service', ['view'])),
             'alcance': 'propio',
+            # Se asigna por el flujo de autoservicio/matrícula, no manualmente.
+            'asignable_por_admin': False,
         },
     ]
 
@@ -118,6 +129,7 @@ class Command(BaseCommand):
                     'modulos': data['modulos'],
                     'alcance': data['alcance'],
                     'activo': True,
+                    'asignable_por_admin': data['asignable_por_admin'],
                 },
             )
             if was_created:

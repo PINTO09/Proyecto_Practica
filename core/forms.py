@@ -11,7 +11,7 @@ from django.contrib.auth.forms import SetPasswordForm
 from .models import (
     Docente, Titulo, Publicacion, DocenteTransaccional, Pais, TipoPublicacion,
     Modalidad, Dedicacion, Carrera, Periodo, Licencia,
-    UsuarioAlcanceCarrera,
+    UsuarioAlcanceCarrera, Rol,
 )
 from docentes.models import DocenteFcacc
 from catalogos.models import (
@@ -376,13 +376,6 @@ class DocumentoForm(forms.ModelForm):
 
 
 class UsuarioAccessFormMixin(forms.Form):
-    ROLE_CHOICES = [
-        (AUTORIDAD, 'Autoridad'),
-        (DECANO, 'Decano'),
-        (COORDINADOR, 'Coordinador'),
-        (FUNCIONARIO, 'Funcionario'),
-        (DOCENTE, 'Docente'),
-    ]
     rol = forms.ChoiceField(
         label='Rol',
         choices=[],
@@ -399,10 +392,23 @@ class UsuarioAccessFormMixin(forms.Form):
     def __init__(self, *args, actor=None, **kwargs):
         self.actor = actor
         super().__init__(*args, **kwargs)
-        role_choices = list(self.ROLE_CHOICES)
-        if actor and (actor.is_superuser or actor.groups.filter(name=ADMIN).exists()):
-            role_choices.insert(0, (ADMIN, 'Administrador'))
-        self.fields['rol'].choices = [('', 'Seleccione un rol'), *role_choices]
+
+        def role_choices():
+            # Callable: Django solo la evalúa al validar/renderizar, así
+            # construir el formulario no exige BD (p. ej. en tests que
+            # instancian el form sin habilitarla). Los roles asignables
+            # salen de core.Rol -no de una lista fija en Python- para que un
+            # rol nuevo o desactivado en la base de datos se refleje aquí
+            # sin tocar código.
+            roles_asignables = Rol.objects.filter(
+                activo=True, asignable_por_admin=True,
+            ).exclude(codigo=ADMIN).order_by('codigo')
+            choices = [(rol.codigo, rol.nombre) for rol in roles_asignables]
+            if actor and (actor.is_superuser or actor.groups.filter(name=ADMIN).exists()):
+                choices.insert(0, (ADMIN, 'Administrador'))
+            return [('', 'Seleccione un rol'), *choices]
+
+        self.fields['rol'].choices = role_choices
         self.fields['carreras'].queryset = CatalogoCarrera.objects.filter(
             carrera_activa=True
         ).order_by('nombre_carrera')

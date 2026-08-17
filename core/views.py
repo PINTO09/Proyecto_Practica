@@ -3,7 +3,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, ProgrammingError, OperationalError, transaction
@@ -22,7 +21,7 @@ from .forms import (
 )
 from .models import (
     Docente, DocenteTransaccional, Titulo, Publicacion, Curso,
-    EventoSeguridad,
+    EventoSeguridad, Rol,
 )
 from catalogos.models import (
     CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoTipoDocente,
@@ -650,7 +649,10 @@ def usuarios_por_rol_view(request, rol=None):
         'role_filter': role_filter,
         'status_filter': status_filter,
         'search': search,
-        'role_options': Group.objects.filter(user__isnull=False).distinct().order_by('name'),
+        # Todos los roles activos de la BD, tengan o no usuarios asignados
+        # todavía -así se puede filtrar/detectar un rol recién creado sin
+        # usuarios, en vez de que el filtro solo muestre roles ya en uso.
+        'role_options': Rol.objects.filter(activo=True).order_by('codigo'),
     })
 
 
