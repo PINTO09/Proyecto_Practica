@@ -1,8 +1,14 @@
 from django.db import models
+from django.core.cache import cache
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.conf import settings
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from django.utils import timezone
+
+ROL_CACHE_KEY = 'core:rol:{}'
+ROL_CACHE_TIMEOUT = 300
 
 validate_10_digits = RegexValidator(
     r'^\d{10}$',
@@ -113,14 +119,30 @@ class Rol(models.Model):
     def __str__(self):
         return self.nombre
 
-    def modulos_efectivos(self):
-        """Fusiona los permisos heredados del rol base con los propios."""
+    def modulos_efectivos(self, _visitados=None):
+        """Fusiona los permisos heredados del rol base con los propios.
+
+        _visitados corta una posible cadena circular de rol_base (p. ej. un
+        error de captura al editar en el admin): sin este corte, un ciclo
+        tumbaría con RecursionError cada verificación de permiso del sitio.
+        """
+        visitados = _visitados if _visitados is not None else set()
         merged = {}
-        if self.rol_base_id:
-            merged.update(self.rol_base.modulos_efectivos())
+        if self.rol_base_id and self.rol_base_id not in visitados:
+            visitados.add(self.pk)
+            merged.update(self.rol_base.modulos_efectivos(visitados))
         for module, actions in (self.modulos or {}).items():
             merged.setdefault(module, []).extend(actions)
         return merged
+
+
+@receiver(post_save, sender=Rol)
+@receiver(post_delete, sender=Rol)
+def _invalidar_cache_rol(sender, instance, **kwargs):
+    """can_access_module() se llama decenas de veces por request (una por
+    módulo); cachear el Rol evita esa avalancha de consultas. Cualquier
+    guardado/borrado invalida su entrada para no servir permisos vencidos."""
+    cache.delete(ROL_CACHE_KEY.format(instance.codigo))
 
 
 class EventoSeguridad(models.Model):

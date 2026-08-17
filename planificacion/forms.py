@@ -765,6 +765,24 @@ class PlanificacionAulaHorarioForm(forms.ModelForm):
 
     def __init__(self, *args, allowed_career_ids=None, **kwargs):
         super().__init__(*args, **kwargs)
+
+        def opciones_aula():
+            # Callable: Django solo la evalúa al iterar choices (render o
+            # validación), así construir el formulario no exige BD -antes
+            # esto vivía en la vista, ahora queda resuelto en el propio
+            # form sin importar desde dónde se instancie.
+            espacios = CatalogoEspacioAcademico.objects.filter(
+                espacio_activo=True
+            ).order_by('nombre_espacio')
+            opciones = [(e.nombre_espacio, e.nombre_espacio) for e in espacios]
+            if self.instance.pk and self.instance.nombre_aula and self.instance.nombre_aula not in {
+                valor for valor, _ in opciones
+            }:
+                opciones.insert(0, (self.instance.nombre_aula, self.instance.nombre_aula))
+            return opciones or [('', 'No hay espacios disponibles')]
+
+        self.fields['nombre_aula'].choices = opciones_aula
+
         editable_periods = Q(estado_planificacion__in=('BORRADOR', 'EN_REVISION'))
         if self.instance.pk and self.instance.id_periodo_id:
             editable_periods |= Q(pk=self.instance.id_periodo_id)

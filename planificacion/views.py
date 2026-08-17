@@ -1657,27 +1657,7 @@ class PlanificacionAulaHorarioListView(PlanningFlowContextMixin, CrudListView):
         return qs
 
 
-class _EspaciosAulaChoicesMixin:
-    """Carga las opciones de 'Aula o espacio' desde el catálogo de espacios."""
-
-    def _populate_aula_choices(self, form):
-        espacios = CatalogoEspacioAcademico.objects.filter(espacio_activo=True).order_by(
-            'nombre_espacio'
-        )
-        opciones = [(e.nombre_espacio, e.nombre_espacio) for e in espacios]
-        if form.instance.pk and form.instance.nombre_aula and form.instance.nombre_aula not in {
-            valor for valor, _ in opciones
-        }:
-            opciones.insert(0, (form.instance.nombre_aula, form.instance.nombre_aula))
-        form.fields['nombre_aula'].choices = opciones or [('', 'No hay espacios disponibles')]
-        return form
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        return self._populate_aula_choices(form)
-
-
-class PlanificacionAulaHorarioCreateView(_EspaciosAulaChoicesMixin, PlanningFlowContextMixin, CrudCreateView):
+class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateView):
     model = PlanificacionAulaHorario
     fields = None
     form_class = PlanificacionAulaHorarioForm
@@ -1700,7 +1680,8 @@ class PlanificacionAulaHorarioCreateView(_EspaciosAulaChoicesMixin, PlanningFlow
                 initial['id_periodo'] = period.id_periodo
         return initial
 
-class PlanificacionAulaHorarioUpdateView(_EspaciosAulaChoicesMixin, PeriodEditableUpdateMixin, PlanningFlowContextMixin, CrudUpdateView):
+
+class PlanificacionAulaHorarioUpdateView(PeriodEditableUpdateMixin, PlanningFlowContextMixin, CrudUpdateView):
     model = PlanificacionAulaHorario
     fields = None
     form_class = PlanificacionAulaHorarioForm

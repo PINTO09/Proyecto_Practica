@@ -77,44 +77,57 @@ def has_role(user, *roles):
     return user.groups.filter(name__in=roles).exists()
 
 
-def _rol_desde_bd(codigo):
-    """Rol persistido en la BD o None si aún no está disponible."""
+_ROL_AUSENTE = '__ausente__'
+
+
+def _rol_datos(codigo):
+    """(modulos_efectivos, alcance) del rol activo en BD, o None si aún no
+    existe. can_access_module() se evalúa varias veces por request (una por
+    módulo en el menú, más las de cada vista) así que el resultado se
+    cachea un rato -Rol invalida su propia entrada al guardarse/borrarse-
+    para no convertir cada chequeo de permiso en una consulta nueva."""
+    from django.core.cache import cache
+    from core.models import ROL_CACHE_KEY, ROL_CACHE_TIMEOUT
+
+    key = ROL_CACHE_KEY.format(codigo)
+    cached = cache.get(key)
+    if cached is not None:
+        return None if cached == _ROL_AUSENTE else cached
+
     from django.db import ProgrammingError, OperationalError
     from core.models import Rol
     try:
-        return Rol.objects.filter(codigo=codigo, activo=True).first()
+        rol = Rol.objects.filter(codigo=codigo, activo=True).first()
     except (ProgrammingError, OperationalError):
+        # Tabla aún no migrada: no se cachea, para que el próximo intento
+        # (tras aplicar la migración) sí encuentre el rol sin esperar el TTL.
         return None
+    if rol is None:
+        cache.set(key, _ROL_AUSENTE, ROL_CACHE_TIMEOUT)
+        return None
+    datos = (rol.modulos_efectivos(), rol.alcance)
+    cache.set(key, datos, ROL_CACHE_TIMEOUT)
+    return datos
 
 
 def _modulos_efectivos(codigo):
     """Permisos efectivos por módulo: prioriza la BD; cae al dict en instalación/tests."""
-    from django.db import ProgrammingError, OperationalError
-    from core.models import Rol
-    try:
-        rol = Rol.objects.filter(codigo=codigo, activo=True).first()
-    except (ProgrammingError, OperationalError):
-        rol = None
-    if rol is None:
+    datos = _rol_datos(codigo)
+    if datos is None:
         return MODULE_ACCESS.get(codigo, {})
-    return rol.modulos_efectivos()
+    return datos[0]
 
 
 def _alcance_rol(codigo):
     """Alcance del rol desde la BD; fallback al comportamiento previo."""
-    from django.db import ProgrammingError, OperationalError
-    from core.models import Rol
-    try:
-        rol = Rol.objects.filter(codigo=codigo, activo=True).first()
-    except (ProgrammingError, OperationalError):
-        rol = None
-    if rol is None:
+    datos = _rol_datos(codigo)
+    if datos is None:
         if codigo in (ADMIN, AUTORIDAD, DECANO):
             return 'global'
         if codigo == COORDINADOR:
             return 'carreras'
         return 'propio'
-    return rol.alcance
+    return datos[1]
 
 
 def can_access_module(user, module, action='view'):

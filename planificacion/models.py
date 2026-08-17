@@ -360,6 +360,13 @@ class PlanificacionAulaHorario(models.Model):
 
     def clean(self):
         from .services import assert_periodo_editable
+        # Django llama a clean() aunque ya haya errores de campo (incluido un
+        # id_periodo vacío); acceder a self.id_periodo con id_periodo_id=None
+        # lanza RelatedObjectDoesNotExist en vez de una ValidationError
+        # manejable, tumbando la vista con un 500 en lugar de mostrar el
+        # formulario con "este campo es obligatorio".
+        if not self.id_periodo_id:
+            raise ValidationError({'id_periodo': 'Seleccione el período académico.'})
         assert_periodo_editable(self.id_periodo)
         if not self.hora_inicio or not self.hora_fin:
             raise ValidationError('Debe indicar la hora de inicio y finalización.')
