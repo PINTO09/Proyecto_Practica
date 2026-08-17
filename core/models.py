@@ -80,6 +80,49 @@ class UsuarioAlcanceCarrera(models.Model):
         return f'{self.usuario} · {self.carrera}'
 
 
+class Rol(models.Model):
+    ALCANCES = [
+        ('global', 'Global (toda la facultad)'),
+        ('carreras', 'Por carrera (Usuarios de carrera)'),
+        ('propio', 'Solo datos propios'),
+        ('ninguno', 'Sin alcance'),
+    ]
+    codigo = models.CharField('Código', max_length=30, unique=True)
+    nombre = models.CharField('Nombre', max_length=100, unique=True)
+    descripcion = models.CharField('Descripción', max_length=255, blank=True)
+    rol_base = models.ForeignKey(
+        'self', on_delete=models.PROTECT, null=True, blank=True,
+        related_name='roles_heredados', verbose_name='Rol base heredado',
+        help_text='Permisos heredados del rol base (p. ej. Decano hereda Docente).',
+    )
+    modulos = models.JSONField(
+        'Permisos por módulo', default=dict,
+        help_text='Formato: {"modulo": ["view", "change"]} o {"*": ["view", "change"]}.',
+    )
+    alcance = models.CharField(
+        'Alcance', max_length=20, choices=ALCANCES, default='propio',
+        help_text='global: toda la facultad; carreras: solo las autorizadas; propio: solo datos propios.',
+    )
+    activo = models.BooleanField('Activo', default=True)
+
+    class Meta:
+        verbose_name = 'Rol'
+        verbose_name_plural = 'Roles'
+        ordering = ('codigo',)
+
+    def __str__(self):
+        return self.nombre
+
+    def modulos_efectivos(self):
+        """Fusiona los permisos heredados del rol base con los propios."""
+        merged = {}
+        if self.rol_base_id:
+            merged.update(self.rol_base.modulos_efectivos())
+        for module, actions in (self.modulos or {}).items():
+            merged.setdefault(module, []).extend(actions)
+        return merged
+
+
 class EventoSeguridad(models.Model):
     TIPOS = [
         ('CREAR_CUENTA', 'Creación de cuenta'),

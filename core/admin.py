@@ -7,7 +7,7 @@ from .models import (
     Usuario, Docente, Carrera, Dedicacion, Licencia,
     Modalidad, Periodo, TipoPublicacion, Curso, Titulo,
     Pais, Publicacion, DocenteTransaccional, CursoDocente,
-    UsuarioAlcanceCarrera, EventoSeguridad,
+    UsuarioAlcanceCarrera, EventoSeguridad, Rol,
 )
 
 
@@ -118,6 +118,14 @@ class UsuarioAlcanceCarreraAdmin(admin.ModelAdmin):
     list_display = ('usuario', 'carrera', 'activo', 'asignado_por', 'asignado_el')
     list_filter = ('activo', 'carrera')
     search_fields = ('usuario__cedula', 'carrera__nombre_carrera')
+
+
+@admin.register(Rol)
+class RolAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'nombre', 'alcance', 'rol_base', 'activo')
+    list_filter = ('alcance', 'activo')
+    search_fields = ('codigo', 'nombre', 'descripcion')
+    ordering = ('codigo',)
 
 
 @admin.register(EventoSeguridad)

@@ -165,13 +165,20 @@ class CrudFieldTypeTests(SimpleTestCase):
 
 class RolePermissionTests(SimpleTestCase):
     @patch('accounts.decorators.get_user_roles', return_value=['Coordinador'])
-    def test_coordinator_can_change_planning_but_not_catalogs(self, _roles):
+    @patch('accounts.decorators._modulos_efectivos', return_value={
+        'planificacion': ['view', 'change'], 'catalogos': ['view'],
+        'certificados': ['view', 'change'],
+    })
+    def test_coordinator_can_change_planning_but_not_catalogs(self, _modulos, _roles):
         user = SimpleNamespace(is_authenticated=True, is_superuser=False)
         self.assertTrue(can_access_module(user, 'planificacion', 'change'))
         self.assertFalse(can_access_module(user, 'catalogos', 'change'))
 
     @patch('accounts.decorators.get_user_roles', return_value=['Funcionario'])
-    def test_funcionario_is_read_only(self, _roles):
+    @patch('accounts.decorators._modulos_efectivos', return_value={
+        'planificacion': ['view'],
+    })
+    def test_funcionario_is_read_only(self, _modulos, _roles):
         user = SimpleNamespace(is_authenticated=True, is_superuser=False)
         self.assertTrue(can_access_module(user, 'planificacion', 'view'))
         self.assertFalse(can_access_module(user, 'planificacion', 'change'))

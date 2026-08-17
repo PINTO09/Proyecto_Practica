@@ -225,15 +225,6 @@
                     <div class="nav-submenu-label">Administración</div>
                     <a class="nav-link{% if active_section == 'modulo_seguridad' %} active{% endif %}" href="{% url 'core:modulo_seguridad' %}"><i class="fas fa-compass"></i><span>Resumen</span></a>
                     <a class="nav-link{% if active_section == 'usuarios' and not role_name %} active{% endif %}" href="{% url 'core:usuarios_list' %}"><i class="fas fa-users"></i><span>Usuarios · Todos</span></a>
-                    <details class="nav-subgroup"{% if request.resolver_match.namespace == 'seguridad' and active_section != 'modulo_seguridad' %} open{% endif %}>
-                        <summary><span><i class="fas fa-screwdriver-wrench"></i>Opciones avanzadas</span><i class="fas fa-chevron-right"></i></summary>
-                        <div class="nav-subgroup-links">
-                            <a class="nav-link" href="{% url 'seguridad:seguridadrol_list' %}"><i class="fas fa-key"></i><span>Roles</span></a>
-                            <a class="nav-link" href="{% url 'seguridad:seguridadusuario_list' %}"><i class="fas fa-user-lock"></i><span>Usuarios heredados</span></a>
-                            <a class="nav-link" href="{% url 'seguridad:seguridadusuariorol_list' %}"><i class="fas fa-user-check"></i><span>Roles heredados</span></a>
-                            {% if request.user.is_superuser %}<a class="nav-link" href="{% url 'admin:index' %}"><i class="fas fa-terminal"></i><span>Administración técnica</span></a>{% endif %}
-                        </div>
-                    </details>
                 </div>
             </details>{% endif %}
         </nav>

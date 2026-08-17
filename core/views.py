@@ -22,7 +22,7 @@ from .forms import (
 )
 from .models import (
     Docente, DocenteTransaccional, Titulo, Publicacion, Curso,
-    UsuarioAlcanceCarrera, EventoSeguridad,
+    EventoSeguridad,
 )
 from catalogos.models import (
     CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoTipoDocente,
@@ -44,10 +44,11 @@ from restricciones.models import Limitacion
 from accounts.decorators import (
     role_required, ROLES_ADMIN, ROLES_ADMIN_AUTORIDAD,
     ROLES_ADMIN_AUTORIDAD_COORDINADOR, ROLES_ESCRITURA,
-    ADMIN, AUTORIDAD, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE, DOCENTE,
+    ADMIN, AUTORIDAD, DECANO, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE, DOCENTE,
     funcionario_readonly, can_access_module, has_role,
     module_permission_required,
 )
+from accounts.role_service import asignar_rol
 
 Usuario = get_user_model()
 
@@ -74,27 +75,6 @@ def _temporary_password(length=14):
         if (any(c.islower() for c in value) and any(c.isupper() for c in value)
                 and any(c.isdigit() for c in value) and any(c in '!@#$%' for c in value)):
             return value
-
-
-def _set_role_and_scope(user, role, careers, actor):
-    from django.contrib.auth.models import Group
-    managed_roles = [ADMIN, AUTORIDAD, COORDINADOR, FUNCIONARIO, DOCENTE, USUARIO, ESTUDIANTE]
-    user.groups.remove(*Group.objects.filter(name__in=managed_roles))
-    group, _ = Group.objects.get_or_create(name=role)
-    user.groups.add(group)
-    user.is_staff = role == ADMIN
-    user.save(update_fields=['is_staff'])
-    UsuarioAlcanceCarrera.objects.filter(usuario=user).update(activo=False)
-    if role == COORDINADOR:
-        for career in careers:
-            scope, _ = UsuarioAlcanceCarrera.objects.get_or_create(
-                usuario=user, carrera=career,
-                defaults={'asignado_por': actor},
-            )
-            scope.activo = True
-            scope.asignado_por = actor
-            scope.asignado_el = timezone.now()
-            scope.save()
 
 
 def landing_view(request):
@@ -126,7 +106,7 @@ def login_view(request):
                 if user.groups.filter(name=ESTUDIANTE).exists():
                     return redirect('core:dashboard')
                 if user.is_superuser or user.groups.filter(
-                    name__in=[ADMIN, AUTORIDAD, COORDINADOR, DOCENTE, USUARIO, FUNCIONARIO]
+                    name__in=[ADMIN, AUTORIDAD, DECANO, COORDINADOR, DOCENTE, USUARIO, FUNCIONARIO]
                 ).exists():
                     return redirect('core:dashboard')
                 logout(request)
@@ -202,7 +182,7 @@ def dashboard_view(request):
                 'url': reverse('core:modulo_' + slug),
                 'modelos_count': len(info['modelos']),
             })
-    if has_role(request.user, DOCENTE, USUARIO, COORDINADOR):
+    if has_role(request.user, DOCENTE, USUARIO, COORDINADOR, DECANO):
         modulos_acceso.insert(0, {
             'nombre': 'Registro de actividad',
             'icono': 'fa-chalkboard-user',
@@ -516,7 +496,7 @@ def mis_documentos_view(request):
 @funcionario_readonly
 def mis_cursos_view(request):
     usuario = request.user
-    if usuario.is_superuser or usuario.groups.filter(name__in=[ADMIN, AUTORIDAD, COORDINADOR]).exists():
+    if usuario.is_superuser or usuario.groups.filter(name__in=[ADMIN, AUTORIDAD, DECANO, COORDINADOR]).exists():
         cursos = Curso.objects.order_by('-pk')
     else:
         docente = Docente.objects.filter(cedula=usuario.cedula).first()
@@ -595,7 +575,7 @@ def subir_documento_view(request):
 
 
 def _require_admin(user):
-    if not (user.is_superuser or user.groups.filter(name__in=[ADMIN, AUTORIDAD]).exists()):
+    if not (user.is_superuser or user.groups.filter(name__in=[ADMIN, AUTORIDAD, DECANO]).exists()):
         raise PermissionDenied
     return True
 
@@ -695,7 +675,7 @@ def usuario_crear_view(request):
                         cedula=user.cedula,
                         defaults={'apellidos_nombres': f'Usuario {user.cedula}', 'correo': user.email},
                     )
-                    _set_role_and_scope(
+                    asignar_rol(
                         user, form.cleaned_data['rol'], form.cleaned_data['carreras'], request.user
                     )
                     _security_event(request, 'CREAR_CUENTA', user, f'Rol: {form.cleaned_data["rol"]}')
@@ -739,7 +719,7 @@ def usuario_editar_view(request, usuario_id):
             user = form.save()
             rol = form.cleaned_data.get('rol')
             if rol:
-                _set_role_and_scope(user, rol, form.cleaned_data['carreras'], request.user)
+                asignar_rol(user, rol, form.cleaned_data['carreras'], request.user)
             event_type = 'EDITAR_CUENTA'
             if previous_active != user.is_active:
                 event_type = 'ACTIVAR' if user.is_active else 'DESACTIVAR'

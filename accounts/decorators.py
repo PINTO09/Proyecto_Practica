@@ -5,18 +5,20 @@ from django.contrib import messages
 
 ADMIN = 'Administrador'
 AUTORIDAD = 'Autoridad'
+DECANO = 'Decano'
 COORDINADOR = 'Coordinador'
 USUARIO = 'Usuario'
 FUNCIONARIO = 'Funcionario'
 ESTUDIANTE = 'Estudiante'
 DOCENTE = 'Docente'
 
-ROLES = [ADMIN, AUTORIDAD, COORDINADOR, FUNCIONARIO, DOCENTE, USUARIO, ESTUDIANTE]
+ROLES = [ADMIN, AUTORIDAD, DECANO, COORDINADOR, FUNCIONARIO, DOCENTE, USUARIO, ESTUDIANTE]
 
 ROLES_ADMIN = [ADMIN]
 ROLES_ADMIN_AUTORIDAD = [ADMIN, AUTORIDAD]
+ROLES_ADMIN_AUTORIDAD_DECANO = [ADMIN, AUTORIDAD, DECANO]
 ROLES_ADMIN_AUTORIDAD_COORDINADOR = [ADMIN, AUTORIDAD, COORDINADOR]
-ROLES_ESCRITURA = [ADMIN, AUTORIDAD, COORDINADOR]
+ROLES_ESCRITURA = [ADMIN, AUTORIDAD, DECANO, COORDINADOR]
 ROLES_TODOS = ROLES
 
 # Permisos efectivos. Ocultar enlaces no es una medida de seguridad: esta
@@ -36,6 +38,17 @@ MODULE_ACCESS = {
         'certificados': {'view', 'change'},
         'planificacion': {'view', 'change'}, 'reportes': {'view'},
         'restricciones': {'view'}, 'self_service': {'view', 'change'},
+    },
+    # El Decano conserva la estructura base del flujo del docente
+    # (self_service, registro de actividad) y suma los permisos elevados de
+    # autorización y control propios de su decanato.
+    DECANO: {
+        'catalogos': {'view', 'change'}, 'docentes': {'view', 'change'},
+        'certificados': {'view', 'change'},
+        'curriculo': {'view', 'change'}, 'planificacion': {'view', 'change'},
+        'reportes': {'view'}, 'restricciones': {'view', 'change'},
+        'auditoria': {'view'}, 'self_service': {'view', 'change'},
+        'seguridad': {'view', 'change'},
     },
     FUNCIONARIO: {
         'catalogos': {'view'}, 'docentes': {'view'}, 'curriculo': {'view'},
@@ -63,13 +76,53 @@ def has_role(user, *roles):
     return user.groups.filter(name__in=roles).exists()
 
 
+def _rol_desde_bd(codigo):
+    """Rol persistido en la BD o None si aún no está disponible."""
+    from django.db import ProgrammingError, OperationalError
+    from core.models import Rol
+    try:
+        return Rol.objects.filter(codigo=codigo, activo=True).first()
+    except (ProgrammingError, OperationalError):
+        return None
+
+
+def _modulos_efectivos(codigo):
+    """Permisos efectivos por módulo: prioriza la BD; cae al dict en instalación/tests."""
+    from django.db import ProgrammingError, OperationalError
+    from core.models import Rol
+    try:
+        rol = Rol.objects.filter(codigo=codigo, activo=True).first()
+    except (ProgrammingError, OperationalError):
+        rol = None
+    if rol is None:
+        return MODULE_ACCESS.get(codigo, {})
+    return rol.modulos_efectivos()
+
+
+def _alcance_rol(codigo):
+    """Alcance del rol desde la BD; fallback al comportamiento previo."""
+    from django.db import ProgrammingError, OperationalError
+    from core.models import Rol
+    try:
+        rol = Rol.objects.filter(codigo=codigo, activo=True).first()
+    except (ProgrammingError, OperationalError):
+        rol = None
+    if rol is None:
+        if codigo in (ADMIN, AUTORIDAD, DECANO):
+            return 'global'
+        if codigo == COORDINADOR:
+            return 'carreras'
+        return 'propio'
+    return rol.alcance
+
+
 def can_access_module(user, module, action='view'):
     if not getattr(user, 'is_authenticated', False):
         return False
     if user.is_superuser:
         return True
     for role in get_user_roles(user):
-        permissions = MODULE_ACCESS.get(role, {})
+        permissions = _modulos_efectivos(role)
         if action in permissions.get('*', set()) or action in permissions.get(module, set()):
             return True
     return False
@@ -77,9 +130,12 @@ def can_access_module(user, module, action='view'):
 
 def allowed_career_ids(user):
     """None indica alcance global; un conjunto vacío indica ningún alcance."""
-    if user.is_superuser or has_role(user, ADMIN, AUTORIDAD):
+    if user.is_superuser:
         return None
-    if has_role(user, COORDINADOR):
+    roles = get_user_roles(user)
+    if any(_alcance_rol(r) == 'global' for r in roles):
+        return None
+    if any(_alcance_rol(r) == 'carreras' for r in roles):
         return set(user.alcances_carrera.filter(activo=True).values_list('carrera_id', flat=True))
     return set()
 

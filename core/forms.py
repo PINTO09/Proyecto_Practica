@@ -19,7 +19,9 @@ from catalogos.models import (
     CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoPais, CatalogoTipoLicencia,
     CatalogoTipoPublicacion,
 )
-from accounts.decorators import ADMIN, AUTORIDAD, COORDINADOR, FUNCIONARIO, DOCENTE
+from accounts.decorators import (
+    ADMIN, AUTORIDAD, DECANO, COORDINADOR, FUNCIONARIO, DOCENTE,
+)
 from PIL import Image, UnidentifiedImageError
 
 Usuario = get_user_model()
@@ -376,6 +378,7 @@ class DocumentoForm(forms.ModelForm):
 class UsuarioAccessFormMixin(forms.Form):
     ROLE_CHOICES = [
         (AUTORIDAD, 'Autoridad'),
+        (DECANO, 'Decano'),
         (COORDINADOR, 'Coordinador'),
         (FUNCIONARIO, 'Funcionario'),
         (DOCENTE, 'Docente'),
@@ -438,7 +441,7 @@ class UsuarioCreateForm(UsuarioAccessFormMixin, forms.ModelForm):
         cleaned = super().clean()
         role = cleaned.get('rol')
         cedula = cleaned.get('cedula')
-        if role in {DOCENTE, COORDINADOR} and cedula:
+        if role in {DOCENTE, COORDINADOR, DECANO} and cedula:
             if not DocenteFcacc.objects.filter(cedula_docente=cedula).exists():
                 self.add_error('cedula', 'La cédula no corresponde a un docente registrado.')
         return cleaned
@@ -463,7 +466,7 @@ class UsuarioEditForm(UsuarioAccessFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             grupos = list(self.instance.groups.filter(
-                name__in=[ADMIN, AUTORIDAD, COORDINADOR, FUNCIONARIO, DOCENTE]
+                name__in=[ADMIN, AUTORIDAD, DECANO, COORDINADOR, FUNCIONARIO, DOCENTE]
             ).values_list('name', flat=True))
             if grupos:
                 self.fields['rol'].initial = grupos[0]
