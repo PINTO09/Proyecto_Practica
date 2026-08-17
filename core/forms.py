@@ -5,6 +5,8 @@ from django import forms
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.forms import SetPasswordForm
@@ -396,12 +398,12 @@ class UsuarioAccessFormMixin(forms.Form):
         def role_choices():
             # Callable: Django solo la evalúa al validar/renderizar, así
             # construir el formulario no exige BD (p. ej. en tests que
-            # instancian el form sin habilitarla). Los roles asignables
-            # salen de core.Rol -no de una lista fija en Python- para que un
-            # rol nuevo o desactivado en la base de datos se refleje aquí
-            # sin tocar código.
+            # instancian el form sin habilitarla). Se listan TODOS los
+            # roles activos de core.Rol -no una lista fija en Python-, para
+            # que un rol nuevo o desactivado en la base de datos se refleje
+            # aquí sin tocar código.
             roles_asignables = Rol.objects.filter(
-                activo=True, asignable_por_admin=True,
+                activo=True,
             ).exclude(codigo=ADMIN).order_by('codigo')
             choices = [(rol.codigo, rol.nombre) for rol in roles_asignables]
             if actor and (actor.is_superuser or actor.groups.filter(name=ADMIN).exists()):
@@ -479,6 +481,110 @@ class UsuarioEditForm(UsuarioAccessFormMixin, forms.ModelForm):
             self.fields['carreras'].initial = self.instance.alcances_carrera.filter(
                 activo=True
             ).values_list('carrera_id', flat=True)
+
+
+class ModulosPermisosWidget(forms.Widget):
+    """Casillas «Ver»/«Editar» por módulo en vez del JSON crudo que Django
+    genera por defecto para un JSONField. Se guarda igual como
+    {"modulo": ["view", "change"]}; "*" es el módulo especial "todos"."""
+
+    # Se declara como si fuera un textarea únicamente para que
+    # generic_crud/form.html lo renderice a ancho completo (misma
+    # convención que ya usa esa plantilla para los textarea reales).
+    input_type = 'textarea'
+
+    MODULOS = [
+        ('*', 'Todos los módulos (nivel Administrador)'),
+        ('catalogos', 'Catálogos'),
+        ('docentes', 'Docentes'),
+        ('certificados', 'Certificados'),
+        ('curriculo', 'Currículo'),
+        ('planificacion', 'Planificación'),
+        ('reportes', 'Reportes'),
+        ('auditoria', 'Auditoría'),
+        ('restricciones', 'Restricciones'),
+        ('self_service', 'Autoservicio del docente'),
+        ('seguridad', 'Seguridad (usuarios y roles)'),
+        ('carga_masiva', 'Carga masiva de datos'),
+    ]
+
+    def format_value(self, value):
+        if isinstance(value, str):
+            import json
+            try:
+                value = json.loads(value) if value else {}
+            except ValueError:
+                value = {}
+        return value or {}
+
+    def value_from_datadict(self, data, files, name):
+        modulos = {}
+        for codigo, _ in self.MODULOS:
+            acciones = []
+            if data.get(f'{name}__{codigo}__view'):
+                acciones.append('view')
+            if data.get(f'{name}__{codigo}__change'):
+                acciones.append('change')
+            if acciones:
+                modulos[codigo] = acciones
+        return modulos
+
+    def value_omitted_from_data(self, data, files, name):
+        return False
+
+    def render(self, name, value, attrs=None, renderer=None):
+        value = self.format_value(value)
+        filas = []
+        for codigo, etiqueta in self.MODULOS:
+            acciones = value.get(codigo, [])
+            fila_class = 'table-warning' if codigo == '*' else ''
+            filas.append(format_html(
+                '<tr class="{}"><td>{}</td>'
+                '<td class="text-center"><input type="checkbox" class="form-check-input" name="{}__{}__view" {}></td>'
+                '<td class="text-center"><input type="checkbox" class="form-check-input" name="{}__{}__change" {}></td></tr>',
+                fila_class, etiqueta,
+                name, codigo, 'checked' if 'view' in acciones else '',
+                name, codigo, 'checked' if 'change' in acciones else '',
+            ))
+        return format_html(
+            '<div class="table-responsive border rounded">'
+            '<table class="table table-sm mb-0 align-middle">'
+            '<thead class="table-light"><tr><th>Módulo</th>'
+            '<th class="text-center">Ver</th><th class="text-center">Editar</th></tr></thead>'
+            '<tbody>{}</tbody></table></div>'
+            '<div class="form-text mt-1">"Ver" permite consultar la información de ese módulo; '
+            '"Editar" además permite crear, modificar o eliminar registros. '
+            '"Todos los módulos" da acceso total, igual que el rol Administrador.</div>',
+            mark_safe(''.join(filas)),
+        )
+
+
+class ModulosPermisosField(forms.Field):
+    widget = ModulosPermisosWidget
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('required', False)
+        super().__init__(*args, **kwargs)
+
+    def to_python(self, value):
+        return value or {}
+
+    def validate(self, value):
+        pass
+
+    def has_changed(self, initial, data):
+        return (initial or {}) != (data or {})
+
+
+class RolForm(forms.ModelForm):
+    modulos = ModulosPermisosField(
+        label='Permisos por módulo',
+        help_text='Marca qué puede ver y qué puede editar este rol en cada módulo del sistema.',
+    )
+
+    class Meta:
+        model = Rol
+        fields = '__all__'
 
 
 class CambioPasswordObligatorioForm(SetPasswordForm):

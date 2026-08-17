@@ -1,22 +1,6 @@
 from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 
-from .models import SeguridadRol, SeguridadUsuario, SeguridadUsuarioRol
-
-
-class SeguridadRolListView(CrudListView):
-    model = SeguridadRol
-
-
-class SeguridadRolCreateView(CrudCreateView):
-    model = SeguridadRol
-
-
-class SeguridadRolUpdateView(CrudUpdateView):
-    model = SeguridadRol
-
-
-class SeguridadRolDeleteView(CrudDeleteView):
-    model = SeguridadRol
+from .models import SeguridadUsuario, SeguridadUsuarioRol
 
 
 class SeguridadUsuarioListView(CrudListView):

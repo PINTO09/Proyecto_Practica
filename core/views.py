@@ -17,7 +17,7 @@ import string
 
 from .forms import (
     LoginForm, UsuarioCreateForm, UsuarioEditForm, DocenteFcaccForm,
-    CambioPasswordObligatorioForm,
+    CambioPasswordObligatorioForm, RolForm,
 )
 from .models import (
     Docente, DocenteTransaccional, Titulo, Publicacion, Curso,
@@ -48,6 +48,7 @@ from accounts.decorators import (
     module_permission_required,
 )
 from accounts.role_service import asignar_rol
+from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
 
 Usuario = get_user_model()
 
@@ -817,6 +818,42 @@ def api_usuario_docente(request):
     })
 
 
+class RolListView(CrudListView):
+    """Roles vigentes del sistema (core.Rol): los únicos que usa
+    can_access_module() para decidir permisos -la ruta legada
+    seguridad:seguridadrol_list se eliminó por mostrar una tabla histórica
+    sin relación con el control de acceso actual.
+
+    Cualquiera con acceso de vista a "seguridad" puede consultar esta
+    lista, pero crear/editar/eliminar roles queda solo para Administrador:
+    can_change_records (heredado de CrudListView) evalúa el permiso contra
+    el app "core" -no "seguridad"-, y ningún rol aparte de Administrador
+    tiene concedido ese módulo, ni en la BD ni en el respaldo hardcodeado.
+    Las vistas de creación/edición/eliminación aplican la misma regla."""
+    model = Rol
+    access_module = 'seguridad'
+    search_fields = ('codigo', 'nombre', 'descripcion')
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('codigo')
+
+
+class RolCreateView(CrudCreateView):
+    model = Rol
+    fields = None
+    form_class = RolForm
+
+
+class RolUpdateView(CrudUpdateView):
+    model = Rol
+    fields = None
+    form_class = RolForm
+
+
+class RolDeleteView(CrudDeleteView):
+    model = Rol
+
+
 # ─── Módulos CRUD ───────────────────────────────────────────────────────────
 
 from django.db import ProgrammingError, OperationalError
@@ -973,7 +1010,7 @@ MODULOS = {
         'descripcion': 'Administre las cuentas del sistema, revise los eventos de seguridad y consulte los roles y usuarios heredados del esquema histórico de la base de datos.',
         'acciones': [
             ('Usuarios · Todos', 'core:usuarios_list', 'fa-users', 'Cree, edite y restablezca la contraseña de las cuentas del sistema. Filtre por rol, estado o busque por nombre, cédula o correo.'),
-            ('Roles', 'seguridad:seguridadrol_list', 'fa-key', 'Administre los roles heredados del esquema de seguridad histórico.', 'SeguridadRol'),
+            ('Roles', 'core:rol_list', 'fa-key', 'Roles vigentes del sistema y los permisos por módulo que otorga cada uno.', 'Rol'),
             ('Usuarios de seguridad (legado)', 'seguridad:seguridadusuario_list', 'fa-user-lock', 'Administre los usuarios registrados en el esquema de seguridad histórico.', 'SeguridadUsuario'),
             ('Asignación de roles (legado)', 'seguridad:seguridadusuariorol_list', 'fa-user-check', 'Administre la asignación histórica de roles por usuario y carrera.', 'SeguridadUsuarioRol'),
         ],

@@ -122,8 +122,8 @@ class UsuarioAlcanceCarreraAdmin(admin.ModelAdmin):
 
 @admin.register(Rol)
 class RolAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'nombre', 'alcance', 'rol_base', 'activo', 'asignable_por_admin')
-    list_filter = ('alcance', 'activo', 'asignable_por_admin')
+    list_display = ('codigo', 'nombre', 'alcance', 'activo')
+    list_filter = ('alcance', 'activo')
     search_fields = ('codigo', 'nombre', 'descripcion')
     ordering = ('codigo',)
 

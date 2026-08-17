@@ -166,7 +166,7 @@ def _find_codigo_nombre_fields(model):
             from django.db.models import CharField
             if isinstance(field, CharField):
                 codigo_field = field
-        if field.name.startswith('nombre_'):
+        if field.name.startswith('nombre_') or field.name == 'nombre':
             nombre_field = field
     return codigo_field, nombre_field
 
@@ -249,9 +249,13 @@ def _audit_log(request, instance, action, old_values=None, registro_pk=None):
 
 class RoleAccessMixin:
     access_action = 'view'
+    # Por defecto el permiso se evalúa contra el app del modelo. Se puede
+    # forzar otro módulo (p. ej. un modelo del app "core" que en la interfaz
+    # vive bajo "seguridad") declarando access_module en la vista.
+    access_module = None
 
     def dispatch(self, request, *args, **kwargs):
-        module = self.model._meta.app_label
+        module = self.access_module or self.model._meta.app_label
         if not can_access_module(request.user, module, self.access_action):
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
@@ -470,7 +474,19 @@ class CrudUpdateView(LoginRequiredMixin, RoleAccessMixin, UpdateView):
 
     def form_valid(self, form):
         old_values = _model_to_dict(self.get_object())
-        _auto_generate_codigo(form)
+        # NO se regenera el código aquí. _generate_codigo() busca el primer
+        # sufijo libre consultando qué códigos ya existen, pero no excluye
+        # el propio registro que se está editando -así que el código
+        # "actual" siempre cuenta como ya usado y la función salta al
+        # siguiente número EN CADA EDICIÓN, aunque el nombre no haya
+        # cambiado. En modelos comunes eso ya iba corriendo el código de a
+        # poco sin que nadie lo notara; en core.Rol acabó renombrando el
+        # código del rol Administrador (de "Administrador" a "ADMIN-001"),
+        # que está hardcodeado en accounts.decorators y rompe el sistema de
+        # permisos para cualquier cuenta no-superusuario con ese rol. El
+        # autogenerado solo tiene sentido al crear (campo vacío, de solo
+        # lectura); al editar, el código ya existe y se conserva tal cual
+        # salvo que el usuario lo cambie a mano.
         response = super().form_valid(form)
         _audit_log(self.request, self.object, 'UPDATE', old_values=old_values)
         messages.success(self.request, 'Registro actualizado correctamente.')

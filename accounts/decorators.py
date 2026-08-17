@@ -81,7 +81,7 @@ _ROL_AUSENTE = '__ausente__'
 
 
 def _rol_datos(codigo):
-    """(modulos_efectivos, alcance) del rol activo en BD, o None si aún no
+    """(modulos, alcance) del rol activo en BD, o None si aún no
     existe. can_access_module() se evalúa varias veces por request (una por
     módulo en el menú, más las de cada vista) así que el resultado se
     cachea un rato -Rol invalida su propia entrada al guardarse/borrarse-
@@ -105,7 +105,7 @@ def _rol_datos(codigo):
     if rol is None:
         cache.set(key, _ROL_AUSENTE, ROL_CACHE_TIMEOUT)
         return None
-    datos = (rol.modulos_efectivos(), rol.alcance)
+    datos = (rol.modulos, rol.alcance)
     cache.set(key, datos, ROL_CACHE_TIMEOUT)
     return datos
 

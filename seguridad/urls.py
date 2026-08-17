@@ -4,10 +4,6 @@ from . import views
 app_name = 'seguridad'
 
 urlpatterns = [
-    path('roles/', views.SeguridadRolListView.as_view(), name='seguridadrol_list'),
-    path('roles/crear/', views.SeguridadRolCreateView.as_view(), name='seguridadrol_create'),
-    path('roles/<int:pk>/editar/', views.SeguridadRolUpdateView.as_view(), name='seguridadrol_update'),
-    path('roles/<int:pk>/eliminar/', views.SeguridadRolDeleteView.as_view(), name='seguridadrol_delete'),
     path('usuarios/', views.SeguridadUsuarioListView.as_view(), name='seguridadusuario_list'),
     path('usuarios/crear/', views.SeguridadUsuarioCreateView.as_view(), name='seguridadusuario_create'),
     path('usuarios/<int:pk>/editar/', views.SeguridadUsuarioUpdateView.as_view(), name='seguridadusuario_update'),

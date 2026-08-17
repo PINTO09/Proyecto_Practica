@@ -122,8 +122,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.querySelectorAll('input, select, textarea').forEach(el => {
     const name = el.name;
-    if (name.startsWith('nombre_')) {
-      const suffix = name.replace('nombre_', '');
+    if (name.startsWith('nombre_') || name === 'nombre') {
+      const suffix = name === 'nombre' ? '' : name.replace('nombre_', '');
       const codigoEl = document.getElementById('id_codigo_' + suffix) || document.getElementById('id_codigo');
       if (codigoEl) {
         nombreFields[name] = el;

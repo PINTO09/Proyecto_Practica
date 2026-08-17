@@ -96,11 +96,6 @@ class Rol(models.Model):
     codigo = models.CharField('Código', max_length=30, unique=True)
     nombre = models.CharField('Nombre', max_length=100, unique=True)
     descripcion = models.CharField('Descripción', max_length=255, blank=True)
-    rol_base = models.ForeignKey(
-        'self', on_delete=models.PROTECT, null=True, blank=True,
-        related_name='roles_heredados', verbose_name='Rol base heredado',
-        help_text='Permisos heredados del rol base (p. ej. Decano hereda Docente).',
-    )
     modulos = models.JSONField(
         'Permisos por módulo', default=dict,
         help_text='Formato: {"modulo": ["view", "change"]} o {"*": ["view", "change"]}.',
@@ -110,11 +105,6 @@ class Rol(models.Model):
         help_text='global: toda la facultad; carreras: solo las autorizadas; propio: solo datos propios.',
     )
     activo = models.BooleanField('Activo', default=True)
-    asignable_por_admin = models.BooleanField(
-        'Asignable desde "Nuevo usuario"/"Editar usuario"', default=True,
-        help_text='Roles heredados o de compatibilidad (p. ej. Usuario, Estudiante) se '
-                   'desmarcan para que no aparezcan como opción al crear/editar cuentas.',
-    )
 
     class Meta:
         verbose_name = 'Rol'
@@ -123,22 +113,6 @@ class Rol(models.Model):
 
     def __str__(self):
         return self.nombre
-
-    def modulos_efectivos(self, _visitados=None):
-        """Fusiona los permisos heredados del rol base con los propios.
-
-        _visitados corta una posible cadena circular de rol_base (p. ej. un
-        error de captura al editar en el admin): sin este corte, un ciclo
-        tumbaría con RecursionError cada verificación de permiso del sitio.
-        """
-        visitados = _visitados if _visitados is not None else set()
-        merged = {}
-        if self.rol_base_id and self.rol_base_id not in visitados:
-            visitados.add(self.pk)
-            merged.update(self.rol_base.modulos_efectivos(visitados))
-        for module, actions in (self.modulos or {}).items():
-            merged.setdefault(module, []).extend(actions)
-        return merged
 
 
 @receiver(post_save, sender=Rol)

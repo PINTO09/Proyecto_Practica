@@ -30,6 +30,10 @@ urlpatterns = [
     path('usuarios/<int:usuario_id>/editar/', views.usuario_editar_view, name='usuario_editar'),
     path('usuarios/<int:usuario_id>/restablecer-password/', views.usuario_restablecer_password_view, name='usuario_restablecer_password'),
     path('api/usuario-docente/', views.api_usuario_docente, name='api_usuario_docente'),
+    path('roles/', views.RolListView.as_view(), name='rol_list'),
+    path('roles/crear/', views.RolCreateView.as_view(), name='rol_create'),
+    path('roles/<int:pk>/editar/', views.RolUpdateView.as_view(), name='rol_update'),
+    path('roles/<int:pk>/eliminar/', views.RolDeleteView.as_view(), name='rol_delete'),
 
     # Módulos CRUD (7 módulos)
     path('modulo/catalogos/', views.modulo_view, {'slug': 'catalogos'}, name='modulo_catalogos'),

@@ -24,11 +24,7 @@ def asignar_rol(user, role, careers, actor):
     """Asigna un rol único al usuario (regla de transición Docente→Decano).
 
     El cambio de rol es transaccional: se eliminan todos los grupos gestionados
-    y se asigna únicamente el nuevo rol. Si un Docente es promovido a Decano,
-    conserva de forma implícita la estructura base del flujo docente porque los
-    privilegios del Rol Decano (rol_base → Docente) incluyen los módulos base
-    del docente, sumados a los permisos elevados de autorización y control de
-    su decanato.
+    y se asigna únicamente el nuevo rol.
     """
     _persistir_rol(role)
     user.groups.remove(*Group.objects.filter(name__in=MANAGED_ROLES))
