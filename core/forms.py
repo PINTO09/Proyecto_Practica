@@ -15,7 +15,7 @@ from .models import (
     Modalidad, Dedicacion, Carrera, Periodo, Licencia,
     UsuarioAlcanceCarrera, Rol,
 )
-from docentes.models import DocenteFcacc
+from docentes.models import DocenteFcacc, DocenteTituloAcademico
 from catalogos.models import (
     CatalogoTipoDocente, CatalogoModalidadContratacion, CatalogoDedicacionHoraria,
     CatalogoCarrera, CatalogoPeriodoAcademico, CatalogoPais, CatalogoTipoLicencia,
@@ -232,6 +232,57 @@ class TituloForm(forms.ModelForm):
         self.fields['id_pais'].empty_label = 'Seleccione un país'
         self.fields['fecha_titulo'].required = False
         self.fields['fecha_senecyt'].required = False
+
+
+class DocenteTituloAcademicoSelfServiceForm(forms.ModelForm):
+    """Edición del título maestro importado, sin exponer su docente dueño."""
+
+    class Meta:
+        model = DocenteTituloAcademico
+        fields = (
+            'nombre_titulo', 'nivel_titulo', 'id_posgrado', 'id_pais',
+            'fecha_obtencion_titulo', 'numero_registro_titulo',
+            'numero_registro_senescyt', 'fecha_registro_senescyt',
+        )
+        widgets = {
+            'nombre_titulo': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'Nombre completo del título',
+            }),
+            'nivel_titulo': forms.Select(
+                choices=((3, 'Tercer nivel'), (4, 'Cuarto nivel')),
+                attrs={'class': 'form-select'},
+            ),
+            'id_posgrado': forms.Select(attrs={'class': 'form-select'}),
+            'id_pais': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_obtencion_titulo': forms.DateInput(attrs={
+                'class': 'form-control', 'type': 'date',
+            }),
+            'numero_registro_titulo': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'Número de registro del título',
+            }),
+            'numero_registro_senescyt': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'Número de registro SENESCYT',
+            }),
+            'fecha_registro_senescyt': forms.DateInput(attrs={
+                'class': 'form-control', 'type': 'date',
+            }),
+        }
+        labels = {
+            'nombre_titulo': 'Nombre del título',
+            'nivel_titulo': 'Nivel académico',
+            'id_posgrado': 'Tipo de posgrado',
+            'id_pais': 'País',
+            'fecha_obtencion_titulo': 'Fecha de obtención',
+            'numero_registro_titulo': 'Número de registro del título',
+            'numero_registro_senescyt': 'Número de registro SENESCYT',
+            'fecha_registro_senescyt': 'Fecha de registro en SENESCYT',
+        }
+        help_texts = {
+            'id_posgrado': 'Seleccione una opción cuando corresponda a un título de cuarto nivel.',
+        }
+
+    def clean_nombre_titulo(self):
+        return self.cleaned_data['nombre_titulo'].strip()
 
 
 class PublicacionForm(forms.ModelForm):

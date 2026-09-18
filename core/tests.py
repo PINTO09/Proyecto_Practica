@@ -1,15 +1,21 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, call, patch
 from pathlib import Path
 
 from django.test import RequestFactory, SimpleTestCase
 from django.forms import modelform_factory
+from django.http import Http404
+from django.urls import resolve, reverse
 from django.core.exceptions import PermissionDenied
 from types import SimpleNamespace
 
 from catalogos.models import CatalogoPeriodoAcademico
-from docentes.models import DocenteTituloAcademico
+from docentes.models import DocenteFcacc, DocenteTituloAcademico
 from core.crud_base import CrudListView, _prepare_crud_form
-from core.forms import UsuarioCreateForm, DocenteFcaccForm
+from core.forms import (
+    DocenteFcaccForm, DocenteTituloAcademicoSelfServiceForm,
+    UsuarioCreateForm,
+)
+from core.views import editar_titulo_view
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from datetime import timedelta
@@ -96,6 +102,65 @@ class UnifiedProfileFormTests(SimpleTestCase):
         form.cleaned_data = {'fecha_nacimiento': timezone.localdate() + timedelta(days=1)}
         with self.assertRaisesMessage(Exception, 'La fecha de nacimiento debe ser anterior a hoy.'):
             form.clean_fecha_nacimiento()
+
+
+class AcademicTitleSelfServiceTests(SimpleTestCase):
+    def test_imported_title_form_exposes_academic_data_but_not_owner(self):
+        form = DocenteTituloAcademicoSelfServiceForm()
+
+        self.assertEqual(
+            list(form.fields),
+            [
+                'nombre_titulo', 'nivel_titulo', 'id_posgrado', 'id_pais',
+                'fecha_obtencion_titulo', 'numero_registro_titulo',
+                'numero_registro_senescyt', 'fecha_registro_senescyt',
+            ],
+        )
+        self.assertNotIn('id_docente', form.fields)
+        self.assertEqual(
+            form.fields['fecha_obtencion_titulo'].widget.input_type, 'date',
+        )
+
+    def test_edit_route_identifies_title_source(self):
+        url = reverse('core:editar_titulo', kwargs={
+            'origen': 'importado', 'pk': 17,
+        })
+
+        self.assertEqual(resolve(url).func, editar_titulo_view)
+
+    @patch('core.views.render', return_value=MagicMock())
+    @patch('core.views.get_object_or_404')
+    def test_imported_title_is_looked_up_under_authenticated_teacher(
+        self, get_object_mock, _render_mock,
+    ):
+        teacher = MagicMock()
+        title = DocenteTituloAcademico(
+            id_titulo=17, id_docente_id=8, id_pais_id=1,
+            nombre_titulo='MAESTRÍA DE PRUEBA', nivel_titulo=4,
+        )
+        get_object_mock.side_effect = [teacher, title]
+        request = RequestFactory().get('/titulos/importado/17/editar/')
+        request.user = SimpleNamespace(cedula='1300000001')
+        unwrapped_view = editar_titulo_view.__wrapped__.__wrapped__.__wrapped__
+
+        unwrapped_view(request, 'importado', 17)
+
+        self.assertEqual(
+            get_object_mock.call_args_list[0],
+            call(DocenteFcacc, cedula_docente='1300000001'),
+        )
+        self.assertEqual(
+            get_object_mock.call_args_list[1],
+            call(DocenteTituloAcademico, pk=17, id_docente=teacher),
+        )
+
+    def test_unknown_title_source_is_rejected(self):
+        request = RequestFactory().get('/titulos/desconocido/1/editar/')
+        request.user = SimpleNamespace(cedula='1300000001')
+        unwrapped_view = editar_titulo_view.__wrapped__.__wrapped__.__wrapped__
+
+        with self.assertRaises(Http404):
+            unwrapped_view(request, 'desconocido', 1)
 
 class CrudPaginationTests(SimpleTestCase):
     def setUp(self):

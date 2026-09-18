@@ -1,4 +1,4 @@
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -48,7 +48,10 @@ from accounts.decorators import (
     module_permission_required,
 )
 from accounts.role_service import asignar_rol
-from core.crud_base import CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView
+from core.crud_base import (
+    CrudListView, CrudCreateView, CrudUpdateView, CrudDeleteView,
+    _audit_log, _model_to_dict,
+)
 
 Usuario = get_user_model()
 
@@ -398,6 +401,8 @@ def mis_titulos_view(request):
     docente = Docente.objects.filter(cedula=usuario.cedula).first()
     if docente:
         titulos = list(Titulo.objects.filter(id_cedula=docente))
+        for titulo in titulos:
+            titulo.origen_titulo = 'local'
 
     try:
         docente_fcacc = DocenteFcacc.objects.filter(cedula_docente=usuario.cedula).first()
@@ -406,6 +411,7 @@ def mis_titulos_view(request):
                 id_docente=docente_fcacc
             ).select_related('id_pais', 'id_posgrado')
             for t in fcacc_titulos:
+                t.origen_titulo = 'importado'
                 titulos.append(t)
     except Exception:
         pass
@@ -413,6 +419,7 @@ def mis_titulos_view(request):
     page_obj = Paginator(titulos, 15).get_page(request.GET.get('page'))
     return render(request, 'core/mis_titulos.html', {
         'titulos': page_obj, 'page_obj': page_obj, 'active_section': 'titulos',
+        'can_edit_titles': can_access_module(usuario, 'self_service', 'change'),
     })
 
 
@@ -436,6 +443,50 @@ def crear_titulo_view(request):
     else:
         form = TituloForm()
     return render(request, 'core/form_titulo.html', {'form': form, 'accion': 'Nuevo', 'active_section': 'titulos'})
+
+
+@login_required
+@module_permission_required('self_service', 'change')
+@funcionario_readonly
+def editar_titulo_view(request, origen, pk):
+    """Edita solo un título que pertenezca al usuario autenticado."""
+    from .forms import DocenteTituloAcademicoSelfServiceForm, TituloForm
+
+    if origen == 'importado':
+        docente = get_object_or_404(
+            DocenteFcacc, cedula_docente=request.user.cedula,
+        )
+        titulo = get_object_or_404(
+            DocenteTituloAcademico, pk=pk, id_docente=docente,
+        )
+        form_class = DocenteTituloAcademicoSelfServiceForm
+        titulo_importado = True
+    elif origen == 'local':
+        docente = get_object_or_404(Docente, cedula=request.user.cedula)
+        titulo = get_object_or_404(Titulo, pk=pk, id_cedula=docente)
+        form_class = TituloForm
+        titulo_importado = False
+    else:
+        raise Http404('Origen de título no válido.')
+
+    if request.method == 'POST':
+        form = form_class(request.POST, instance=titulo)
+        if form.is_valid():
+            with transaction.atomic():
+                old_values = _model_to_dict(titulo)
+                titulo = form.save()
+                _audit_log(request, titulo, 'UPDATE', old_values=old_values)
+            messages.success(request, 'Título actualizado correctamente.')
+            return redirect('core:mis_titulos')
+    else:
+        form = form_class(instance=titulo)
+
+    return render(request, 'core/form_titulo.html', {
+        'form': form,
+        'accion': 'Editar',
+        'titulo_importado': titulo_importado,
+        'active_section': 'titulos',
+    })
 
 
 @login_required
