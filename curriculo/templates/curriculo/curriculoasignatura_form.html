@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function checkCarreraActividad() {
     if (!carreraSelect || !actividadCheck) return;
     const selected = carreraSelect.options[carreraSelect.selectedIndex];
-    const isAct = selected && selected.text.startsWith('[ACT]');
+    const isAct = selected?.dataset.esActividad === 'true';
     actividadCheck.checked = isAct;
     toggleNivel();
   }

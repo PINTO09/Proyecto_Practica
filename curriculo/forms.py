@@ -3,6 +3,14 @@ from .models import CurriculoAsignatura, CurriculoAsignaturaCampo
 from catalogos.models import CatalogoCampoConocimiento, CatalogoCarrera
 
 
+class CarreraActividadSelect(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if hasattr(value, 'instance'):
+            option['attrs']['data-es-actividad'] = 'true' if value.instance.es_actividad else 'false'
+        return option
+
+
 class CurriculoAsignaturaForm(forms.ModelForm):
     modalidad_espacio = forms.ChoiceField(
         label='Uso de espacios',
@@ -44,11 +52,13 @@ class CurriculoAsignaturaForm(forms.ModelForm):
             'campos_conocimiento',
         )
         widgets = {
+            'id_carrera': CarreraActividadSelect(),
             'nivel_semestre': forms.Select(choices=[('', '--- Seleccione ---')] + [(i, f'Nivel {i}') for i in range(1, 11)]),
             'horas_aula': forms.NumberInput(attrs={'min': 0, 'step': '0.25'}),
             'horas_centro_computo': forms.NumberInput(attrs={'min': 0, 'step': '0.25'}),
         }
         labels = {
+            'id_carrera': 'Carrera o actividad',
             'horas_aula': 'Horas semanales en aula',
             'horas_centro_computo': 'Horas semanales en centro de cómputo',
         }
@@ -73,7 +83,9 @@ class CurriculoAsignaturaForm(forms.ModelForm):
                 'nombre_campo_conocimiento'
             )
         )
-        self.fields['id_carrera'].label_from_instance = lambda obj: f"{'[ACT] ' if obj.es_actividad else ''}{obj.codigo_carrera} - {obj.nombre_carrera}"
+        self.fields['id_carrera'].label_from_instance = lambda obj: (
+            f"{obj.nombre_carrera}{' (Actividad)' if obj.es_actividad else ''}"
+        )
         for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs['class'] = 'form-check-input'

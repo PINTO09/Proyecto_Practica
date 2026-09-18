@@ -916,14 +916,14 @@ MODULOS = {
         'icono': 'fa-database',
         'descripcion': 'Administre la información base que utilizan los módulos académicos y de planificación.',
         'acciones': [
-            ('Carreras', 'catalogos:catalogocarrera_list', 'fa-building-columns', 'Consulte y mantenga las carreras disponibles en la facultad.', 'CatalogoCarrera'),
+            ('Carreras y actividades', 'catalogos:catalogocarrera_list', 'fa-building-columns', 'Consulte y administre las carreras y actividades registradas en el catálogo.', 'CatalogoCarrera'),
             ('Períodos académicos', 'catalogos:catalogoperiodoacademico_list', 'fa-calendar-days', 'Configure fechas, vigencia y estado de cada período académico.', 'CatalogoPeriodoAcademico'),
             ('Modalidades', 'catalogos:catalogomodalidadcontratacion_list', 'fa-file-signature', 'Gestione las modalidades de contratación de los docentes.', 'CatalogoModalidadContratacion'),
             ('Campos de conocimiento', 'catalogos:catalogocampoconocimiento_list', 'fa-diagram-project', 'Organice las áreas utilizadas para establecer afinidades académicas.', 'CatalogoCampoConocimiento'),
             ('Límites horarios', 'catalogos:limitehorario_list', 'fa-gauge-high', 'Defina los límites que se aplican durante la planificación.', 'LimiteHorario'),
         ],
         'modelos': [
-            ('Carreras', 'CatalogoCarrera'),
+            ('Carreras y actividades', 'CatalogoCarrera'),
             ('Modalidades Contratación', 'CatalogoModalidadContratacion'),
             ('Dedicación Horaria', 'CatalogoDedicacionHoraria'),
             ('Tipo Docente', 'CatalogoTipoDocente'),

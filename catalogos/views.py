@@ -13,6 +13,11 @@ from .models import (
 class CatalogoCarreraListView(CrudListView):
     model = CatalogoCarrera
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['model_verbose_plural'] = 'Carreras y actividades'
+        return context
+
 class CatalogoCarreraCreateView(CrudCreateView):
     model = CatalogoCarrera
 
