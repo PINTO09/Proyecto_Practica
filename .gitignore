@@ -224,3 +224,6 @@ __marimo__/
 _excel_input/
 backups/*.json
 backups/*.dump
+
+# Resultados de auditoría generados con los datos de cada instalación
+docs/auditoria_interfaces*.json

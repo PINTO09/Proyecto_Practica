@@ -154,6 +154,14 @@ def allowed_career_ids(user):
     return set()
 
 
+def can_manage_certificate_signers(user):
+    return bool(
+        user and getattr(user, 'is_authenticated', False)
+        and has_role(user, ADMIN, AUTORIDAD)
+        and can_access_module(user, 'certificados', 'change')
+    )
+
+
 def module_permission_required(module, action='view'):
     def decorator(view_func):
         @wraps(view_func)

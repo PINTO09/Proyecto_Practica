@@ -14,6 +14,7 @@ from .models import CertificadoEmitido, FirmanteCertificado
 from .services import (
     FUNCTION_FILTERS,
     FUNCTION_FILTER_LABELS,
+    activity_choices,
     build_certificate_snapshot,
     docentes_con_datos,
     normalize_function_filter,
@@ -114,6 +115,7 @@ def generar_certificado(request):
             form.cleaned_data['docente'],
             form.cleaned_data['filtro_funciones'],
             periodo,
+            activity_keys=form.cleaned_data.get('actividades'),
         )
         if not snapshot['filas']:
             error_field = (
@@ -145,6 +147,27 @@ def generar_certificado(request):
     return render(request, 'certificados/generar.html', {
         'form': form, 'active_section': 'certificado_generar',
     })
+
+
+@module_permission_required('certificados', 'view')
+def api_actividades(request):
+    try:
+        teacher_id = int(request.GET.get('docente', ''))
+        periodo_id = int(request.GET['periodo']) if request.GET.get('periodo') else None
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Docente o período inválido.'}, status=400)
+    teacher = get_object_or_404(DocenteFcacc, pk=teacher_id)
+    permitted = allowed_career_ids(request.user)
+    if permitted is not None and not teacher.docenteasignacioncarreraperiodo_set.filter(
+        id_carrera_id__in=permitted,
+    ).exists():
+        raise PermissionDenied
+    periodo = None
+    if periodo_id is not None:
+        periodo = get_object_or_404(CatalogoPeriodoAcademico, pk=periodo_id)
+    return JsonResponse({'actividades': [
+        {'id': key, 'nombre': label} for key, label in activity_choices(teacher, periodo)
+    ]})
 
 
 @module_permission_required('certificados', 'view')

@@ -5,7 +5,7 @@ from catalogos.models import CatalogoPeriodoAcademico
 from docentes.models import DocenteFcacc
 
 from .models import CertificadoEmitido, FirmanteCertificado
-from .services import FUNCTION_FILTERS, docentes_con_datos, normalize_function_filter
+from .services import FUNCTION_FILTERS, activity_choices, docentes_con_datos, normalize_function_filter
 
 
 class GenerarCertificadoForm(forms.Form):
@@ -21,7 +21,13 @@ class GenerarCertificadoForm(forms.Form):
         queryset=CatalogoPeriodoAcademico.objects.none(),
         label='Período académico',
         required=False,
-        help_text='Opcional. Si se selecciona, el certificado incluirá únicamente la información de ese período.',
+        empty_label='Todos los períodos',
+        help_text='Seleccione todos los períodos o uno específico.',
+    )
+    actividades = forms.MultipleChoiceField(
+        label='Actividades a incluir', required=False, choices=(),
+        widget=forms.CheckboxSelectMultiple,
+        help_text='Sin marcar opciones se incluyen todas las actividades importantes. Marque una o varias para imprimir solo esas actividades.',
     )
     docente = forms.ModelChoiceField(
         queryset=DocenteFcacc.objects.none(), label='Docente',
@@ -31,7 +37,7 @@ class GenerarCertificadoForm(forms.Form):
     )
     fecha_emision = forms.DateField(
         initial=timezone.localdate, label='Fecha de emisión',
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
     )
     ciudad = forms.CharField(initial='Manta', max_length=80)
 
@@ -57,6 +63,14 @@ class GenerarCertificadoForm(forms.Form):
                 docenteasignacioncarreraperiodo__id_carrera_id__in=allowed_career_ids
             ).distinct()
         self.fields['docente'].queryset = docentes_qs.order_by('nombres_completos')
+        docente_pk = (self.data.get('docente') if self.is_bound else self.initial.get('docente'))
+        if selected_tipo == 'FUNCIONES' and docente_pk:
+            try:
+                teacher = self.fields['docente'].queryset.filter(pk=docente_pk).first()
+            except (ValueError, TypeError):
+                teacher = None
+            if teacher and normalize_function_filter(selected_filtro) in ('TODOS', 'ACTIVIDADES'):
+                self.fields['actividades'].choices = activity_choices(teacher, periodo)
         self.fields['firmante'].queryset = FirmanteCertificado.objects.filter(
             activo=True
         ).order_by('orden', 'nombres_completos')
@@ -68,7 +82,11 @@ class GenerarCertificadoForm(forms.Form):
             'data-searchable-select': 'true',
             'data-search-placeholder': 'Buscar docente por nombre o cédula...',
         })
-        self.fields['periodo'].widget.attrs.update({'data-searchable-select': 'true'})
+        self.fields['periodo'].widget.attrs.update({
+            'data-searchable-select': 'true',
+            'data-search-placeholder': 'Todos los períodos',
+        })
+        self.fields['actividades'].widget.attrs['class'] = 'form-check-input'
 
     def clean(self):
         cleaned = super().clean()

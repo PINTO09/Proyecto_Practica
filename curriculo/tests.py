@@ -5,6 +5,29 @@ from unittest.mock import patch
 from .forms import CurriculoAsignaturaForm
 
 
+class CurriculoAsignaturaListPermissionTests(SimpleTestCase):
+    def test_mutation_links_follow_permissions_for_populated_and_empty_lists(self):
+        from types import SimpleNamespace
+        from django.template.loader import render_to_string
+
+        for allowed in (True, False):
+            for records in ([SimpleNamespace(pk=123)], []):
+                with self.subTest(allowed=allowed, populated=bool(records)):
+                    html = render_to_string('curriculo/curriculoasignatura_list.html', {
+                        'can_change_records': allowed,
+                        'model_name': 'curriculoasignatura',
+                        'request': SimpleNamespace(user=SimpleNamespace(cedula='1234567890')),
+                        'object_list': records, 'fields': [],
+                        'create_url': 'curriculo:curriculoasignatura_create',
+                        'update_url': 'curriculo:curriculoasignatura_update',
+                        'delete_url': 'curriculo:curriculoasignatura_delete',
+                    })
+                    self.assertEqual('/curriculo/asignaturas/crear/' in html, allowed)
+                    if records:
+                        self.assertEqual('/curriculo/asignaturas/123/editar/' in html, allowed)
+                        self.assertEqual('/curriculo/asignaturas/123/eliminar/' in html, allowed)
+
+
 class CurriculoAsignaturaFormTests(SimpleTestCase):
     def test_subject_form_includes_knowledge_fields(self):
         form = CurriculoAsignaturaForm()

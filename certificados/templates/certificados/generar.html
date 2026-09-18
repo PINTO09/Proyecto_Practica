@@ -39,6 +39,13 @@
               </div>
             </div>
             <div class="col-12" id="bottomSlot"></div>
+            <div class="col-12" id="actividadesSlot">
+              <label class="form-label fw-semibold">{{ form.actividades.label }}</label>
+              <div id="actividadesOptions">{{ form.actividades }}</div>
+              {{ form.actividades.errors }}
+              <div class="form-text">{{ form.actividades.help_text }}</div>
+              <div class="small text-muted" id="actividadesStatus" role="status"></div>
+            </div>
             <div class="col-12">
               <label class="form-label fw-semibold">{{ form.firmante.label }}</label>
               {{ form.firmante }}{{ form.firmante.errors }}
@@ -76,9 +83,9 @@
         </ul>
       </div>
     </div>
-    <a class="btn btn-outline-primary w-100" href="{% url 'certificados:firmantes' %}">
+    {% if can_manage_certificate_signers %}<a class="btn btn-outline-primary w-100" href="{% url 'certificados:firmantes' %}">
       <i class="fas fa-signature me-1"></i>Administrar firmantes
-    </a>
+    </a>{% endif %}
   </div>
 </div>
 <script>
@@ -91,6 +98,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const bottomSlot = document.getElementById('bottomSlot');
   const docenteSlot = document.getElementById('docenteSlot');
   const filtroSlot = document.getElementById('filtroSlot');
+  const actividadesSlot = document.getElementById('actividadesSlot');
+  const actividadesOptions = document.getElementById('actividadesOptions');
+  const actividadesStatus = document.getElementById('actividadesStatus');
+  const submitButton = document.querySelector('button[type="submit"]');
+  const signerMissing = submitButton.disabled;
+  let activityRequest = 0;
+  let teacherRequest = 0;
+
+  function usesActivities() {
+    return typeField.value === 'FUNCIONES' && ['TODOS', 'ACTIVIDADES'].includes(filterField.value);
+  }
+
+  async function loadActividades(preserve = false) {
+    const requestId = ++activityRequest;
+    const selected = preserve ? new Set(Array.from(
+      actividadesOptions.querySelectorAll('input:checked'), input => input.value,
+    )) : new Set();
+    actividadesOptions.replaceChildren();
+    actividadesSlot.classList.toggle('d-none', !usesActivities());
+    actividadesStatus.textContent = '';
+    submitButton.disabled = signerMissing;
+    if (!usesActivities() || !docenteField.value) return;
+    submitButton.disabled = true;
+    actividadesStatus.textContent = 'Cargando actividades...';
+    try {
+      const params = new URLSearchParams({docente: docenteField.value, periodo: periodoField.value});
+      const response = await fetch("{% url 'certificados:api_actividades' %}?" + params);
+      if (!response.ok) throw new Error('No se pudieron cargar las actividades');
+      const data = await response.json();
+      if (requestId !== activityRequest) return;
+      for (const item of data.actividades) {
+        const label = document.createElement('label');
+        label.className = 'd-block mb-2';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'actividades';
+        checkbox.value = item.id;
+        checkbox.className = 'form-check-input me-2';
+        checkbox.checked = selected.has(item.id);
+        label.append(checkbox, document.createTextNode(item.nombre));
+        actividadesOptions.appendChild(label);
+      }
+      actividadesStatus.textContent = data.actividades.length ? '' : 'No hay actividades importantes para esta selección.';
+      submitButton.disabled = signerMissing;
+    } catch (error) {
+      if (requestId !== activityRequest) return;
+      actividadesStatus.textContent = 'No se pudieron cargar las actividades. Vuelva a seleccionar el docente para reintentar.';
+    }
+  }
 
   function applyLayout() {
     const isFunciones = typeField?.value === 'FUNCIONES';
@@ -122,6 +178,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadDocentes() {
+    const requestId = ++teacherRequest;
+    ++activityRequest;
+    actividadesOptions.replaceChildren();
+    actividadesStatus.textContent = '';
+    actividadesSlot.classList.toggle('d-none', !usesActivities());
+    submitButton.disabled = true;
     const tipo = typeField?.value;
     if (!tipo) return;
     const filtro = tipo === 'FUNCIONES' ? (filterField?.value || 'TODOS') : 'TODOS';
@@ -135,8 +197,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       if (!response.ok) throw new Error('Error en la respuesta');
       const data = await response.json();
+      if (requestId !== teacherRequest) return;
       renderDocentes(data.docentes || []);
+      loadActividades();
     } catch (error) {
+      if (requestId !== teacherRequest) return;
       docenteField.innerHTML = '<option value="">No se pudieron cargar los docentes</option>';
       docenteField.disabled = false;
     }
@@ -154,7 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDocentes();
   });
   applyLayout();
-  loadDocentes();
+  docenteField?.addEventListener('change', () => loadActividades());
+  if (docenteField.value) loadActividades(true);
+  else loadDocentes();
 });
 </script>
 {% endblock %}

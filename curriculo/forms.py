@@ -38,7 +38,7 @@ class CurriculoAsignaturaForm(forms.ModelForm):
         model = CurriculoAsignatura
         fields = (
             'id_carrera', 'codigo_asignatura', 'nombre_asignatura',
-            'es_actividad', 'nivel_semestre', 'horas_semanales_asignatura',
+            'es_actividad', 'importante_certificado', 'nivel_semestre', 'horas_semanales_asignatura',
             'modalidad_espacio',
             'horas_aula', 'horas_centro_computo',
             'campos_conocimiento',

@@ -11,6 +11,10 @@ class CurriculoAsignatura(models.Model):
     horas_semanales_asignatura = models.SmallIntegerField(default=0, db_column='horas_semanales_asignatura')
     nivel_semestre = models.SmallIntegerField(db_column='nivel_semestre')
     es_actividad = models.BooleanField(default=False, db_column='es_actividad')
+    importante_certificado = models.BooleanField(
+        'Incluir en funciones y comisiones', default=True,
+        help_text='Marque si esta asignatura o actividad debe aparecer en el certificado de funciones y comisiones.',
+    )
     horas_aula = models.DecimalField(
         'Horas semanales en aula', max_digits=5, decimal_places=2,
         default=0, db_column='horas_aula',

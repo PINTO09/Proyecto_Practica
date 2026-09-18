@@ -1,5 +1,6 @@
 from .decorators import (
     ADMIN, AUTORIDAD, DECANO, COORDINADOR, DOCENTE, USUARIO, can_access_module, has_role,
+    can_manage_certificate_signers,
 )
 from django.db import ProgrammingError, OperationalError
 
@@ -36,6 +37,8 @@ def module_access(request):
         },
         'profile_photo_url': profile_photo_url,
         'profile_display_name': profile_display_name,
+        'is_admin_role': bool(user and user.is_authenticated and has_role(user, ADMIN)),
+        'can_manage_certificate_signers': can_manage_certificate_signers(user),
         'is_docente_role': bool(
             user and user.is_authenticated and has_role(user, DOCENTE, USUARIO, COORDINADOR, DECANO)
         ),

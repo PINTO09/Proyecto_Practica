@@ -28,7 +28,9 @@ class SafeCurriculoAdmin(admin.ModelAdmin):
 @admin.register(CurriculoAsignatura)
 class CurriculoAsignaturaAdmin(SafeCurriculoAdmin):
     list_display = ['codigo_asignatura', 'nombre_asignatura', 'id_carrera', 'horas_semanales_asignatura', 'nivel_semestre']
-    list_filter = ['id_carrera', 'nivel_semestre']
+    list_filter = ['id_carrera', 'nivel_semestre', 'importante_certificado']
+    list_display = [*list_display, 'importante_certificado']
+    list_editable = ['importante_certificado']
     search_fields = ['codigo_asignatura', 'nombre_asignatura']
     ordering = ['codigo_asignatura']
 

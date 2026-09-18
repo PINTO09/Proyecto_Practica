@@ -24,6 +24,39 @@ from accounts.middleware import ForcePasswordChangeMiddleware
 from core.management.commands.load_schema import split_sql_statements
 
 
+class ModelInfoApiTests(SimpleTestCase):
+    def test_teacher_photo_is_serializable_with_and_without_file(self):
+        import json
+        from core.views import api_modelo_info
+
+        teacher = DocenteFcacc(pk=1, nombres_completos='Docente de prueba', cedula_docente='1234567890')
+        for field in teacher._meta.fields:
+            if field.is_relation:
+                setattr(teacher, field.name, field.remote_field.model())
+        request = RequestFactory().get('/api/modelo-info/', {
+            'app': 'docentes', 'model': 'docentefcacc', 'pk': 1,
+        })
+        request.user = SimpleNamespace(is_authenticated=True, is_superuser=True)
+        for photo in ('', 'docentes/fotos/prueba.png'):
+            with self.subTest(photo=photo):
+                teacher.foto = photo
+                with patch.object(DocenteFcacc.objects, 'get', return_value=teacher):
+                    response = api_modelo_info(request)
+                self.assertEqual(response.status_code, 200)
+                data = json.loads(response.content)
+                self.assertEqual(data['foto'], teacher.foto.url if photo else '')
+
+    def test_invalid_model_identifier_returns_bad_request(self):
+        from core.views import api_modelo_info
+
+        request = RequestFactory().get('/api/modelo-info/', {
+            'app': 'docentes', 'model': 'docentefcacc', 'pk': 'invalido',
+        })
+        request.user = SimpleNamespace(is_authenticated=True, is_superuser=True)
+        with patch.object(DocenteFcacc.objects, 'get', side_effect=ValueError('Invalid ID')):
+            self.assertEqual(api_modelo_info(request).status_code, 400)
+
+
 class ResponsiveLayoutTests(SimpleTestCase):
     def setUp(self):
         core_dir = Path(__file__).resolve().parent

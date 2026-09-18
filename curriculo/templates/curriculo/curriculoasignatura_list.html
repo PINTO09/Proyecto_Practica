@@ -6,7 +6,7 @@
   <div>
     <h4 class="fw-bold mb-0">{{ model_verbose_plural|default:model_name }}</h4>
   </div>
-  <a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo</a>
+  {% if can_change_records %}<a href="{% url create_url %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Nuevo</a>{% endif %}
 </div>
 
 {% if search_fields %}
@@ -35,7 +35,7 @@
         <label class="small fw-semibold me-1 text-muted">Mostrar</label>
         <select name="cant" class="form-select form-select-sm d-inline-block w-auto" id="cantSelect">
           <option value="10" {% if cant == 10 %}selected{% endif %}>10</option>
-          <option value="20" {% if cant == 20 %}selected{% endif %}>20</option>
+          <option value="25" {% if cant == 25 %}selected{% endif %}>25</option>
           <option value="50" {% if cant == 50 %}selected{% endif %}>50</option>
         </select>
       </div>
@@ -76,19 +76,21 @@
             </td>
             {% endfor %}
             <td class="pe-3 text-end text-nowrap">
+              {% if can_change_records %}
               <a href="{% url update_url pk=obj.pk %}" class="btn btn-sm btn-outline-warning border-0" title="Editar">
                 <i class="fas fa-pencil-alt"></i>
               </a>
               <a href="{% url delete_url pk=obj.pk %}" class="btn btn-sm btn-outline-danger border-0" title="Eliminar">
                 <i class="fas fa-trash-alt"></i>
               </a>
+              {% else %}<span class="text-muted small">Solo consulta</span>{% endif %}
             </td>
           </tr>
           {% empty %}
           <tr>
             <td colspan="{{ fields|length|add:1 }}" class="text-center py-4">
               <div class="text-muted mb-2">No hay registros</div>
-              <a href="{% url create_url %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>
+              {% if can_change_records %}<a href="{% url create_url %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i>Crear el primero</a>{% endif %}
             </td>
           </tr>
           {% endfor %}

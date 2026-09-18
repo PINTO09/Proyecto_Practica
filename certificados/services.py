@@ -7,6 +7,44 @@ from docentes.models import DocenteAsignacionCarreraPeriodo, DocenteFcacc
 from planificacion.models import PlanificacionActividadDocente, PlanificacionAsignacionDocente
 
 
+def certificate_activities(teacher, periodo=None, activity_keys=None):
+    complementary = PlanificacionActividadDocente.objects.filter(
+        id_docente=teacher, id_actividad__peso=1,
+    )
+    curricular = PlanificacionAsignacionDocente.objects.filter(
+        id_docente=teacher, id_asignatura__es_actividad=True,
+        id_asignatura__importante_certificado=True,
+    )
+    if periodo is not None:
+        complementary = complementary.filter(id_periodo=periodo)
+        curricular = curricular.filter(id_periodo=periodo)
+    if activity_keys:
+        complementary = complementary.filter(id_actividad_id__in=[
+            int(key.split(':')[1]) for key in activity_keys if key.startswith('complementaria:')
+        ])
+        curricular = curricular.filter(id_asignatura_id__in=[
+            int(key.split(':')[1]) for key in activity_keys if key.startswith('curricular:')
+        ])
+    return complementary, curricular
+
+
+def activity_choices(teacher, periodo=None):
+    complementary, curricular = certificate_activities(teacher, periodo)
+    choices = {
+        f'complementaria:{pk}': f'{code} — {name} (Complementaria)'
+        for pk, code, name in complementary.values_list(
+            'id_actividad_id', 'id_actividad__codigo_actividad', 'id_actividad__nombre_actividad'
+        )
+    }
+    choices.update({
+        f'curricular:{pk}': f'{code} — {name} (Currículo)'
+        for pk, code, name in curricular.values_list(
+            'id_asignatura_id', 'id_asignatura__codigo_asignatura', 'id_asignatura__nombre_asignatura'
+        )
+    })
+    return sorted(choices.items(), key=lambda item: item[1].casefold())
+
+
 def docentes_con_datos(tipo, function_filter='TODOS', periodo=None):
     docentes = DocenteFcacc.objects.all()
     if tipo == 'DEDICACION':
@@ -21,34 +59,27 @@ def docentes_con_datos(tipo, function_filter='TODOS', periodo=None):
         docentes = docentes.filter(Exists(sub))
     elif tipo == 'FUNCIONES':
         selected = normalize_function_filter(function_filter)
+        sub_act, sub_curricular = certificate_activities(OuterRef('pk'), periodo)
+        sub_asig = PlanificacionAsignacionDocente.objects.filter(
+            id_docente=OuterRef('pk'), id_asignatura__es_actividad=False,
+            id_asignatura__importante_certificado=True,
+        )
+        sub_com = PlanificacionAsignacionDocente.objects.filter(
+            id_docente=OuterRef('pk'),
+        ).exclude(comision_servicio__isnull=True).exclude(comision_servicio='')
+        if periodo is not None:
+            sub_asig = sub_asig.filter(id_periodo=periodo)
+            sub_com = sub_com.filter(id_periodo=periodo)
         if selected == 'ACTIVIDADES':
-            sub = PlanificacionActividadDocente.objects.filter(
-                id_docente=OuterRef('pk'), id_actividad__peso=1,
-            )
-            if periodo is not None:
-                sub = sub.filter(id_periodo=periodo)
-            docentes = docentes.filter(Exists(sub))
+            docentes = docentes.filter(Exists(sub_act) | Exists(sub_curricular))
         elif selected == 'ASIGNACIONES':
-            sub = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
-            if periodo is not None:
-                sub = sub.filter(id_periodo=periodo)
-            docentes = docentes.filter(Exists(sub))
+            docentes = docentes.filter(Exists(sub_asig))
         elif selected == 'COMISIONES':
-            sub = PlanificacionAsignacionDocente.objects.filter(
-                id_docente=OuterRef('pk')
-            ).exclude(comision_servicio__isnull=True).exclude(comision_servicio='')
-            if periodo is not None:
-                sub = sub.filter(id_periodo=periodo)
-            docentes = docentes.filter(Exists(sub))
+            docentes = docentes.filter(Exists(sub_com))
         else:
-            sub_act = PlanificacionActividadDocente.objects.filter(
-                id_docente=OuterRef('pk'), id_actividad__peso=1,
+            docentes = docentes.filter(
+                Exists(sub_act) | Exists(sub_curricular) | Exists(sub_asig) | Exists(sub_com)
             )
-            sub_asig = PlanificacionAsignacionDocente.objects.filter(id_docente=OuterRef('pk'))
-            if periodo is not None:
-                sub_act = sub_act.filter(id_periodo=periodo)
-                sub_asig = sub_asig.filter(id_periodo=periodo)
-            docentes = docentes.filter(Exists(sub_act) | Exists(sub_asig))
     return docentes
 
 
@@ -78,7 +109,7 @@ def normalize_function_filter(value):
     return value if value in FUNCTION_FILTER_LABELS else 'TODOS'
 
 
-def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS', periodo=None):
+def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS', periodo=None, activity_keys=None):
     common = {
         'docente': {
             'id': teacher.id_docente,
@@ -146,12 +177,12 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
         selected_filter = normalize_function_filter(function_filter)
         common['filtro_funciones'] = selected_filter
         common['filtro_funciones_label'] = FUNCTION_FILTER_LABELS[selected_filter]
+        common['actividades_seleccionadas'] = list(activity_keys or [])
         rows = []
 
         if selected_filter in ('TODOS', 'ACTIVIDADES'):
-            activities = PlanificacionActividadDocente.objects.filter(
-                id_docente=teacher, id_actividad__peso=1,
-            ).select_related('id_actividad', 'id_periodo').order_by(
+            activities, curricular = certificate_activities(teacher, periodo, activity_keys)
+            activities = activities.select_related('id_actividad', 'id_periodo').order_by(
                 'id_periodo__fecha_inicio_periodo',
                 'id_actividad__nombre_actividad',
             )
@@ -172,6 +203,17 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
                 'hasta': _date_value(activity.id_periodo.fecha_fin_periodo),
                 'periodo': activity.id_periodo.nombre_periodo,
             } for activity in activities)
+            rows.extend({
+                'categoria': 'ACTIVIDADES',
+                'categoria_label': 'Actividad',
+                'descripcion': assignment.id_asignatura.nombre_asignatura,
+                'unidad': assignment.id_carrera.nombre_carrera,
+                'desde': _date_value(assignment.id_periodo.fecha_inicio_periodo),
+                'hasta': _date_value(assignment.id_periodo.fecha_fin_periodo),
+                'periodo': assignment.id_periodo.nombre_periodo,
+            } for assignment in curricular.select_related(
+                'id_asignatura', 'id_carrera', 'id_periodo',
+            ).order_by('id_periodo__fecha_inicio_periodo', 'id_asignatura__nombre_asignatura'))
 
         assignments = None
         if selected_filter in ('TODOS', 'ASIGNACIONES', 'COMISIONES'):
@@ -198,7 +240,10 @@ def build_certificate_snapshot(certificate_type, teacher, function_filter='TODOS
                 'desde': _date_value(assignment.id_periodo.fecha_inicio_periodo),
                 'hasta': _date_value(assignment.id_periodo.fecha_fin_periodo),
                 'periodo': assignment.id_periodo.nombre_periodo,
-            } for assignment in assignments)
+            } for assignment in assignments.filter(
+                id_asignatura__es_actividad=False,
+                id_asignatura__importante_certificado=True,
+            ))
 
         if selected_filter in ('TODOS', 'COMISIONES'):
             commissions = OrderedDict()

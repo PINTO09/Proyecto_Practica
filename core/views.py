@@ -4,9 +4,9 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import DatabaseError, ProgrammingError, OperationalError, transaction
-from django.db.models import Q
+from django.db.models import FileField, Q
 from django.core.paginator import Paginator
 from django.urls import NoReverseMatch, reverse
 from django.apps import apps
@@ -46,6 +46,7 @@ from accounts.decorators import (
     ADMIN, AUTORIDAD, DECANO, COORDINADOR, USUARIO, FUNCIONARIO, ESTUDIANTE, DOCENTE,
     funcionario_readonly, can_access_module, has_role,
     module_permission_required,
+    can_manage_certificate_signers,
 )
 from accounts.role_service import asignar_rol
 from core.crud_base import (
@@ -1142,6 +1143,8 @@ def modulo_view(request, slug):
         url_kwargs = action[6] if len(action) > 6 else None
         if not can_access_module(request.user, slug, required_action):
             continue
+        if url_name == 'certificados:firmantes' and not can_manage_certificate_signers(request.user):
+            continue
         count_model = _obtener_modelo(count_model_name) if count_model_name else None
         acciones.append({
             'label': label,
@@ -1232,12 +1235,16 @@ def api_modelo_info(request):
         obj = Model.objects.get(pk=pk)
     except Model.DoesNotExist:
         return JsonResponse({'error': 'no encontrado'}, status=404)
+    except (ValueError, TypeError, ValidationError):
+        return JsonResponse({'error': 'Identificador inválido.'}, status=400)
 
     data = {'pk': obj.pk, '__str__': str(obj)}
     for f in Model._meta.get_fields():
         if f.concrete and not f.auto_created and f.name != Model._meta.pk.name:
             val = getattr(obj, f.name, None)
-            if f.is_relation:
+            if isinstance(f, FileField):
+                data[f.name] = val.url if val else ''
+            elif f.is_relation:
                 data[f.name] = str(val) if val else ''
                 data[f.name + '_id'] = val.pk if val else None
             elif hasattr(val, 'isoformat'):
