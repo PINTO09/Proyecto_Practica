@@ -37,6 +37,7 @@
           {% if form.non_field_errors %}
           <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
+          {% block form_alerts %}{% endblock %}
           <div class="row g-3">
           {% for field in form %}
           <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'observaciones' %}col-12{% else %}col-md-6{% endif %}">

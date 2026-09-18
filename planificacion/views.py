@@ -25,7 +25,7 @@ from .services import (
     assert_periodo_editable, assignment_hour_category,
     build_docente_workload_map, docente_tiene_afinidad, empty_workload,
     knowledge_field_maps, normalize_parallel, validate_assignment_business_rules,
-    transiciones_periodo_permitidas,
+    obtener_parametros_horario, transiciones_periodo_permitidas,
 )
 from .models import (
     BitacoraUsoLaboratorio, CatalogoActividadComplementaria,
@@ -1647,7 +1647,10 @@ class PlanificacionMatrizF4DeleteView(PeriodEditableDeleteMixin, CrudDeleteView)
 class PlanificacionAulaHorarioListView(PlanningFlowContextMixin, CrudListView):
     model = PlanificacionAulaHorario
     planning_active_section = 'planificacionaulahorario_list'
-    select_related_fields = ('id_periodo', 'id_asignacion', 'id_asignacion__id_docente', 'id_asignacion__id_asignatura')
+    select_related_fields = (
+        'id_periodo', 'id_espacio', 'id_asignacion',
+        'id_asignacion__id_docente', 'id_asignacion__id_asignatura',
+    )
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1655,6 +1658,14 @@ class PlanificacionAulaHorarioListView(PlanningFlowContextMixin, CrudListView):
         if permitted is not None:
             qs = qs.filter(id_asignacion__id_carrera_id__in=permitted)
         return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['fields'] = [
+            field for field in ctx['fields']
+            if field.name != 'nombre_aula'
+        ]
+        return ctx
 
 
 class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateView):
@@ -1667,6 +1678,7 @@ class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateVie
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['allowed_career_ids'] = allowed_career_ids(self.request.user)
+        kwargs['schedule_config'] = obtener_parametros_horario()
         return kwargs
 
     def get_initial(self):
@@ -1679,6 +1691,20 @@ class PlanificacionAulaHorarioCreateView(PlanningFlowContextMixin, CrudCreateVie
             if period:
                 initial['id_periodo'] = period.id_periodo
         return initial
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update({
+            'form_title': 'Programar asignatura en un espacio',
+            'form_subtitle': (
+                'Seleccione la asignatura planificada, el espacio y la cantidad '
+                'de horas académicas; el docente y la finalización son automáticos.'
+            ),
+            'hay_espacios': CatalogoEspacioAcademico.objects.filter(
+                espacio_activo=True
+            ).exists(),
+        })
+        return ctx
 
 
 class PlanificacionAulaHorarioUpdateView(PeriodEditableUpdateMixin, PlanningFlowContextMixin, CrudUpdateView):
@@ -1698,7 +1724,22 @@ class PlanificacionAulaHorarioUpdateView(PeriodEditableUpdateMixin, PlanningFlow
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['allowed_career_ids'] = allowed_career_ids(self.request.user)
+        kwargs['schedule_config'] = obtener_parametros_horario()
         return kwargs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update({
+            'form_title': 'Editar horario de asignatura',
+            'form_subtitle': (
+                'Actualice el espacio o los bloques; el docente se obtiene de '
+                'la asignación seleccionada.'
+            ),
+            'hay_espacios': CatalogoEspacioAcademico.objects.filter(
+                Q(espacio_activo=True) | Q(pk=self.object.id_espacio_id)
+            ).exists(),
+        })
+        return ctx
 
 class PlanificacionAulaHorarioDeleteView(PeriodEditableDeleteMixin, CrudDeleteView):
     model = PlanificacionAulaHorario
@@ -1748,18 +1789,22 @@ def reporte_asignacion_carreras(request):
         )
 
         # 2. Asignaciones del periodo
-        asignaciones_qs = PlanificacionAsignacionDocente.objects.filter(id_periodo_id=periodo_id)
+        asignaciones_qs = PlanificacionAsignacionDocente.objects.filter(
+            id_periodo_id=periodo_id
+        ).select_related('id_docente')
         if permitted is not None:
             asignaciones_qs = asignaciones_qs.filter(id_carrera_id__in=permitted)
         asignadas = {}
         asignaciones_horas = {}
-        for asig_id, carr_id, paralelo, doc_id, horas in asignaciones_qs.values_list(
-            'id_asignatura_id', 'id_carrera_id', 'paralelo_asignado', 'id_docente_id', 'horas_clase'
-        ):
-            key = (asig_id, carr_id, normalize_parallel(paralelo))
-            asignadas[key] = doc_id
+        for assignment in asignaciones_qs:
+            key = (
+                assignment.id_asignatura_id,
+                assignment.id_carrera_id,
+                normalize_parallel(assignment.paralelo_asignado),
+            )
+            asignadas[key] = assignment
             if key not in asignaciones_horas:
-                asignaciones_horas[key] = horas
+                asignaciones_horas[key] = assignment.horas_clase
 
         # 3. Construir lista plana de items y paginar
         flat_items = []
@@ -1768,13 +1813,15 @@ def reporte_asignacion_carreras(request):
             paralelos = _build_parallel_labels(d.numero_paralelos)
             for p in paralelos:
                 a_key = (d.id_asignatura_id, d.id_carrera_id, p)
-                tiene_docente = a_key in asignadas
+                assignment = asignadas.get(a_key)
                 flat_items.append({
                     'carrera': carrera,
                     'asignatura': d.id_asignatura,
                     'nivel': d.id_asignatura.nivel_semestre,
                     'paralelo': p,
-                    'tiene_docente': tiene_docente,
+                    'tiene_docente': assignment is not None,
+                    'docente': assignment.id_docente if assignment else None,
+                    'id_asignacion': assignment.pk if assignment else None,
                     'horas': asignaciones_horas.get(a_key, d.id_asignatura.horas_semanales_asignatura or 0),
                 })
 
@@ -3297,16 +3344,23 @@ def api_crear_asignacion(request):
 @module_permission_required('planificacion', 'view')
 def api_asignacion_docente_aula(request):
     """Docente(s) asignado(s) a una asignatura en un período (para el formulario de aulas/horarios)."""
+    asignacion_id = (request.GET.get('asignacion') or '').strip()
     asignatura_id = (request.GET.get('asignatura') or '').strip()
     periodo_id = (request.GET.get('periodo') or '').strip()
     carrera_id = (request.GET.get('carrera') or '').strip()
     nivel = (request.GET.get('nivel') or '').strip()
-    if not asignatura_id or not periodo_id:
+    if not asignacion_id and (not asignatura_id or not periodo_id):
         return JsonResponse({'error': 'Seleccione asignatura y período académico.'}, status=400)
 
     asignaciones = PlanificacionAsignacionDocente.objects.select_related(
         'id_docente', 'id_carrera', 'id_periodo',
-    ).filter(id_asignatura_id=asignatura_id, id_periodo_id=periodo_id)
+    )
+    if asignacion_id:
+        asignaciones = asignaciones.filter(pk=asignacion_id)
+    else:
+        asignaciones = asignaciones.filter(
+            id_asignatura_id=asignatura_id, id_periodo_id=periodo_id,
+        )
     if carrera_id:
         asignaciones = asignaciones.filter(id_carrera_id=carrera_id)
     if nivel:
@@ -3364,29 +3418,35 @@ def api_niveles_aula(request):
 @login_required
 @module_permission_required('planificacion', 'view')
 def api_asignaturas_aula(request):
-    """Asignaturas con docente asignado en el período, filtrando por carrera y nivel (aulas/horarios)."""
+    """Asignaturas/paralelos ya asignados, filtrados para construir un horario."""
     periodo_id = (request.GET.get('periodo') or '').strip()
     carrera_id = (request.GET.get('carrera') or '').strip()
     nivel = (request.GET.get('nivel') or '').strip()
     if not periodo_id:
         return JsonResponse({'asignaturas': []})
 
-    con_docente = PlanificacionAsignacionDocente.objects.filter(
-        id_asignatura=OuterRef('pk'), id_periodo_id=periodo_id,
-    )
+    asignaciones = PlanificacionAsignacionDocente.objects.select_related(
+        'id_asignatura', 'id_docente', 'id_carrera',
+    ).filter(id_periodo_id=periodo_id)
     permitted = allowed_career_ids(request.user)
     if permitted is not None:
-        con_docente = con_docente.filter(id_carrera_id__in=permitted)
+        asignaciones = asignaciones.filter(id_carrera_id__in=permitted)
     if carrera_id:
-        con_docente = con_docente.filter(id_carrera_id=carrera_id)
+        asignaciones = asignaciones.filter(id_carrera_id=carrera_id)
     if nivel:
-        con_docente = con_docente.filter(nivel_semestre_asignado=nivel)
+        asignaciones = asignaciones.filter(nivel_semestre_asignado=nivel)
 
-    asignaturas = CurriculoAsignatura.objects.filter(Exists(con_docente)).select_related(
-        'id_carrera'
-    ).order_by('id_carrera__nombre_carrera', 'codigo_asignatura')
     items = [{
-        'id': s.id_asignatura,
-        'label': f'{s.codigo_asignatura} - {s.nombre_asignatura} ({s.id_carrera.nombre_carrera})',
-    } for s in asignaturas]
+        'id': assignment.id_asignacion,
+        'asignatura_id': assignment.id_asignatura_id,
+        'label': (
+            f'{assignment.id_asignatura.codigo_asignatura} - '
+            f'{assignment.id_asignatura.nombre_asignatura} · '
+            f'Paralelo {(assignment.paralelo_asignado or "").strip() or "Sin paralelo"}'
+        ),
+        'docente': assignment.id_docente.nombres_completos,
+        'paralelo': assignment.paralelo_asignado,
+    } for assignment in asignaciones.order_by(
+        'id_asignatura__nombre_asignatura', 'paralelo_asignado'
+    )]
     return JsonResponse({'asignaturas': items})

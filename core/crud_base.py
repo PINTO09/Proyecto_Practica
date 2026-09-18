@@ -85,14 +85,23 @@ def _prepare_crud_form(view, form):
                     f'Buscar {str(field.label).lower()}...',
                 )
 
-        if model_field is not None:
+        if model_field is not None and not isinstance(
+            widget, (forms.Select, forms.SelectMultiple)
+        ):
             internal_type = model_field.get_internal_type()
+            html_input_type = None
             if internal_type == 'DateField':
-                widget.attrs.setdefault('type', 'date')
+                html_input_type = 'date'
             elif internal_type == 'DateTimeField':
-                widget.attrs.setdefault('type', 'datetime-local')
+                html_input_type = 'datetime-local'
             elif internal_type == 'TimeField':
-                widget.attrs.setdefault('type', 'time')
+                html_input_type = 'time'
+            if html_input_type and hasattr(widget, 'input_type'):
+                # Django ya imprime input_type como atributo `type`. Guardarlo
+                # además en attrs genera HTML duplicado (type="text" type="time")
+                # y algunos navegadores conservan el primero.
+                widget.input_type = html_input_type
+                widget.attrs.pop('type', None)
         if isinstance(widget, forms.Textarea):
             widget.attrs.setdefault('rows', 3)
     return form

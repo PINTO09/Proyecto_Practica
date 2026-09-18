@@ -3,7 +3,7 @@ from django.test import RequestFactory, SimpleTestCase
 from django.urls import reverse
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-from datetime import date
+from datetime import date, time
 
 from catalogos.models import CatalogoPeriodoAcademico
 from core.crud_base import CrudListView
@@ -19,7 +19,8 @@ from .views import (
 from .models import PlanificacionAsignacionDocente, PlanificacionCapacidadEspecial
 from .models import BitacoraUsoLaboratorio
 from .services import (
-    activity_workload_key, normalize_parallel, periodo_es_editable,
+    activity_workload_key, bloques_entre, generar_bloques_horarios,
+    normalize_parallel, periodo_es_editable, sumar_bloques,
     transiciones_periodo_permitidas,
 )
 
@@ -92,8 +93,34 @@ class PlanificacionRulesTests(SimpleTestCase):
         )
         self.assertEqual(
             list(PlanificacionAulaHorarioForm().fields)[:5],
-            ['id_periodo', 'carrera', 'nivel_asignado', 'id_asignatura', 'nombre_aula'],
+            ['id_periodo', 'carrera', 'nivel_asignado', 'id_asignacion', 'docente'],
         )
+
+    def test_schedule_uses_catalog_space_and_assigned_subject(self):
+        form = PlanificacionAulaHorarioForm()
+
+        self.assertIn('id_espacio', form.fields)
+        self.assertNotIn('nombre_aula', form.fields)
+        self.assertEqual(form.fields['id_asignacion'].label, 'Asignatura y paralelo')
+        self.assertTrue(form.fields['docente'].disabled)
+        self.assertEqual(
+            list(form.fields['hora_inicio'].widget.choices)[:3],
+            [
+                ('', 'Seleccione la hora de inicio'),
+                ('07:00', '07:00'),
+                ('07:45', '07:45'),
+            ],
+        )
+        self.assertEqual(len(form.fields['cantidad_horas'].choices), 12)
+
+    def test_academic_hour_blocks_are_calculated_from_duration(self):
+        choices = generar_bloques_horarios(45, time(7, 0), time(9, 0))
+
+        self.assertEqual(choices[:3], [
+            ('07:00', '07:00'), ('07:45', '07:45'), ('08:30', '08:30'),
+        ])
+        self.assertEqual(sumar_bloques(time(7, 0), 2, 45), time(8, 30))
+        self.assertEqual(bloques_entre(time(7, 0), time(8, 30), 45), 2)
 
     def test_assignment_id_is_automatic_and_field_is_textual(self):
         form = PlanificacionAsignacionDocenteForm()

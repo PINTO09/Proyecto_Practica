@@ -2,11 +2,31 @@ from django.contrib import admin
 from django.db import ProgrammingError, OperationalError
 from django.shortcuts import render
 from .models import (
-    CatalogoActividadComplementaria, PlanificacionActividadDocente,
+    CatalogoActividadComplementaria, CatalogoEspacioAcademico,
+    ConfiguracionHorarioAcademico, PlanificacionActividadDocente,
     PlanificacionDemandaAcademica, PlanificacionAsignacionDocente,
     PlanificacionRepartoHoras, PlanificacionMatrizF4, PlanificacionAulaHorario,
     CargaHistorial,
 )
+
+
+@admin.register(CatalogoEspacioAcademico)
+class CatalogoEspacioAcademicoAdmin(admin.ModelAdmin):
+    list_display = ['codigo_espacio', 'nombre_espacio', 'tipo_espacio', 'ubicacion', 'capacidad', 'espacio_activo']
+    list_filter = ['tipo_espacio', 'espacio_activo']
+    search_fields = ['codigo_espacio', 'nombre_espacio', 'ubicacion']
+
+
+@admin.register(ConfiguracionHorarioAcademico)
+class ConfiguracionHorarioAcademicoAdmin(admin.ModelAdmin):
+    list_display = [
+        'nombre_configuracion', 'duracion_bloque_minutos',
+        'hora_inicio_jornada', 'hora_fin_jornada', 'configuracion_activa',
+    ]
+    list_editable = [
+        'duracion_bloque_minutos', 'hora_inicio_jornada',
+        'hora_fin_jornada', 'configuracion_activa',
+    ]
 
 
 @admin.register(CatalogoActividadComplementaria)

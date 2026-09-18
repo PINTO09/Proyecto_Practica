@@ -1178,7 +1178,9 @@ def export_reporte_asignacion_carreras(request):
     )
 
     # Asignaciones del periodo
-    asignaciones_qs = PlanificacionAsignacionDocente.objects.all()
+    asignaciones_qs = PlanificacionAsignacionDocente.objects.select_related(
+        'id_docente'
+    ).all()
     if periodo_id:
         asignaciones_qs = asignaciones_qs.filter(id_periodo_id=periodo_id)
     if permitted is not None:
@@ -1187,22 +1189,24 @@ def export_reporte_asignacion_carreras(request):
         asignaciones_qs = asignaciones_qs.filter(id_carrera_id=carrera_id)
     asignadas = {}
     asignaciones_horas = {}
-    for asig_id, carr_id, paralelo, horas in asignaciones_qs.values_list(
-        'id_asignatura_id', 'id_carrera_id', 'paralelo_asignado', 'horas_clase'
-    ):
-        key = (asig_id, carr_id, normalize_parallel(paralelo))
-        asignadas[key] = True
+    for assignment in asignaciones_qs:
+        key = (
+            assignment.id_asignatura_id,
+            assignment.id_carrera_id,
+            normalize_parallel(assignment.paralelo_asignado),
+        )
+        asignadas[key] = assignment
         if key not in asignaciones_horas:
-            asignaciones_horas[key] = horas
+            asignaciones_horas[key] = assignment.horas_clase
 
     row = 2
     for d in demandas_qs:
         paralelos = parallel_labels(d.numero_paralelos)
         for p in paralelos:
             a_key = (d.id_asignatura_id, d.id_carrera_id, p)
-            tiene = a_key in asignadas
+            assignment = asignadas.get(a_key)
             horas = asignaciones_horas.get(a_key, d.id_asignatura.horas_semanales_asignatura or 0)
-            docente = '✅' if tiene else '🚫'
+            docente = assignment.id_docente.nombres_completos if assignment else 'SIN ASIGNAR'
             ws.cell(row=row, column=1, value=str(d.id_carrera))
             ws.cell(row=row, column=2, value=str(d.id_asignatura))
             ws.cell(row=row, column=3, value=d.id_asignatura.nivel_semestre)
@@ -1212,7 +1216,7 @@ def export_reporte_asignacion_carreras(request):
             _style_data(ws, row, len(headers))
             row += 1
 
-    _finish_sheet(ws, {1: 30, 2: 45, 3: 8, 4: 10, 5: 8, 6: 18})
+    _finish_sheet(ws, {1: 30, 2: 45, 3: 8, 4: 10, 5: 8, 6: 42})
     return _excel_response(wb, 'asignacion_por_carreras')
 
 

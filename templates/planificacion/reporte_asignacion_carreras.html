@@ -80,14 +80,17 @@
           <td class="text-center">{{ item.horas }}</td>
           <td class="text-center pe-3">
             {% if item.tiene_docente %}
-            <span class="check-ok"><i class="fas fa-check-circle"></i> ✅</span>
+            <div class="d-inline-flex flex-column align-items-center gap-1">
+              <span class="badge bg-success-subtle text-success-emphasis"><i class="fas fa-check-circle me-1"></i>Asignada</span>
+              <span class="small fw-semibold">{{ item.docente.nombres_completos }}</span>
+            </div>
             {% else %}
-            <span class="check-no"><i class="fas fa-times-circle"></i> 🚫</span>
+            <span class="badge bg-danger-subtle text-danger-emphasis"><i class="fas fa-times-circle me-1"></i>Sin asignar</span>
             {% endif %}
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="4" class="text-center py-4 text-muted">No se encontraron asignaturas.</td></tr>
+        <tr><td colspan="5" class="text-center py-4 text-muted">No se encontraron asignaturas.</td></tr>
         {% endfor %}
       </tbody>
     </table>

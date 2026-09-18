@@ -256,7 +256,7 @@ class CrudFieldTypeTests(SimpleTestCase):
             'true',
         )
         self.assertEqual(
-            form.fields['fecha_obtencion_titulo'].widget.attrs['type'],
+            form.fields['fecha_obtencion_titulo'].widget.input_type,
             'date',
         )
 

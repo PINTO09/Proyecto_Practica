@@ -1,22 +1,31 @@
 {% extends 'generic_crud/form.html' %}
 
+{% block form_alerts %}
+{% if not hay_espacios %}
+<div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2" role="alert">
+  <span><i class="fas fa-triangle-exclamation me-2"></i>Primero debe registrar al menos un aula o centro de cómputo activo.</span>
+  <a href="{% url 'planificacion:catalogoespacioacademico_create' %}" class="btn btn-sm btn-warning"><i class="fas fa-plus me-1"></i>Registrar espacio</a>
+</div>
+{% endif %}
+{% endblock %}
+
 {% block extra_js %}
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const carreraEl = document.getElementById('id_carrera');
   const nivelEl = document.getElementById('id_nivel_asignado');
-  const asignaturaEl = document.getElementById('id_id_asignatura');
-  const periodoEl = document.getElementById('id_id_periodo');
   const asignacionEl = document.getElementById('id_id_asignacion');
+  const periodoEl = document.getElementById('id_id_periodo');
   const docenteEl = document.getElementById('id_docente');
   const inicioEl = document.getElementById('id_hora_inicio');
-  const horasEl = document.getElementById('id_horas_bloques');
+  const horasEl = document.getElementById('id_cantidad_horas');
   const finEl = document.getElementById('id_hora_fin');
 
   const nivelesApi = '{% url "planificacion:api_niveles_aula" %}';
   const asignaturasApi = '{% url "planificacion:api_asignaturas_aula" %}';
-  const docenteApi = '{% url "planificacion:api_asignacion_docente_aula" %}';
+  let valorNivelInicial = nivelEl ? nivelEl.value : '';
+  let valorAsignacionInicial = asignacionEl ? asignacionEl.value : '';
 
   function seleccionParams() {
     const params = new URLSearchParams();
@@ -26,77 +35,62 @@ document.addEventListener('DOMContentLoaded', function() {
     return params;
   }
 
-  function rellenarSelect(el, placeholder, items) {
+  function rellenarSelect(el, placeholder, items, preferredValue) {
     if (!el) return;
-    const prev = el.value;
+    const prev = preferredValue || el.value;
     el.innerHTML = '';
     el.appendChild(new Option(placeholder, '', false, false));
-    items.forEach(item => el.appendChild(new Option(item.label, String(item.id || item.value))));
+    items.forEach(item => el.appendChild(new Option(item.label, String(item.id ?? item.value))));
     if (prev && Array.from(el.options).some(o => o.value === prev)) {
       el.value = prev;
     }
     el.dispatchEvent(new Event('change', { bubbles: true }));
-    return prev;
   }
 
   function limpiarDocente() {
     if (docenteEl) docenteEl.value = '';
-    if (asignacionEl) asignacionEl.value = '';
   }
 
   function cargarDocente() {
     limpiarDocente();
-    if (!asignaturaEl || !asignaturaEl.value || !carreraEl || !carreraEl.value) return;
-    const params = seleccionParams();
-    if (!periodoEl || !periodoEl.value) return;
-    params.set('asignatura', asignaturaEl.value);
-    fetch(docenteApi + '?' + params.toString())
-      .then(r => r.json())
-      .then(data => {
-        if (data.error || !data.asignaciones || data.asignaciones.length === 0) {
-          if (docenteEl) docenteEl.value = data.error || 'Sin docente asignado';
-          if (asignacionEl) asignacionEl.value = '';
-          return;
-        }
-        const a = data.asignaciones[0];
-        if (docenteEl) {
-          docenteEl.value = a.docente + (a.paralelo ? ' · Paralelo ' + a.paralelo.trim() : '') + (a.carrera ? ' · ' + a.carrera : '');
-        }
-        if (asignacionEl) asignacionEl.value = a.id;
-      })
-      .catch(() => {
-        if (docenteEl) docenteEl.value = 'Error consultando el docente asignado';
-        if (asignacionEl) asignacionEl.value = '';
-      });
+    if (!asignacionEl || !asignacionEl.value) return;
+    const selected = asignacionEl.options[asignacionEl.selectedIndex];
+    if (docenteEl) docenteEl.value = selected.dataset.docente || '';
   }
 
   function cargarAsignaturas() {
-    if (asignaturaEl) {
-      asignaturaEl.innerHTML = '';
-      asignaturaEl.appendChild(new Option('Seleccione la asignatura', '', false, false));
-      asignaturaEl.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    const preferred = valorAsignacionInicial || (asignacionEl ? asignacionEl.value : '');
     limpiarDocente();
     const params = seleccionParams();
-    if (!periodoEl || !periodoEl.value || !carreraEl || !carreraEl.value || !nivelEl || !nivelEl.value) return;
+    if (!periodoEl || !periodoEl.value || !carreraEl || !carreraEl.value || !nivelEl || !nivelEl.value) {
+      if (asignacionEl) {
+        asignacionEl.innerHTML = '';
+        asignacionEl.appendChild(new Option('Seleccione primero período, carrera y nivel', '', false, false));
+      }
+      return;
+    }
     fetch(asignaturasApi + '?' + params.toString())
       .then(r => r.json())
       .then(data => {
         const items = data.asignaturas || [];
-        if (!asignaturaEl) return;
-        const prev = asignaturaEl.value;
-        asignaturaEl.innerHTML = '';
-        asignaturaEl.appendChild(new Option('Seleccione la asignatura', '', false, false));
-        items.forEach(s => asignaturaEl.appendChild(new Option(s.label, String(s.id))));
-        if (prev && Array.from(asignaturaEl.options).some(o => o.value === prev)) {
-          asignaturaEl.value = prev;
+        if (!asignacionEl) return;
+        asignacionEl.innerHTML = '';
+        asignacionEl.appendChild(new Option('Seleccione la asignatura y el paralelo', '', false, false));
+        items.forEach(item => {
+          const option = new Option(item.label, String(item.id));
+          option.dataset.docente = item.docente || '';
+          asignacionEl.appendChild(option);
+        });
+        if (preferred && Array.from(asignacionEl.options).some(o => o.value === preferred)) {
+          asignacionEl.value = preferred;
         }
-        asignaturaEl.dispatchEvent(new Event('change', { bubbles: true }));
+        valorAsignacionInicial = '';
+        cargarDocente();
       })
       .catch(() => {
-        if (asignaturaEl) {
-          asignaturaEl.innerHTML = '';
-          asignaturaEl.appendChild(new Option('Error cargando asignaturas', '', false, false));
+        if (asignacionEl) {
+          asignacionEl.innerHTML = '';
+          asignacionEl.appendChild(new Option('Error cargando asignaturas', '', false, false));
         }
       });
   }
@@ -115,7 +109,8 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(r => r.json())
       .then(data => {
         const items = data.niveles || [];
-        rellenarSelect(nivelEl, 'Seleccione el nivel', items);
+        rellenarSelect(nivelEl, 'Seleccione el nivel', items, valorNivelInicial);
+        valorNivelInicial = '';
       })
       .catch(() => {
         rellenarSelect(nivelEl, 'Error cargando niveles', []);
@@ -129,25 +124,54 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!inicioEl || !inicioEl.value || !horasEl || !horasEl.value) return;
     const [h, m] = inicioEl.value.split(':').map(Number);
     if (isNaN(h) || isNaN(m)) return;
-    const bloques = parseInt(horasEl.value, 10) || 0;
-    if (bloques < 1) return;
-    const totalMin = h * 60 + m + bloques * 45;
+    const cantidad = parseInt(horasEl.value, 10) || 0;
+    const minutosBloque = parseInt(horasEl.dataset.blockMinutes, 10) || 45;
+    if (cantidad < 1) return;
+    const totalMin = h * 60 + m + cantidad * minutosBloque;
     const pad = n => String(n).padStart(2, '0');
-    const endH = Math.floor(totalMin / 60) % 24;
+    const endH = Math.floor(totalMin / 60);
     const endM = totalMin % 60;
-    if (finEl) finEl.value = pad(endH) + ':' + pad(endM);
+    if (finEl && endH < 24) finEl.value = pad(endH) + ':' + pad(endM);
   }
 
-  if (periodoEl) periodoEl.addEventListener('change', cargarNiveles);
-  if (carreraEl) carreraEl.addEventListener('change', cargarNiveles);
+  function actualizarLimitesYFinalizacion() {
+    if (!inicioEl || !horasEl) return;
+    const [h, m] = (inicioEl.value || '').split(':').map(Number);
+    const [endH, endM] = (horasEl.dataset.dayEnd || '22:00').split(':').map(Number);
+    const minutosBloque = parseInt(horasEl.dataset.blockMinutes, 10) || 45;
+    Array.from(horasEl.options).forEach(option => { option.disabled = false; });
+    if (!isNaN(h) && !isNaN(m)) {
+      const inicioMin = h * 60 + m;
+      const jornadaFinMin = endH * 60 + endM;
+      Array.from(horasEl.options).forEach(option => {
+        const cantidad = parseInt(option.value, 10) || 0;
+        option.disabled = inicioMin + cantidad * minutosBloque > jornadaFinMin;
+      });
+      if (horasEl.selectedOptions[0] && horasEl.selectedOptions[0].disabled) {
+        const primeraValida = Array.from(horasEl.options).find(option => !option.disabled);
+        horasEl.value = primeraValida ? primeraValida.value : '';
+      }
+    }
+    calcularFinalizacion();
+  }
+
+  if (periodoEl) periodoEl.addEventListener('change', function() {
+    valorNivelInicial = '';
+    valorAsignacionInicial = '';
+    cargarNiveles();
+  });
+  if (carreraEl) carreraEl.addEventListener('change', function() {
+    valorNivelInicial = '';
+    valorAsignacionInicial = '';
+    cargarNiveles();
+  });
   if (nivelEl) nivelEl.addEventListener('change', cargarAsignaturas);
-  if (asignaturaEl) asignaturaEl.addEventListener('change', cargarDocente);
-  if (inicioEl) inicioEl.addEventListener('change', calcularFinalizacion);
+  if (asignacionEl) asignacionEl.addEventListener('change', cargarDocente);
+  if (inicioEl) inicioEl.addEventListener('change', actualizarLimitesYFinalizacion);
   if (horasEl) horasEl.addEventListener('change', calcularFinalizacion);
-  if (horasEl) horasEl.addEventListener('input', calcularFinalizacion);
 
   cargarNiveles();
-  calcularFinalizacion();
+  actualizarLimitesYFinalizacion();
 });
 </script>
 {% endblock %}

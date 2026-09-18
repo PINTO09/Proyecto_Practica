@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 from math import ceil
-from datetime import timedelta
+from datetime import time, timedelta
 
 
 class CatalogoActividadComplementaria(models.Model):
@@ -87,6 +87,37 @@ class CatalogoEspacioAcademico(models.Model):
 
     def __str__(self):
         return f'{self.codigo_espacio} - {self.nombre_espacio} ({self.get_tipo_espacio_display()})'
+
+
+class ConfiguracionHorarioAcademico(models.Model):
+    """Parámetros institucionales usados para construir los horarios."""
+
+    id_configuracion = models.AutoField(primary_key=True)
+    nombre_configuracion = models.CharField(max_length=80, default='Hora académica')
+    duracion_bloque_minutos = models.PositiveSmallIntegerField(default=45)
+    hora_inicio_jornada = models.TimeField(default=time(7, 0))
+    hora_fin_jornada = models.TimeField(default=time(22, 0))
+    configuracion_activa = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'configuracion_horario_academico'
+        ordering = ('-configuracion_activa', 'id_configuracion')
+        verbose_name = 'Configuración de hora académica'
+        verbose_name_plural = 'Configuración de horas académicas'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(duracion_bloque_minutos__gt=0),
+                name='chk_config_horario_duracion_positiva',
+            ),
+            models.UniqueConstraint(
+                fields=('configuracion_activa',),
+                condition=models.Q(configuracion_activa=True),
+                name='uq_config_horario_activa',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.nombre_configuracion}: {self.duracion_bloque_minutos} minutos'
 
 
 class BitacoraUsoLaboratorio(models.Model):
@@ -265,7 +296,8 @@ class PlanificacionAsignacionDocente(models.Model):
         verbose_name_plural = 'M5 · Planificación · Asignación Docente'
 
     def __str__(self):
-        return f'Docente {self.id_docente} → {self.id_asignatura} ({self.paralelo_asignado})'
+        paralelo = (self.paralelo_asignado or '').strip() or 'Sin paralelo'
+        return f'{self.id_asignatura} · Paralelo {paralelo} — {self.id_docente.nombres_completos}'
 
 
     def clean(self):
@@ -337,7 +369,13 @@ class PlanificacionAulaHorario(models.Model):
 
     id_horario = models.AutoField(primary_key=True, db_column='id_horario')
     id_periodo = models.ForeignKey('catalogos.CatalogoPeriodoAcademico', on_delete=models.RESTRICT, db_column='id_periodo')
-    nombre_aula = models.CharField(max_length=50, db_column='nombre_aula')
+    id_espacio = models.ForeignKey(
+        CatalogoEspacioAcademico, on_delete=models.RESTRICT,
+        db_column='id_espacio', related_name='horarios',
+    )
+    # Se conserva como instantánea para compatibilidad con reportes y datos
+    # históricos; el formulario siempre lo sincroniza desde id_espacio.
+    nombre_aula = models.CharField(max_length=50, db_column='nombre_aula', editable=False)
     turno_horario = models.CharField(max_length=10, db_column='turno_horario')
     nivel_asignado = models.CharField(max_length=10, null=True, blank=True, db_column='nivel_asignado')
     id_asignacion = models.ForeignKey(
@@ -351,15 +389,17 @@ class PlanificacionAulaHorario(models.Model):
     class Meta:
         managed = False
         db_table = 'planificacion_aula_horario'
-        unique_together = (('id_periodo', 'nombre_aula', 'dia_semana', 'hora_inicio'),)
+        unique_together = (('id_periodo', 'id_espacio', 'dia_semana', 'hora_inicio'),)
         verbose_name = 'Aula / Horario'
         verbose_name_plural = 'M5 · Planificación · Aulas y Horarios'
 
     def __str__(self):
-        return f'{self.nombre_aula} - {self.turno_horario} ({self.id_periodo})'
+        return f'{self.id_espacio} - {self.turno_horario} ({self.id_periodo})'
 
     def clean(self):
-        from .services import assert_periodo_editable
+        from .services import (
+            assert_periodo_editable, bloques_entre, obtener_parametros_horario,
+        )
         # Django llama a clean() aunque ya haya errores de campo (incluido un
         # id_periodo vacío); acceder a self.id_periodo con id_periodo_id=None
         # lanza RelatedObjectDoesNotExist en vez de una ValidationError
@@ -368,10 +408,28 @@ class PlanificacionAulaHorario(models.Model):
         if not self.id_periodo_id:
             raise ValidationError({'id_periodo': 'Seleccione el período académico.'})
         assert_periodo_editable(self.id_periodo)
+        if not self.id_espacio_id:
+            raise ValidationError({'id_espacio': 'Seleccione un aula o espacio del catálogo.'})
+        self.nombre_aula = self.id_espacio.nombre_espacio
         if not self.hora_inicio or not self.hora_fin:
             raise ValidationError('Debe indicar la hora de inicio y finalización.')
         if self.hora_inicio >= self.hora_fin:
             raise ValidationError({'hora_fin': 'La hora final debe ser posterior a la inicial.'})
+        config = obtener_parametros_horario()
+        if bloques_entre(
+            self.hora_inicio, self.hora_fin,
+            config['duracion_bloque_minutos'],
+        ) is None:
+            raise ValidationError({
+                'hora_fin': (
+                    'La duración debe corresponder a horas académicas de '
+                    f'{config["duracion_bloque_minutos"]} minutos.'
+                ),
+            })
+        if self.hora_fin > config['hora_fin_jornada']:
+            raise ValidationError({
+                'hora_fin': 'La hora final supera el cierre de la jornada configurada.',
+            })
         if self.id_asignacion_id and self.id_asignacion.id_periodo_id != self.id_periodo_id:
             raise ValidationError({'id_asignacion': 'La asignación pertenece a otro período.'})
         overlaps = PlanificacionAulaHorario.objects.filter(
@@ -382,7 +440,7 @@ class PlanificacionAulaHorario(models.Model):
         )
         if self.pk:
             overlaps = overlaps.exclude(pk=self.pk)
-        if overlaps.filter(nombre_aula__iexact=self.nombre_aula).exists():
+        if overlaps.filter(id_espacio_id=self.id_espacio_id).exists():
             raise ValidationError('El aula ya está ocupada en ese día y rango horario.')
         if self.id_asignacion_id and overlaps.filter(
             id_asignacion__id_docente_id=self.id_asignacion.id_docente_id,
